@@ -163,7 +163,7 @@ The document cache is the last document a [URL source](../sources/) downloaded. 
 
 [Section titled “Where it lives”](#where-it-lives)
 
-By default the cache is the client’s copy of the document in `obj`, `obj/<configuration>/<framework>/openapi/<ClientName>/openapi.json`. It survives builds, but not a clean clone.
+By default the cache is the client’s copy of the document in `obj`, `obj/<configuration>/<framework>/openapi/<ClientName>/openapi.json`. It survives builds, but not `dotnet clean` or a clean clone.
 
 `DocumentCache` names a file in the project instead, relative to the project. That file can be committed, so every clone and every CI agent starts with a cache.
 
@@ -299,7 +299,7 @@ So a build with nothing changed runs no generator, and neither does a server tha
 
 [Section titled “Design-time builds”](#design-time-builds)
 
-An IDE runs design-time builds to learn a project’s compile items. Those never run a generator: they only add the code an earlier build generated, so IntelliSense sees the client without the IDE downloading or generating anything. After you change a client, build once to update it.
+An IDE runs design-time builds to learn a project’s compile items. Those never run a generator: they only add the code an earlier build generated, so IntelliSense sees the client without the IDE downloading or generating anything. They check nothing either: a client with a mistake loads without an error and without creating a folder, and the next build reports it. After you change a client, build once to update it.
 
 ## No telemetry
 
@@ -984,9 +984,9 @@ A test in the repository reads the SDK’s targets and fails when these pages li
 
 # Diagnostics
 
-> Every error and warning Chirograph raises, CHIRO100 to CHIRO107, with the message, the cause and the fix.
+> Every error and warning Chirograph raises, CHIRO100 to CHIRO108, with the message, the cause and the fix.
 
-Each diagnostic links here from the build output: an IDE shows the code as a link to its heading below. Codes keep their last digits from LaunchPad’s preview (`LPSDK0100` is `CHIRO100`); see [Migrating from LaunchPad’s preview](../../guides/migrating-from-launchpad/).
+Each diagnostic links here from the build output: an IDE shows the code as a link to its heading below. A release of Chirograph links to this page in the docs of that release, and a prerelease to the latest docs. Codes keep their last digits from LaunchPad’s preview (`LPSDK0100` is `CHIRO100`); see [Migrating from LaunchPad’s preview](../../guides/migrating-from-launchpad/).
 
 ## Codes
 
@@ -1002,6 +1002,7 @@ Each diagnostic links here from the build output: an IDE shows the code as a lin
 | [`CHIRO105`](#chiro105) | error    | The URL could not be reached, and there is no cached document.              |
 | [`CHIRO106`](#chiro106) | error    | The generator tool is not in the packages folders. Restore the project.     |
 | [`CHIRO107`](#chiro107) | error    | The generator exited with an error. Its output is included.                 |
+| [`CHIRO108`](#chiro108) | error    | Two clients have the same `ClientName`.                                     |
 
 ## CHIRO100
 
@@ -1067,6 +1068,14 @@ The generator’s tool package isn’t in any of the packages folders restore us
 
 The generator ran and failed. The message ends with everything it wrote. The usual causes are a document that isn’t valid OpenAPI, or an `Options` value the generator doesn’t accept. Run the generator by hand on the client’s copy of the document, in `obj/<configuration>/<framework>/openapi/<ClientName>/`, to see the problem outside the build.
 
+## CHIRO108
+
+[Section titled “CHIRO108”](#chiro108)
+
+> The OpenApiClient items ‘openapi/rockets.json, openapi/rockets-v2.json’ have the same ClientName ‘RocketsClient’: give each client a name of its own.
+
+Two `OpenApiClient` items in one project have the same `ClientName`. They would be generated into the same folder, with the same types and the same `Add<ClientName>()`, so the build stops before it generates either. Give each client its own `ClientName`; two clients can still be generated from the same document.
+
 # Generated code
 
 > The files Chirograph writes for each client in obj, which of them are compiled, and the shape of the generated Add<ClientName>() registration.
@@ -1087,7 +1096,7 @@ For a client `RocketsClient` in namespace `MyApp.Rockets`, everything is in `obj
 | `RocketsClient.refitter`                        | Refitter only: the settings file Refitter runs with.                                                                                                                                     | no       |
 | `download/`                                     | URL only: the last download, before it is compared with the cache.                                                                                                                       | no       |
 
-The compiled files are also added to `FileWrites`, so `dotnet clean` removes them, along with `generated.stamp`, and the next build generates the client again.
+Every file here is added to `FileWrites`, so `dotnet clean` removes them all, `generated.stamp` included, and the next build generates the client again. A `DocumentCache` in the project is not in this folder, and a clean leaves it alone.
 
 ## The registration
 
@@ -1153,16 +1162,16 @@ Declare it in the project file, or in a `Directory.Build.targets`. The SDK reads
 
 Metadata the item doesn’t read is ignored without a warning, so a misspelt name falls back to its default.
 
-| Metadata              | Required | Default                                                    | Meaning                                                                                                                                                                                                                                                                     |
-| --------------------- | -------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Include`             | yes      |                                                            | The [source](../../concepts/sources/). A `.csproj`, `.fsproj` or `.vbproj` is a server project. `http://` or `https://` is a URL. Anything else is a file (`.json`, `.yaml`, `.yml`), relative to the project.                                                              |
-| `Generator`           | yes      |                                                            | `Kiota` or `Refitter` ([`CHIRO100`](../diagnostics/#chiro100)).                                                                                                                                                                                                             |
-| `ClientName`          | yes      |                                                            | A C# identifier ([`CHIRO101`](../diagnostics/#chiro101)), unique within the project. Kiota’s client class is called this, Refitter’s interface is `I<ClientName>`, the registration is `Add<ClientName>()` and the configuration key is `Clients:<ClientName>:BaseAddress`. |
-| `Namespace`           | no       | `$(RootNamespace)`                                         | The namespace of everything generated for the client. Give each client its own when a project has several.                                                                                                                                                                  |
-| `DocumentName`        | no       | the only document                                          | Server project only: the document to generate from, when the server writes several. `v1` is ASP.NET Core’s default ([`CHIRO103`](../diagnostics/#chiro103)).                                                                                                                |
-| `DocumentCache`       | no       | the document’s copy in `obj`                               | URL only: a file, relative to the project, to keep the last download in. Commit it to build without the URL. See [Document cache](../../concepts/document-cache/).                                                                                                          |
-| `UpdateDocumentCache` | no       | `$(ChirographUpdateOpenApiDocumentCache)`, which is `true` | URL only: `false` uses the cache whenever it exists instead of downloading. Wins over the property.                                                                                                                                                                         |
-| `Options`             | no       |                                                            | More arguments for the generator: after `kiota generate …`, or after Refitter’s settings file. See [Generators](../../concepts/generators/#what-chirograph-passes).                                                                                                         |
+| Metadata              | Required | Default                                                    | Meaning                                                                                                                                                                                                                                                                                                              |
+| --------------------- | -------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Include`             | yes      |                                                            | The [source](../../concepts/sources/). A `.csproj`, `.fsproj` or `.vbproj` is a server project. `http://` or `https://` is a URL. Anything else is a file (`.json`, `.yaml`, `.yml`), relative to the project.                                                                                                       |
+| `Generator`           | yes      |                                                            | `Kiota` or `Refitter` ([`CHIRO100`](../diagnostics/#chiro100)).                                                                                                                                                                                                                                                      |
+| `ClientName`          | yes      |                                                            | A C# identifier ([`CHIRO101`](../diagnostics/#chiro101)), unique within the project ([`CHIRO108`](../diagnostics/#chiro108)). Kiota’s client class is called this, Refitter’s interface is `I<ClientName>`, the registration is `Add<ClientName>()` and the configuration key is `Clients:<ClientName>:BaseAddress`. |
+| `Namespace`           | no       | `$(RootNamespace)`                                         | The namespace of everything generated for the client. Give each client its own when a project has several.                                                                                                                                                                                                           |
+| `DocumentName`        | no       | the only document                                          | Server project only: the document to generate from, when the server writes several. `v1` is ASP.NET Core’s default ([`CHIRO103`](../diagnostics/#chiro103)).                                                                                                                                                         |
+| `DocumentCache`       | no       | the document’s copy in `obj`                               | URL only: a file, relative to the project, to keep the last download in. Commit it to build without the URL. See [Document cache](../../concepts/document-cache/).                                                                                                                                                   |
+| `UpdateDocumentCache` | no       | `$(ChirographUpdateOpenApiDocumentCache)`, which is `true` | URL only: `false` uses the cache whenever it exists instead of downloading. Wins over the property.                                                                                                                                                                                                                  |
+| `Options`             | no       |                                                            | More arguments for the generator: after `kiota generate …`, or after Refitter’s settings file. See [Generators](../../concepts/generators/#what-chirograph-passes).                                                                                                                                                  |
 
 `DocumentName` is ignored for a file or URL, and `DocumentCache` and `UpdateDocumentCache` for a file or server project.
 

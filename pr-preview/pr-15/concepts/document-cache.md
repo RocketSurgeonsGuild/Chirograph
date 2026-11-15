@@ -6,7 +6,7 @@ and a server project writes its document on every build.
 ## Where it lives
 
 By default the cache is the client's copy of the document in `obj`, `obj/<configuration>/<framework>/openapi/<ClientName>/openapi.json`.
-It survives builds, but not a clean clone.
+It survives builds, but not `dotnet clean` or a clean clone.
 
 `DocumentCache` names a file in the project instead, relative to the project. That file can be committed, so every clone and every CI
 agent starts with a cache.

@@ -1,6 +1,7 @@
 # Diagnostics
 
-Each diagnostic links here from the build output: an IDE shows the code as a link to its heading below. Codes keep their last digits
+Each diagnostic links here from the build output: an IDE shows the code as a link to its heading below. A release of Chirograph links
+to this page in the docs of that release, and a prerelease to the latest docs. Codes keep their last digits
 from LaunchPad's preview (`LPSDK0100` is `CHIRO100`); see [Migrating from LaunchPad's preview](../../guides/migrating-from-launchpad/).
 
 ## Codes
@@ -15,6 +16,7 @@ from LaunchPad's preview (`LPSDK0100` is `CHIRO100`); see [Migrating from Launch
 | [`CHIRO105`](#chiro105) | error    | The URL could not be reached, and there is no cached document.              |
 | [`CHIRO106`](#chiro106) | error    | The generator tool is not in the packages folders. Restore the project.     |
 | [`CHIRO107`](#chiro107) | error    | The generator exited with an error. Its output is included.                 |
+| [`CHIRO108`](#chiro108) | error    | Two clients have the same `ClientName`.                                     |
 
 ## CHIRO100
 
@@ -78,3 +80,11 @@ too, and has to exist on your package sources.
 The generator ran and failed. The message ends with everything it wrote. The usual causes are a document that isn't valid OpenAPI, or
 an `Options` value the generator doesn't accept. Run the generator by hand on the client's copy of the document, in
 `obj/<configuration>/<framework>/openapi/<ClientName>/`, to see the problem outside the build.
+
+## CHIRO108
+
+> The OpenApiClient items 'openapi/rockets.json, openapi/rockets-v2.json' have the same ClientName 'RocketsClient': give each client a name of its own.
+
+Two `OpenApiClient` items in one project have the same `ClientName`. They would be generated into the same folder, with the same
+types and the same `Add<ClientName>()`, so the build stops before it generates either. Give each client its own `ClientName`; two
+clients can still be generated from the same document.

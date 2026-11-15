@@ -16,8 +16,8 @@ into the project, and nothing there is meant to be committed.
 | `RocketsClient.refitter`                        | Refitter only: the settings file Refitter runs with.                                                                                                                                     | no       |
 | `download/`                                     | URL only: the last download, before it is compared with the cache.                                                                                                                       | no       |
 
-The compiled files are also added to `FileWrites`, so `dotnet clean` removes them, along with `generated.stamp`, and the next build
-generates the client again.
+Every file here is added to `FileWrites`, so `dotnet clean` removes them all, `generated.stamp` included, and the next build
+generates the client again. A `DocumentCache` in the project is not in this folder, and a clean leaves it alone.
 
 ## The registration
 
