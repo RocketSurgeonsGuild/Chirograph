@@ -1,0 +1,32 @@
+﻿{
+  DovetailTemplate: {},
+  PackageDownload: {
+    Microsoft.OpenApi.Kiota: {
+      Version: [{pin: Microsoft.OpenApi.Kiota}]
+    },
+    Refitter: {
+      Version: [{pin: Refitter}]
+    }
+  },
+  PackageReference: {
+    Microsoft.Kiota.Bundle: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Microsoft.Kiota.Bundle}
+    },
+    Refit.HttpClientFactory: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Refit.HttpClientFactory}
+    }
+  },
+  ProjectReference: {},
+  Properties: {
+    ChirographGenerateDovetailJoint: true,
+    ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
+    ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
+    ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographUpdateOpenApiDocumentCache: true,
+    ChirographVersion: {chirograph-version}
+  }
+}

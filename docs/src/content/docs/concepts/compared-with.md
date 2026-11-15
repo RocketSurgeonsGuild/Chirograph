@@ -12,7 +12,7 @@ changing a version. What it adds:
 - one item per client;
 - three sources, including a sibling server project and a URL with a committable cache;
 - incremental, offline-capable, telemetry-free builds;
-- an `IHttpClientFactory` registration, and with it a Dovetail joint ([planned](../../guides/with-dovetail/)).
+- an `IHttpClientFactory` registration, and with it a Dovetail joint ([with Dovetail](../../guides/with-dovetail/)).
 
 ## `OpenApiReference` and `dotnet openapi`
 

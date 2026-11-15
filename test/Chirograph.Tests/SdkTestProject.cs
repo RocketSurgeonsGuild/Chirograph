@@ -30,7 +30,11 @@ public sealed partial class SdkTestProject : IDisposable
 
         // A NuGet.config with nuget.org and the local packages, and a global packages folder of the scaffold's own, so restores never
         // see a Chirograph package extracted by an earlier run with the same version.
-        _ = PackageRepository.Create(Directory, feeds: [new("https://api.nuget.org/v3/index.json"), new(Config.NugetArtifactsDirectory)]);
+        // Until the Dovetail the joint tests need is released, its locally packed copy too (Config.DovetailVersion).
+        Uri[] feeds = Config.DovetailStagingPackages is { } staging
+            ? [new("https://api.nuget.org/v3/index.json"), new(Config.NugetArtifactsDirectory), new(staging)]
+            : [new("https://api.nuget.org/v3/index.json"), new(Config.NugetArtifactsDirectory)];
+        _ = PackageRepository.Create(Directory, feeds: feeds);
 
         GlobalJsonCreator
            .Create(new DirectoryInfo(Directory))
@@ -48,6 +52,8 @@ public sealed partial class SdkTestProject : IDisposable
         _settings.ScrubLinesWithReplace(
             line => TargetFrameworkPattern().Replace(line.Replace(Config.ChirographPackageVersion, "{chirograph-version}", StringComparison.Ordinal), "{TargetFramework}")
         );
+        // The scaffold's folder differs on every run; a DovetailTemplate's File is in its packages folder.
+        _settings.ScrubLinesWithReplace(line => line.Replace(Directory, "{scaffold}", StringComparison.Ordinal));
         // RocketsApi listens on a free port, which differs on every run.
         _settings.ScrubLinesWithReplace(line => RocketsApiPattern().Replace(line, "{rockets-api}/"));
     }
@@ -82,7 +88,7 @@ public sealed partial class SdkTestProject : IDisposable
 
     /// <summary>
     /// The evaluation seam: evaluates the project at <paramref name="path" /> in-process, without restoring or building it, and
-    /// verifies Chirograph's public properties and the <c>PackageReference</c>, <c>PackageDownload</c> and <c>ProjectReference</c> items, each with its own
+    /// verifies Chirograph's public properties and the <c>PackageReference</c>, <c>PackageDownload</c>, <c>ProjectReference</c> and <c>DovetailTemplate</c> items, each with its own
     /// metadata. A version Directory.Packages.props pins shows as <see cref="Config.PinPlaceholder" />.
     /// </summary>
     public SettingsTask VerifyEvaluation(string path, string? variant = null, [CallerMemberName] string method = "")
@@ -102,6 +108,7 @@ public sealed partial class SdkTestProject : IDisposable
                     PackageReference = Items(project, "PackageReference"),
                     PackageDownload = Items(project, "PackageDownload"),
                     ProjectReference = Items(project, "ProjectReference"),
+                    DovetailTemplate = Items(project, "DovetailTemplate"),
                 },
                 settings: Settings(variant, method)
             );

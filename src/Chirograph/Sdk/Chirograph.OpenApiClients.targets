@@ -34,11 +34,19 @@
       Generation is incremental: the document is copied into obj only when its content changes, and a client is generated again only when
       that copy or its settings (generator, its version, ClientName, Namespace, Options) change. The generated code is in
       $(ChirographOpenApiClientsDirectory)<ClientName>/, with <ClientName>ServiceCollectionExtensions.g.cs, the registration, next to it.
+
+      With Dovetail, each client also gets a joint that calls the registration, so a host built with ConfigureDovetail() resolves the client
+      with no registration call. Chirograph doesn't write it: it declares a DovetailTemplate item, Chirograph.<ClientName>, which Dovetail
+      expands from templates/OpenApiClientJoint.cs.template in the projects that run its generator. The items are declared only when the
+      Dovetail in the build sets DovetailTemplateMetadataTokens (it replaces every metadata value of a template, which an older Dovetail
+      doesn't), and ChirographGenerateDovetailJoint=false turns them off.
   -->
 
   <PropertyGroup>
     <!-- the default of UpdateDocumentCache: whether a URL is downloaded again when its document is cached -->
     <ChirographUpdateOpenApiDocumentCache Condition="'$(ChirographUpdateOpenApiDocumentCache)' == ''">true</ChirographUpdateOpenApiDocumentCache>
+    <!-- whether each client gets a Dovetail joint, when the Dovetail in the build can write it -->
+    <ChirographGenerateDovetailJoint Condition="'$(ChirographGenerateDovetailJoint)' == ''">true</ChirographGenerateDovetailJoint>
     <!-- the folder of the tool packages that holds the tools, which run on .NET 10 or later -->
     <_ChirographOpenApiToolFramework>net10.0</_ChirographOpenApiToolFramework>
     <!-- the reference page of the diagnostics, each error and warning links to the heading of its code -->
@@ -61,6 +69,21 @@
       PrivateAssets="all"
       ChirographOpenApiClientServer="true"
     />
+  </ItemGroup>
+
+  <!--
+      One Dovetail joint per client, expanded by Dovetail (Joinery.Dovetail.Templates.targets): every metadata value replaces its
+      __Name__ token in the template. The Include is prefixed so it can't clash with another package's template of the same name, and
+      names the file Dovetail writes, DovetailTemplate.Chirograph.<ClientName>.g.cs. DovetailTemplateMetadataTokens comes from
+      Joinery.Dovetail.props, which a package reference imports before this file.
+  -->
+  <ItemGroup Condition="'@(OpenApiClient)' != '' and '$(DovetailTemplateMetadataTokens)' == 'true' and '$(ChirographGenerateDovetailJoint)' == 'true'">
+    <!-- The client's metadata comes along (ClientName, Namespace, Generator, ...): only __ClientName__ and __Namespace__ are used. -->
+    <DovetailTemplate Include="@(OpenApiClient->'Chirograph.%(ClientName)')">
+      <File>$(MSBuildThisFileDirectory)templates/OpenApiClientJoint.cs.template</File>
+      <Namespace Condition="'%(Namespace)' == ''">$(RootNamespace)</Namespace>
+      <ChirographVersion>$(ChirographVersion)</ChirographVersion>
+    </DovetailTemplate>
   </ItemGroup>
 
   <!-- The generators, when a client uses them, at the versions the SDK was packed with. -->

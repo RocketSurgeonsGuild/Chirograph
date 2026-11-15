@@ -34,6 +34,32 @@ internal static class Config
     /// </summary>
     public static string PinPlaceholder(string packageId) => $"{{pin: {packageId}}}";
 
+    /// <summary>
+    /// The Dovetail the joint tests build with: the first one whose <c>DovetailTemplate</c> replaces every metadata value as a token,
+    /// and sets <c>DovetailTemplateMetadataTokens</c>.
+    /// </summary>
+    /// <remarks>
+    /// STAGED: <c>0.0.0-pr426</c> is packed locally from the head of the unreleased RocketSurgeonsGuild/Dovetail#426, into
+    /// <see cref="DovetailStagingPackages" />. Once a Dovetail release contains it, set this to that release and set
+    /// <see cref="DovetailStagingPackages" /> to <see langword="null" />.
+    /// </remarks>
+    public const string DovetailVersion = "0.0.0-pr426";
+
+    /// <summary>
+    /// A package source with the locally packed <see cref="DovetailVersion" />, added to every scaffold's NuGet.config, or
+    /// <see langword="null" /> when that version is on nuget.org.
+    /// </summary>
+    public static string? DovetailStagingPackages { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".local",
+        "share",
+        "chirograph-staging",
+        "dovetail-packages"
+    );
+
+    /// <summary>A released Dovetail without <c>DovetailTemplateMetadataTokens</c>, which must get no <c>DovetailTemplate</c>.</summary>
+    public const string DovetailVersionWithoutMetadataTokens = "0.5.3";
+
     [Before(Assembly)]
     public static void Setup(AssemblyHookContext context) => MSBuildAssemblyResolver.Register();
 

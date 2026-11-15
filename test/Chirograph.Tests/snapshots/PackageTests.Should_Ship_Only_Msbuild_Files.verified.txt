@@ -9,6 +9,7 @@
     Sdk/Sdk.props,
     Sdk/Sdk.targets,
     Sdk/templates/KiotaRegistration.cs.template,
+    Sdk/templates/OpenApiClientJoint.cs.template,
     Sdk/templates/RefitterRegistration.cs.template,
     images/chirograph-icon.png
   ],

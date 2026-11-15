@@ -1,4 +1,5 @@
 ﻿{
+  DovetailTemplate: {},
   PackageDownload: {
     Microsoft.OpenApi.Kiota: {
       Version: [{pin: Microsoft.OpenApi.Kiota}]
@@ -27,6 +28,7 @@
     }
   },
   Properties: {
+    ChirographGenerateDovetailJoint: true,
     ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
     ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
     ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
