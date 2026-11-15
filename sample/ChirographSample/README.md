@@ -23,5 +23,7 @@ dotnet run --no-build --project sample/ChirographSample/Rockets.Console/Rockets.
 Rerun `mise run sample:pack` after changing anything under `src/`. The sample keeps its own package cache
 (`sample/ChirographSample/.nuget/packages`), which the pack clears, so the fixed version never serves a stale copy.
 
-The sample's `Directory.Build.targets` and `Directory.Packages.props` are empty on purpose: they stop MSBuild from walking up
-into the repository's own files, which turn on central package management and repository-only analyzers.
+The sample's `Directory.Build.targets` is empty on purpose: it stops MSBuild from walking up into the repository's own file, which
+adds repository-only analyzers. Its `Directory.Packages.props` is the sample's own central package management: the projects name
+packages without versions, and the versions are pinned there. Chirograph itself is an MSBuild SDK, named with its version in each
+client project, and the packages it adds carry their own versions.

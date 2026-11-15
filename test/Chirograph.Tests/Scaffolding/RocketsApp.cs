@@ -65,12 +65,14 @@ internal static class RocketsApp
     /// <summary>The application: it registers the client, resolves it and writes the rocket it gets.</summary>
     public static string Program(Generator generator) => generator switch
     {
-        Generator.Kiota => KiotaProgram,
-        Generator.Refitter => RefitterProgram,
+        // Kiota's client is the class RocketsClient, with a request builder per path
+        Generator.Kiota => Program("RocketsClient", "client.Rockets[id].GetAsync()"),
+        // Refitter's client is the Refit interface IRocketsClient, with a method per operation
+        Generator.Refitter => Program("IRocketsClient", "client.GetRocket(id)"),
         _ => throw new ArgumentOutOfRangeException(nameof(generator), generator, null),
     };
 
-    private const string KiotaProgram = $$"""
+    private static string Program(string clientType, string getRocket) => $$"""
         using System;
         using Microsoft.Extensions.DependencyInjection;
         using Microsoft.Extensions.Hosting;
@@ -81,24 +83,9 @@ internal static class RocketsApp
         builder.Logging.ClearProviders();
         builder.Services.AddRocketsClient();
         using var host = builder.Build();
-        var client = host.Services.GetRequiredService<RocketsClient>();
-        var rocket = await client.Rockets[Guid.Parse("{{RocketsApi.RocketId}}")].GetAsync();
-        Console.WriteLine($"{client.GetType().Name}: {rocket!.Id} {rocket.SerialNumber}");
-        """;
-
-    private const string RefitterProgram = $$"""
-        using System;
-        using Microsoft.Extensions.DependencyInjection;
-        using Microsoft.Extensions.Hosting;
-        using Microsoft.Extensions.Logging;
-        using Throwaway.Clients;
-
-        var builder = Host.CreateApplicationBuilder(args);
-        builder.Logging.ClearProviders();
-        builder.Services.AddRocketsClient();
-        using var host = builder.Build();
-        var client = host.Services.GetRequiredService<IRocketsClient>();
-        var rocket = await client.GetRocket(Guid.Parse("{{RocketsApi.RocketId}}"));
-        Console.WriteLine($"{nameof(IRocketsClient)}: {rocket.Id} {rocket.SerialNumber}");
+        var client = host.Services.GetRequiredService<{{clientType}}>();
+        var id = Guid.Parse("{{RocketsApi.RocketId}}");
+        var rocket = await {{getRocket}};
+        Console.WriteLine($"{nameof({{clientType}})}: {rocket!.Id} {rocket.SerialNumber}");
         """;
 }

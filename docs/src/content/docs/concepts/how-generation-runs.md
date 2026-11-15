@@ -55,8 +55,9 @@ client regenerates only that client.
 ## Design-time builds
 
 An IDE runs design-time builds to learn a project's compile items. Those never run a generator: they only add the code an earlier
-build generated, so IntelliSense sees the client without the IDE downloading or generating anything. After you change a client, build
-once to update it.
+build generated, so IntelliSense sees the client without the IDE downloading or generating anything. They check nothing either: a
+client with a mistake loads without an error and without creating a folder, and the next build reports it. After you change a
+client, build once to update it.
 
 ## No telemetry
 

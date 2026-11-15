@@ -4,7 +4,7 @@ namespace Chirograph.Tests;
 
 /// <summary>Build seam: what a build reports when a client cannot be generated, as its CHIRO errors and warnings.</summary>
 [TargetFrameworks]
-public class DiagnosticsTests(string targetFramework)
+public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary><c>CHIRO100</c> and <c>CHIRO101</c>: a client without a known generator, or without a name that is a C# identifier.</summary>
     [Test]
@@ -27,6 +27,22 @@ public class DiagnosticsTests(string targetFramework)
         await project.VerifyResult(await project.BuildDiagnostics("app"), $"{generator ?? "none"}_{clientName ?? "none"}");
     }
 
+    /// <summary><c>CHIRO108</c>: two clients have the same <c>ClientName</c>, so they would be generated into the same folder and types.</summary>
+    [Test]
+    public async Task Should_Fail_When_Two_Clients_Have_The_Same_Name()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddProject(
+                "app/app.csproj",
+                project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, "rockets.json").OpenApiClient(Generator.Refitter, "other.json")
+            )
+           .AddFile("app/rockets.json", RocketsApi.Document)
+           .AddFile("app/other.json", RocketsApi.Document);
+
+        await project.VerifyResult(await project.BuildDiagnostics("app"));
+    }
+
     /// <summary><c>CHIRO102</c>: the document file does not exist.</summary>
     [Test]
     public async Task Should_Fail_When_The_Document_Does_Not_Exist()
@@ -41,11 +57,10 @@ public class DiagnosticsTests(string targetFramework)
     [Test]
     public async Task Should_Fail_When_The_Url_Cannot_Be_Reached_Without_A_Cache()
     {
-        var api = RocketsApi.Start();
-        var address = api.DocumentAddress.ToString();
-        await api.DisposeAsync();
+        await using var api = RocketsApi.Start();
+        api.DocumentUnavailable = true;
         using var project = new SdkTestProject(targetFramework);
-        project.AddProject("app/app.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, address));
+        project.AddProject("app/app.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, api.DocumentAddress.ToString()));
 
         await project.VerifyResult(await project.BuildDiagnostics("app"));
     }

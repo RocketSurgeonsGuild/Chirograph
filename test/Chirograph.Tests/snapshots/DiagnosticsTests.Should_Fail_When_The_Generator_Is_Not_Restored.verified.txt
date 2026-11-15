@@ -1,3 +1,3 @@
 ﻿[
-  CHIRO106: The Kiota tool the OpenApiClient 'RocketsClient' is generated with was not found in the packages folders ({scaffold}/.nuget/packages): restore the project.
+  CHIRO106: The Kiota tool the OpenApiClient 'RocketsClient' is generated with was not found in the packages folders ({packages}): restore the project.
 ]
