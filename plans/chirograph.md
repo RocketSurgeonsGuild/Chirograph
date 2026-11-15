@@ -693,6 +693,28 @@ These are the same mechanics as Dovetail, from the files listed above.
 Each milestone is one pull request on `RocketSurgeonsGuild/Chirograph`, except where a row names another repository. Every
 Chirograph PR passes `hk check`, `mise run build` and the tests that exist at that point.
 
+**Tracking.** The epic is [RocketSurgeonsGuild/Chirograph#1](https://github.com/RocketSurgeonsGuild/Chirograph/issues/1). Its
+sub-issues, the "blocked by" links between them, and the Dovetail tickets are all on the org project
+[Chirograph](https://github.com/orgs/RocketSurgeonsGuild/projects/4).
+
+| Milestone | Issue |
+| --------- | ----- |
+| 0  | [Chirograph#2](https://github.com/RocketSurgeonsGuild/Chirograph/issues/2) |
+| 1  | [Chirograph#3](https://github.com/RocketSurgeonsGuild/Chirograph/issues/3) |
+| 2  | [Chirograph#4](https://github.com/RocketSurgeonsGuild/Chirograph/issues/4) |
+| 3  | [Chirograph#5](https://github.com/RocketSurgeonsGuild/Chirograph/issues/5) |
+| 4  | [Chirograph#6](https://github.com/RocketSurgeonsGuild/Chirograph/issues/6) |
+| 5  | [Chirograph#7](https://github.com/RocketSurgeonsGuild/Chirograph/issues/7) |
+| 6  | [Chirograph#8](https://github.com/RocketSurgeonsGuild/Chirograph/issues/8) |
+| 7  | [Chirograph#9](https://github.com/RocketSurgeonsGuild/Chirograph/issues/9) |
+| 8  | [Chirograph#10](https://github.com/RocketSurgeonsGuild/Chirograph/issues/10) |
+| 9  | [Chirograph#11](https://github.com/RocketSurgeonsGuild/Chirograph/issues/11) |
+| 10 | [Chirograph#12](https://github.com/RocketSurgeonsGuild/Chirograph/issues/12) |
+| 11 | [LaunchPad#3249](https://github.com/RocketSurgeonsGuild/LaunchPad/issues/3249) |
+| 12 | [LaunchPad#3250](https://github.com/RocketSurgeonsGuild/LaunchPad/issues/3250) |
+| D1 | [Dovetail#413](https://github.com/RocketSurgeonsGuild/Dovetail/issues/413) |
+| D2 | [Dovetail#414](https://github.com/RocketSurgeonsGuild/Dovetail/issues/414) |
+
 | #  | Milestone | Depends on | Acceptance criteria |
 | -- | --------- | ---------- | ------------------- |
 | 0  | **Reserve the ID** (manual, owner) | — | `Chirograph` 0.0.1 on nuget.org, unlisted. The trusted publishing policy is registered. The `nuget` environment and the `NUGET_USER` secret exist. |
