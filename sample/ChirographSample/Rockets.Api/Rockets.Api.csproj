@@ -1,0 +1,11 @@
+<!--
+    The server. It doesn't use Chirograph at all: AddOpenApi() describes its endpoints, and
+    Microsoft.Extensions.ApiDescription.Server writes that document (obj/Rockets.Api.json) every time it builds.
+    Rockets.Client.Kiota names this project as its OpenApiClient source, so Chirograph builds it first and reads the document.
+-->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.15" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
