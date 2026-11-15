@@ -1,0 +1,3 @@
+﻿[
+  CHIRO102: The OpenAPI document 'missing.json' of the OpenApiClient 'RocketsClient' does not exist.
+]

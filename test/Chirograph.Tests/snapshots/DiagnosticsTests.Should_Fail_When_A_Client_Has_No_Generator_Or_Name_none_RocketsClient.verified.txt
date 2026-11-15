@@ -1,0 +1,3 @@
+﻿[
+  CHIRO100: The OpenApiClient 'rockets.json' has Generator '': set it to Kiota or Refitter.
+]

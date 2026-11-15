@@ -1,0 +1,37 @@
+﻿{
+  PackageDownload: {
+    Microsoft.OpenApi.Kiota: {
+      Version: [{pin: Microsoft.OpenApi.Kiota}]
+    }
+  },
+  PackageReference: {
+    Microsoft.Extensions.Http: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Microsoft.Extensions.Http}
+    },
+    Microsoft.Kiota.Bundle: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Microsoft.Kiota.Bundle}
+    }
+  },
+  ProjectReference: {
+    ../server/server.csproj: {
+      ChirographOpenApiClientServer: true,
+      ClientName: ServerClient,
+      Generator: Kiota,
+      Namespace: Throwaway.Clients,
+      Private: false,
+      PrivateAssets: all,
+      ReferenceOutputAssembly: false,
+      SkipGetTargetFrameworkProperties: true
+    }
+  },
+  Properties: {
+    ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
+    ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
+    ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographVersion: {chirograph-version}
+  }
+}
