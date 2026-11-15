@@ -1,0 +1,3 @@
+﻿[
+  CHIRO103: The project '../server/server.csproj' of the OpenApiClient 'RocketsClient' wrote the documents '{scaffold}/server/obj/server.json;{scaffold}/server/obj/server_v2.json': set DocumentName to the one the client is generated from.
+]

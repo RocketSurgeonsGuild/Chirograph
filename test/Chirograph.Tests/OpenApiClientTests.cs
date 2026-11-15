@@ -17,17 +17,71 @@ public class OpenApiClientTests(string targetFramework)
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota, Source.File)]
+    [Arguments(Generator.Kiota, Source.Project)]
     [Arguments(Generator.Refitter, Source.File)]
+    [Arguments(Generator.Refitter, Source.Project)]
     public async Task Should_Generate_A_Registered_Client(Generator generator, Source source)
     {
         await using var api = RocketsApi.Start();
         using var project = new SdkTestProject(targetFramework);
-        project.AddRocketsApp(targetFramework, generator);
+        switch (source)
+        {
+            case Source.File:
+                project.AddRocketsApp(targetFramework, generator);
+                break;
+            case Source.Project:
+                project.AddRocketsServer([targetFramework]).AddRocketsApp(targetFramework, generator, RocketsServer.Include);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(source), source, null);
+        }
 
         await project.Build("app");
         var output = await project.Run("app", RocketsApp.Environment(api));
 
         await project.VerifyResult(output, $"{generator}_{source}");
+    }
+
+    /// <summary>
+    /// Build seam: a server with several target frameworks writes its document from its outer build, once, and the client is generated
+    /// from it whatever the target framework of the application.
+    /// </summary>
+    [Test]
+    public async Task Should_Generate_A_Client_From_A_Multi_Targeted_Server()
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        project.AddRocketsServer(["net10.0", "net11.0"]).AddRocketsApp(targetFramework, Generator.Kiota, RocketsServer.Include);
+
+        await project.Build("app");
+        var output = await project.Run("app", RocketsApp.Environment(api));
+
+        await project.VerifyResult(output);
+    }
+
+    /// <summary>
+    /// Build seam: <c>DocumentName</c> picks the document a client is generated from when the server writes several: ASP.NET Core's
+    /// default, <c>v1</c>, or another by its name. The client's copy of the document shows which one (its title names it).
+    /// </summary>
+    [Test]
+    [Arguments("v1")]
+    [Arguments("v2")]
+    public async Task Should_Generate_A_Client_From_The_Named_Document(string documentName)
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddRocketsServer([targetFramework], "v1", "v2")
+           .AddRocketsApp(targetFramework, Generator.Kiota, RocketsServer.Include, new Dictionary<string, string?> { ["DocumentName"] = documentName });
+
+        await project.Build("app");
+        var output = await project.Run("app", RocketsApp.Environment(api));
+        // the title only: the rest of the document differs between ASP.NET Core releases (its OpenAPI version)
+        var document = System.Text.Json.Nodes.JsonNode.Parse(
+            await File.ReadAllTextAsync(Path.Combine(project.Directory, "app", "obj", "Debug", targetFramework, "openapi", "RocketsClient", "openapi.json"))
+        )!;
+
+        await project.VerifyResult(new { Output = output, Document = document["info"]!["title"]!.GetValue<string>() }, documentName);
     }
 
     /// <summary>
@@ -170,5 +224,8 @@ public class OpenApiClientTests(string targetFramework)
     {
         /// <summary>A file in the project.</summary>
         File,
+
+        /// <summary>A server project, which writes its document when it builds.</summary>
+        Project,
     }
 }
