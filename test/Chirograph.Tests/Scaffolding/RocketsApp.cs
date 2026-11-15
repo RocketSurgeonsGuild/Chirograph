@@ -47,11 +47,18 @@ internal static class RocketsApp
 
     /// <summary>
     /// Adds <c>app/app.csproj</c>, a Chirograph consumer that generates <c>RocketsClient</c> with <paramref name="generator" /> from
-    /// <c>app/rockets.json</c>, and its <c>Program.cs</c>.
+    /// <paramref name="include" /> (<c>app/rockets.json</c> unless it says otherwise) with more <paramref name="metadata" />, and its
+    /// <c>Program.cs</c>.
     /// </summary>
-    public static SdkTestProject AddRocketsApp(this SdkTestProject project, string targetFramework, Generator generator) =>
+    public static SdkTestProject AddRocketsApp(
+        this SdkTestProject project,
+        string targetFramework,
+        Generator generator,
+        string include = "rockets.json",
+        IReadOnlyDictionary<string, string?>? metadata = null
+    ) =>
         project
-           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, "rockets.json"))
+           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata))
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", Program(generator));
 

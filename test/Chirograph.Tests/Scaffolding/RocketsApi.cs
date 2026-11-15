@@ -130,6 +130,11 @@ internal sealed class RocketsApi : IAsyncDisposable
             {
                 return;
             }
+            // stopped before it was first asked for a request
+            catch (InvalidOperationException)
+            {
+                return;
+            }
 
             var path = context.Request.Url!.AbsolutePath;
             var (status, body) = path switch

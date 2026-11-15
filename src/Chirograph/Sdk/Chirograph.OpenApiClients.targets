@@ -8,7 +8,10 @@
       The Include is where the OpenAPI document comes from:
         - a project (.csproj, .fsproj or .vbproj): the document the project writes when it builds. The project becomes a reference of
           the client project that is built first, but not referenced by its assembly.
-        - a URL (http:// or https://).
+        - a URL (http:// or https://): downloaded on every build into a cache, obj unless DocumentCache names a file in the project
+          (which can be committed). When the download fails, the cache is used with a warning, so a build without the network still works
+          once the document has been downloaded. UpdateDocumentCache set to false uses the cache whenever it exists and downloads only
+          when it doesn't, which protects the client from a breaking change of the API until the cache is updated on purpose.
         - otherwise a file (.json, .yaml or .yml), relative to the project.
 
       Metadata:
@@ -16,6 +19,9 @@
         - ClientName (required): the name of the client. Kiota's client class is called this, Refitter's interface is I<ClientName>, the
           extension that registers it is Add<ClientName>(), and its base address is read from Clients:<ClientName>:BaseAddress.
         - Namespace: the namespace of the generated code, $(RootNamespace) when not set.
+        - DocumentCache: for a URL, the file the downloaded document is kept in, relative to the project (obj when not set).
+        - UpdateDocumentCache: for a URL, false to use the cached document when there is one instead of downloading it again;
+          ChirographUpdateOpenApiDocumentCache sets it for every client (true by default).
         - Options: more arguments for the generator's command line (kiota generate, or refitter after its settings file).
 
       Each generator is a .NET tool package (Microsoft.OpenApi.Kiota, Refitter), which restore downloads (PackageDownload) and the build
@@ -29,6 +35,8 @@
   -->
 
   <PropertyGroup>
+    <!-- the default of UpdateDocumentCache: whether a URL is downloaded again when its document is cached -->
+    <ChirographUpdateOpenApiDocumentCache Condition="'$(ChirographUpdateOpenApiDocumentCache)' == ''">true</ChirographUpdateOpenApiDocumentCache>
     <!-- the folder of the tool packages that holds the tools, which run on .NET 10 or later -->
     <_ChirographOpenApiToolFramework>net10.0</_ChirographOpenApiToolFramework>
   </PropertyGroup>
@@ -149,27 +157,84 @@
       Code="CHIRO102"
       Text="The OpenAPI document '%(_ChirographOpenApiClient.Identity)' of the OpenApiClient '%(_ChirographOpenApiClient.ClientName)' does not exist."
     />
-    <!-- server projects (ticket #6) and URLs (ticket #7) are not generated yet -->
+    <!-- server projects (ticket #6) are not generated yet -->
     <Error
       Condition="'%(_ChirographOpenApiClient.Kind)' == 'Project'"
       Text="The OpenApiClient '%(_ChirographOpenApiClient.ClientName)' is generated from the project '%(_ChirographOpenApiClient.Identity)', which this version of Chirograph does not support yet: generate it from a file."
-    />
-    <Error
-      Condition="'%(_ChirographOpenApiClient.Kind)' == 'Url'"
-      Text="The OpenApiClient '%(_ChirographOpenApiClient.ClientName)' is generated from the URL '%(_ChirographOpenApiClient.Identity)', which this version of Chirograph does not support yet: generate it from a file."
     />
     <MakeDir Directories="@(_ChirographOpenApiClient->'%(ClientDirectory)')" />
   </Target>
 
   <!--
       Copies the source document of each client to the client's folder when its content differs from the copy there, so a document that
-      was written again unchanged regenerates nothing. A file is its own source. Batched on each client, by name: two clients can be
-      generated from the same document.
+      was written again unchanged regenerates nothing. A file is its own source, and a URL is downloaded into its cache. Batched on each
+      client, by name: two clients can be generated from the same document.
   -->
   <Target Name="_ChirographResolveOpenApiClientDocuments" Outputs="%(_ChirographOpenApiClient.ClientName)">
     <PropertyGroup>
       <_ChirographOpenApiSource>%(_ChirographOpenApiClient.Source)</_ChirographOpenApiSource>
       <_ChirographOpenApiDocument>%(_ChirographOpenApiClient.Document)</_ChirographOpenApiDocument>
+    </PropertyGroup>
+
+    <!--
+        a URL: kept in a cache, which is DocumentCache when the client names one (a file in the project, which can be committed) or else
+        the copy in obj. The document is downloaded on every build and the cache updated, unless UpdateDocumentCache is false and the
+        cache exists: then the cache is used as it is, so a change to the API reaches the client only when the cache is deleted or updated
+        on purpose. When the download fails, the cache stands in for it with a warning.
+    -->
+    <PropertyGroup>
+      <_ChirographOpenApiKind>%(_ChirographOpenApiClient.Kind)</_ChirographOpenApiKind>
+      <_ChirographOpenApiClientName>%(_ChirographOpenApiClient.ClientName)</_ChirographOpenApiClientName>
+      <_ChirographOpenApiClientIdentity>%(_ChirographOpenApiClient.Identity)</_ChirographOpenApiClientIdentity>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(_ChirographOpenApiKind)' == 'Url'">
+      <_ChirographOpenApiDownloadDirectory>%(_ChirographOpenApiClient.ClientDirectory)download/</_ChirographOpenApiDownloadDirectory>
+      <_ChirographOpenApiCache>%(_ChirographOpenApiClient.DocumentCache)</_ChirographOpenApiCache>
+      <_ChirographOpenApiCache Condition="'$(_ChirographOpenApiCache)' != ''">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(_ChirographOpenApiCache)'))</_ChirographOpenApiCache>
+      <_ChirographOpenApiCache Condition="'$(_ChirographOpenApiCache)' == ''">$(_ChirographOpenApiDocument)</_ChirographOpenApiCache>
+      <_ChirographOpenApiUpdateCache>%(_ChirographOpenApiClient.UpdateDocumentCache)</_ChirographOpenApiUpdateCache>
+      <_ChirographOpenApiUpdateCache Condition="'$(_ChirographOpenApiUpdateCache)' == ''">$(ChirographUpdateOpenApiDocumentCache)</_ChirographOpenApiUpdateCache>
+      <_ChirographOpenApiDownload>true</_ChirographOpenApiDownload>
+      <_ChirographOpenApiDownload Condition="'$(_ChirographOpenApiUpdateCache)' == 'false' and Exists('$(_ChirographOpenApiCache)')">false</_ChirographOpenApiDownload>
+      <_ChirographOpenApiDownloaded>$(_ChirographOpenApiDownloadDirectory)openapi%(_ChirographOpenApiClient.DocumentExtension)</_ChirographOpenApiDownloaded>
+    </PropertyGroup>
+    <RemoveDir Condition="'$(_ChirographOpenApiKind)' == 'Url' and '$(_ChirographOpenApiDownload)' == 'true'" Directories="$(_ChirographOpenApiDownloadDirectory)" />
+    <DownloadFile
+      Condition="'$(_ChirographOpenApiKind)' == 'Url' and '$(_ChirographOpenApiDownload)' == 'true'"
+      SourceUrl="$(_ChirographOpenApiClientIdentity)"
+      DestinationFolder="$(_ChirographOpenApiDownloadDirectory)"
+      DestinationFileName="openapi%(_ChirographOpenApiClient.DocumentExtension)"
+      SkipUnchangedFiles="false"
+      Retries="2"
+      ContinueOnError="true"
+    />
+    <Warning
+      Condition="'$(_ChirographOpenApiKind)' == 'Url' and '$(_ChirographOpenApiDownload)' == 'true' and !Exists('$(_ChirographOpenApiDownloaded)') and Exists('$(_ChirographOpenApiCache)')"
+      Code="CHIRO104"
+      Text="The OpenAPI document of the OpenApiClient '$(_ChirographOpenApiClientName)' could not be downloaded from '$(_ChirographOpenApiClientIdentity)': the client is generated from the cached copy, '$(_ChirographOpenApiCache)'."
+    />
+    <Error
+      Condition="'$(_ChirographOpenApiKind)' == 'Url' and !Exists('$(_ChirographOpenApiDownloaded)') and !Exists('$(_ChirographOpenApiCache)')"
+      Code="CHIRO105"
+      Text="The OpenAPI document of the OpenApiClient '$(_ChirographOpenApiClientName)' could not be downloaded from '$(_ChirographOpenApiClientIdentity)', and there is no cached copy."
+    />
+    <!-- a download updates the cache when it differs from it -->
+    <GetFileHash Condition="'$(_ChirographOpenApiKind)' == 'Url' and Exists('$(_ChirographOpenApiDownloaded)')" Files="$(_ChirographOpenApiDownloaded)">
+      <Output TaskParameter="Hash" PropertyName="_ChirographOpenApiDownloadedHash" />
+    </GetFileHash>
+    <GetFileHash
+      Condition="'$(_ChirographOpenApiKind)' == 'Url' and Exists('$(_ChirographOpenApiDownloaded)') and Exists('$(_ChirographOpenApiCache)')"
+      Files="$(_ChirographOpenApiCache)"
+    >
+      <Output TaskParameter="Hash" PropertyName="_ChirographOpenApiCacheHash" />
+    </GetFileHash>
+    <Copy
+      Condition="'$(_ChirographOpenApiKind)' == 'Url' and Exists('$(_ChirographOpenApiDownloaded)') and '$(_ChirographOpenApiDownloadedHash)' != '$(_ChirographOpenApiCacheHash)'"
+      SourceFiles="$(_ChirographOpenApiDownloaded)"
+      DestinationFiles="$(_ChirographOpenApiCache)"
+    />
+    <PropertyGroup Condition="'$(_ChirographOpenApiKind)' == 'Url'">
+      <_ChirographOpenApiSource>$(_ChirographOpenApiCache)</_ChirographOpenApiSource>
     </PropertyGroup>
 
     <!-- copied when its content differs from the copy -->
@@ -188,6 +253,16 @@
     <PropertyGroup>
       <_ChirographOpenApiSourceHash />
       <_ChirographOpenApiDocumentHash />
+      <_ChirographOpenApiKind />
+      <_ChirographOpenApiClientName />
+      <_ChirographOpenApiClientIdentity />
+      <_ChirographOpenApiDownloadDirectory />
+      <_ChirographOpenApiCache />
+      <_ChirographOpenApiUpdateCache />
+      <_ChirographOpenApiDownload />
+      <_ChirographOpenApiDownloaded />
+      <_ChirographOpenApiDownloadedHash />
+      <_ChirographOpenApiCacheHash />
     </PropertyGroup>
   </Target>
 
