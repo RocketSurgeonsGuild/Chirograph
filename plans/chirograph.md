@@ -498,17 +498,17 @@ Carried over from the PR's guide
 
 ### Properties
 
-| Property                                   | Default                             | Meaning (PR name in brackets)                                                                                                                                                         |
-| ------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ChirographUpdateOpenApiDocumentCache`     | `true`                              | Default of `UpdateDocumentCache` (`LaunchPadUpdateOpenApiDocumentCache`).                                                                                                             |
-| `ChirographOpenApiClientsDirectory`        | `$(IntermediateOutputPath)openapi/` | Where each client's folder goes (`LaunchPadOpenApiClientsDirectory`).                                                                                                                 |
-| `ChirographKiotaVersion`                   | packed pin (1.38.0)                 | `Microsoft.OpenApi.Kiota` tool version (`LaunchPadKiotaVersion`).                                                                                                                     |
-| `ChirographRefitterVersion`                | packed pin (2.3.1)                  | `Refitter` tool version (`LaunchPadRefitterVersion`).                                                                                                                                 |
-| `ChirographKiotaBundleVersion`             | packed pin (2.1.6)                  | `Microsoft.Kiota.Bundle` version added for Kiota clients (`LaunchPadKiotaBundleVersion`).                                                                                             |
-| `ChirographRefitVersion`                   | packed pin (16.4.0)                 | `Refit.HttpClientFactory` version added for Refitter clients (`LaunchPadRefitVersion`).                                                                                               |
-| `ChirographMicrosoftExtensionsHttpVersion` | packed pin (10.0.x)                 | `Microsoft.Extensions.Http` version added for Kiota clients only (`LaunchPadMicrosoftExtensionsHttpVersion`). The PR explains why Refitter clients don't get it: an NU1605 downgrade. |
-| `ChirographGenerateDovetailJoint`          | `true`                              | New. `false` declares no `DovetailTemplate` items.                                                                                                                                    |
-| `ChirographVersion`                        | the SDK's version                   | New. Stamped into `GeneratedCode`. Read-only in practice.                                                                                                                             |
+| Property                                   | Default                             | Meaning (PR name in brackets)                                                                                                                                                                                                                                                                             |
+| ------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChirographUpdateOpenApiDocumentCache`     | `true`                              | Default of `UpdateDocumentCache` (`LaunchPadUpdateOpenApiDocumentCache`).                                                                                                                                                                                                                                 |
+| `ChirographOpenApiClientsDirectory`        | `$(IntermediateOutputPath)openapi/` | Where each client's folder goes (`LaunchPadOpenApiClientsDirectory`).                                                                                                                                                                                                                                     |
+| `ChirographKiotaVersion`                   | packed pin (1.38.0)                 | `Microsoft.OpenApi.Kiota` tool version (`LaunchPadKiotaVersion`).                                                                                                                                                                                                                                         |
+| `ChirographRefitterVersion`                | packed pin (2.3.1)                  | `Refitter` tool version (`LaunchPadRefitterVersion`).                                                                                                                                                                                                                                                     |
+| `ChirographKiotaBundleVersion`             | packed pin (2.1.6)                  | `Microsoft.Kiota.Bundle` version added for Kiota clients (`LaunchPadKiotaBundleVersion`).                                                                                                                                                                                                                 |
+| `ChirographRefitVersion`                   | packed pin (16.4.0)                 | `Refit.HttpClientFactory` version added for Refitter clients (`LaunchPadRefitVersion`).                                                                                                                                                                                                                   |
+| `ChirographMicrosoftExtensionsHttpVersion` | packed pin (10.0.x)                 | `Microsoft.Extensions.Http` version added for Kiota clients (`LaunchPadMicrosoftExtensionsHttpVersion`), and **not added at all when the project has a Refitter client**: `Refit.HttpClientFactory` brings a newer one, and the packed pin beside it is an NU1605 downgrade on net11.0 (found in PR #17). |
+| `ChirographGenerateDovetailJoint`          | `true`                              | New. `false` declares no `DovetailTemplate` items.                                                                                                                                                                                                                                                        |
+| `ChirographVersion`                        | the SDK's version                   | New. Stamped into `GeneratedCode`. Read-only in practice.                                                                                                                                                                                                                                                 |
 
 **Target hooks:** `ChirographGenerateOpenApiClients` (renamed from `LaunchPadGenerateOpenApiClients`), which runs
 `AfterTargets="ResolveProjectReferences"` and `BeforeTargets="CoreCompile;BeforeCompile"`. It is the only target documented as a hook.
@@ -525,6 +525,7 @@ Carried over from the PR's guide
 | `CHIRO105` | `LPSDK0105` | error    | The URL could not be reached, and there is no cached document.                        |
 | `CHIRO106` | `LPSDK0106` | error    | The generator tool is not in the packages folders. Restore the project.               |
 | `CHIRO107` | `LPSDK0107` | error    | The generator exited with an error. Its output is included. (Undocumented in the PR.) |
+| `CHIRO108` | new         | error    | Two `OpenApiClient` items have the same `ClientName` (open question 1, resolved).     |
 
 ### Generated code
 
@@ -808,8 +809,8 @@ truth from here on; the drafts below are kept for the plan's history.
 
 These were not settled in the session. None of them blocks milestones 0–5.
 
-1. **Generated namespace collisions.** Two clients with the same `ClientName` in one project are not detected today. Add a `CHIRO108`
-   error, or leave it to the C# compiler? Recommendation: add `CHIRO108` in milestone 3. It is cheap and the message is better.
+1. ~~**Generated namespace collisions.**~~ **Resolved: `CHIRO108`.** Two clients with the same `ClientName` in one project fail the
+   build with `CHIRO108`, which names both items, before either is generated (`DiagnosticsTests.Should_Fail_When_Two_Clients_Have_The_Same_Name`).
 2. **The server project lacks `Microsoft.Extensions.ApiDescription.Server`.** Today the result is `CHIRO103` listing no documents.
    Recommendation: give it a dedicated message (or a `CHIRO109`) that names the missing package.
 3. **`DovetailTemplate` `Include` uniqueness.** Dovetail requires the name to be unique across packages. Is the bare `ClientName`
