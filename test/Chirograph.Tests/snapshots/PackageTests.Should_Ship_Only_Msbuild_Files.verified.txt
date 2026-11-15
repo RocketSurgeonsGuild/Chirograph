@@ -4,9 +4,12 @@
     LICENSE,
     Readme.md,
     Sdk/Chirograph.ImplicitPackageReferences.targets,
+    Sdk/Chirograph.OpenApiClients.targets,
     Sdk/Packages.props,
     Sdk/Sdk.props,
     Sdk/Sdk.targets,
+    Sdk/templates/KiotaRegistration.cs.template,
+    Sdk/templates/RefitterRegistration.cs.template,
     images/chirograph-icon.png
   ],
   Id: Chirograph,
