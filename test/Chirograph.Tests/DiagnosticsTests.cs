@@ -51,6 +51,21 @@ public class DiagnosticsTests(string targetFramework)
     }
 
     /// <summary>
+    /// <c>CHIRO103</c>: the server writes two documents, and the client doesn't say with <c>DocumentName</c> which one it is generated
+    /// from.
+    /// </summary>
+    [Test]
+    public async Task Should_Fail_When_The_Server_Writes_Several_Documents()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddRocketsServer([targetFramework], "v1", "v2")
+           .AddProject("app/app.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, RocketsServer.Include));
+
+        await project.VerifyResult(await project.BuildDiagnostics("app"));
+    }
+
+    /// <summary>
     /// <c>CHIRO106</c>: the generator tool is not in the packages folders, because the build asks for a version restore never
     /// downloaded.
     /// </summary>

@@ -23,6 +23,8 @@
         - UpdateDocumentCache: for a URL, false to use the cached document when there is one instead of downloading it again;
           ChirographUpdateOpenApiDocumentCache sets it for every client (true by default).
         - Options: more arguments for the generator's command line (kiota generate, or refitter after its settings file).
+        - DocumentName (a project): the document the client is generated from, when the project writes several (v1 is ASP.NET Core's
+          default).
 
       Each generator is a .NET tool package (Microsoft.OpenApi.Kiota, Refitter), which restore downloads (PackageDownload) and the build
       runs from the packages folder: nothing is installed, and a file source needs no network once the packages are restored. The packages
@@ -157,23 +159,61 @@
       Code="CHIRO102"
       Text="The OpenAPI document '%(_ChirographOpenApiClient.Identity)' of the OpenApiClient '%(_ChirographOpenApiClient.ClientName)' does not exist."
     />
-    <!-- server projects (ticket #6) are not generated yet -->
-    <Error
-      Condition="'%(_ChirographOpenApiClient.Kind)' == 'Project'"
-      Text="The OpenApiClient '%(_ChirographOpenApiClient.ClientName)' is generated from the project '%(_ChirographOpenApiClient.Identity)', which this version of Chirograph does not support yet: generate it from a file."
-    />
     <MakeDir Directories="@(_ChirographOpenApiClient->'%(ClientDirectory)')" />
   </Target>
 
   <!--
-      Copies the source document of each client to the client's folder when its content differs from the copy there, so a document that
-      was written again unchanged regenerates nothing. A file is its own source, and a URL is downloaded into its cache. Batched on each
-      client, by name: two clients can be generated from the same document.
+      Finds the source document of each client (a file is its own source, a server project is asked for the documents it wrote, and a
+      URL is downloaded into its cache), and copies it to the client's folder when its content differs from the copy there, so a document
+      that was written again unchanged regenerates nothing. Batched on each client, by name: two clients can be generated from the same
+      document.
   -->
   <Target Name="_ChirographResolveOpenApiClientDocuments" Outputs="%(_ChirographOpenApiClient.ClientName)">
     <PropertyGroup>
+      <_ChirographOpenApiKind>%(_ChirographOpenApiClient.Kind)</_ChirographOpenApiKind>
       <_ChirographOpenApiSource>%(_ChirographOpenApiClient.Source)</_ChirographOpenApiSource>
       <_ChirographOpenApiDocument>%(_ChirographOpenApiClient.Document)</_ChirographOpenApiDocument>
+      <_ChirographOpenApiClientName>%(_ChirographOpenApiClient.ClientName)</_ChirographOpenApiClientName>
+      <_ChirographOpenApiDocumentName>%(_ChirographOpenApiClient.DocumentName)</_ChirographOpenApiDocumentName>
+      <_ChirographOpenApiClientIdentity>%(_ChirographOpenApiClient.Identity)</_ChirographOpenApiClientIdentity>
+      <_ChirographOpenApiServerPath Condition="'$(_ChirographOpenApiKind)' == 'Project'">%(_ChirographOpenApiClient.FullPath)</_ChirographOpenApiServerPath>
+    </PropertyGroup>
+
+    <!--
+        a project: the documents Microsoft.Extensions.ApiDescription.Server writes from the project, which was built first as a project
+        reference. GenerateOpenApiDocuments is asked for explicitly (it is incremental on the server's assembly): its own hook on Build only
+        runs in some builds of a server with several target frameworks.
+    -->
+    <ItemGroup Condition="'$(_ChirographOpenApiKind)' == 'Project'">
+      <_ChirographOpenApiServerReference Remove="@(_ChirographOpenApiServerReference)" />
+      <_ChirographOpenApiServerReference
+        Include="@(_MSBuildProjectReferenceExistent)"
+        Condition="'%(_MSBuildProjectReferenceExistent.ChirographOpenApiClientServer)' == 'true' and '%(FullPath)' == '$(_ChirographOpenApiServerPath)'"
+      />
+    </ItemGroup>
+    <MSBuild
+      Condition="'$(_ChirographOpenApiKind)' == 'Project'"
+      Projects="@(_ChirographOpenApiServerReference)"
+      Targets="GenerateOpenApiDocuments;OpenApiGetDocuments"
+      Properties="%(_ChirographOpenApiServerReference.SetConfiguration);%(_ChirographOpenApiServerReference.SetPlatform)"
+      RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained;%(_ChirographOpenApiServerReference.GlobalPropertiesToRemove)"
+    >
+      <Output TaskParameter="TargetOutputs" ItemName="_ChirographOpenApiServerDocument" />
+    </MSBuild>
+    <ItemGroup Condition="'$(_ChirographOpenApiKind)' == 'Project'">
+      <!-- ASP.NET Core's default document, v1, is <Project>.json; any other is <Project>_<name>.json -->
+      <_ChirographOpenApiChosenDocument
+        Include="@(_ChirographOpenApiServerDocument)"
+        Condition="'$(_ChirographOpenApiDocumentName)' == '' or ('$(_ChirographOpenApiDocumentName)' == 'v1' and !$([System.String]::Copy('%(Filename)').Contains('_'))) or $([System.String]::Copy('%(Filename)').EndsWith('_$(_ChirographOpenApiDocumentName)'))"
+      />
+    </ItemGroup>
+    <Error
+      Condition="'$(_ChirographOpenApiKind)' == 'Project' and '@(_ChirographOpenApiChosenDocument->Count())' != '1'"
+      Code="CHIRO103"
+      Text="The project '$(_ChirographOpenApiClientIdentity)' of the OpenApiClient '$(_ChirographOpenApiClientName)' wrote the documents '@(_ChirographOpenApiServerDocument)': set DocumentName to the one the client is generated from."
+    />
+    <PropertyGroup Condition="'$(_ChirographOpenApiKind)' == 'Project'">
+      <_ChirographOpenApiSource>@(_ChirographOpenApiChosenDocument->'%(FullPath)')</_ChirographOpenApiSource>
     </PropertyGroup>
 
     <!--
@@ -182,11 +222,6 @@
         cache exists: then the cache is used as it is, so a change to the API reaches the client only when the cache is deleted or updated
         on purpose. When the download fails, the cache stands in for it with a warning.
     -->
-    <PropertyGroup>
-      <_ChirographOpenApiKind>%(_ChirographOpenApiClient.Kind)</_ChirographOpenApiKind>
-      <_ChirographOpenApiClientName>%(_ChirographOpenApiClient.ClientName)</_ChirographOpenApiClientName>
-      <_ChirographOpenApiClientIdentity>%(_ChirographOpenApiClient.Identity)</_ChirographOpenApiClientIdentity>
-    </PropertyGroup>
     <PropertyGroup Condition="'$(_ChirographOpenApiKind)' == 'Url'">
       <_ChirographOpenApiDownloadDirectory>%(_ChirographOpenApiClient.ClientDirectory)download/</_ChirographOpenApiDownloadDirectory>
       <_ChirographOpenApiCache>%(_ChirographOpenApiClient.DocumentCache)</_ChirographOpenApiCache>
@@ -263,7 +298,13 @@
       <_ChirographOpenApiDownloaded />
       <_ChirographOpenApiDownloadedHash />
       <_ChirographOpenApiCacheHash />
+      <_ChirographOpenApiDocumentName />
+      <_ChirographOpenApiServerPath />
     </PropertyGroup>
+    <ItemGroup>
+      <_ChirographOpenApiServerDocument Remove="@(_ChirographOpenApiServerDocument)" />
+      <_ChirographOpenApiChosenDocument Remove="@(_ChirographOpenApiChosenDocument)" />
+    </ItemGroup>
   </Target>
 
   <!--
