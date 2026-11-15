@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Chirograph.Tests.Scaffolding;
 using Microsoft.Build.Utilities.ProjectCreation;
 
 // Each test scaffolds its own temp folder. The out-of-process tests run one `dotnet` build at a time, which uses several cores itself;
@@ -52,8 +53,54 @@ internal static class Config
             : value;
     }
 
+    /// <summary>
+    /// The packages folder every scaffold of this test run restores into: new for each run, so no scaffold sees a Chirograph package an
+    /// earlier run extracted with the same version, and shared within the run, so the tests don't each download the generators and
+    /// the ASP.NET Core packages again.
+    /// </summary>
+    public static string PackagesFolder { get; } = Path.Combine(Path.GetTempPath(), "chirograph-tests", $"packages-{Guid.NewGuid():N}");
+
     [Before(Assembly)]
-    public static void Setup(AssemblyHookContext context) => MSBuildAssemblyResolver.Register();
+    public static async Task Setup(AssemblyHookContext context)
+    {
+        MSBuildAssemblyResolver.Register();
+        await WarmPackagesFolder();
+    }
+
+    [After(Assembly)]
+    public static void Cleanup(AssemblyHookContext context)
+    {
+        try
+        {
+            Directory.Delete(PackagesFolder, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best effort: temp directory cleanup handles stragglers.
+        }
+    }
+
+    // Restores, once and one at a time, what the tests' scaffolds use on each target framework (both generators, hosting and a
+    // server), so the tests that run in parallel find it in PackagesFolder instead of each downloading it at the same time.
+    private static async Task WarmPackagesFolder()
+    {
+        foreach (var targetFramework in (string[])["net10.0", "net11.0"])
+        {
+            using var project = new SdkTestProject(targetFramework);
+            project
+               .AddRocketsServer([targetFramework])
+               .AddProject(
+                    "app/app.csproj",
+                    project
+                       .CreateConsumer()
+                       .Hosting(targetFramework)
+                       .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient")
+                       .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient")
+                );
+            await project.Build("server", "-t:Restore");
+            await project.Build("app", "-t:Restore");
+        }
+    }
 
     public static string RootDirectory => field ??= FindRootDirectory();
 

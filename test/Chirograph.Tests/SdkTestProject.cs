@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Utilities.ProjectCreation;
 using TUnit.Core.Exceptions;
@@ -28,9 +29,23 @@ public sealed partial class SdkTestProject : IDisposable
         Directory = Path.Combine(Path.GetTempPath(), "chirograph-tests", id);
         System.IO.Directory.CreateDirectory(Directory);
 
-        // A NuGet.config with nuget.org and the local packages, and a global packages folder of the scaffold's own, so restores never
-        // see a Chirograph package extracted by an earlier run with the same version.
-        _ = PackageRepository.Create(Directory, feeds: [new("https://api.nuget.org/v3/index.json"), new(Config.NugetArtifactsDirectory)]);
+        // A NuGet.config with nuget.org and the local packages, and the test run's packages folder (Config.PackagesFolder), which no
+        // earlier run used, so restores never see a Chirograph package extracted by an earlier run with the same version.
+        File.WriteAllText(
+            Path.Combine(Directory, "NuGet.config"),
+            new XDocument(
+                new XElement(
+                    "configuration",
+                    new XElement("config", new XElement("add", new XAttribute("key", "globalPackagesFolder"), new XAttribute("value", Config.PackagesFolder))),
+                    new XElement(
+                        "packageSources",
+                        new XElement("clear"),
+                        new XElement("add", new XAttribute("key", "nuget.org"), new XAttribute("value", "https://api.nuget.org/v3/index.json")),
+                        new XElement("add", new XAttribute("key", "chirograph-local"), new XAttribute("value", Config.NugetArtifactsDirectory))
+                    )
+                )
+            ).ToString()
+        );
 
         GlobalJsonCreator
            .Create(new DirectoryInfo(Directory))
@@ -163,7 +178,13 @@ public sealed partial class SdkTestProject : IDisposable
                    z => z.Code?.StartsWith("CHIRO", StringComparison.Ordinal) == true
                )
               // macOS gives the temp folder as /var/… and tools resolve it to /private/var/…
-              .Select(z => $"{z.Code}: {z.Text}".Replace($"/private{Directory}", "{scaffold}", StringComparison.Ordinal).Replace(Directory, "{scaffold}", StringComparison.Ordinal))
+              .Select(
+                   z => $"{z.Code}: {z.Text}"
+                       .Replace($"/private{Directory}", "{scaffold}", StringComparison.Ordinal)
+                       .Replace(Directory, "{scaffold}", StringComparison.Ordinal)
+                       .Replace($"/private{Config.PackagesFolder}", "{packages}", StringComparison.Ordinal)
+                       .Replace(Config.PackagesFolder, "{packages}", StringComparison.Ordinal)
+               )
               .Distinct(StringComparer.Ordinal)];
 
     /// <summary>
