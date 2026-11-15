@@ -1,0 +1,16 @@
+tags:
+    getting-started:
+        label: Getting Started
+        description: Introductory guides and tutorials.
+    msbuild:
+        label: MSBuild
+        description: MSBuild items, properties and targets that Chirograph reads.
+    kiota:
+        label: Kiota
+        description: Clients generated with Microsoft Kiota.
+    refitter:
+        label: Refitter
+        description: Clients generated with Refitter.
+    dovetail:
+        label: Dovetail
+        description: Registering clients through Dovetail joints.

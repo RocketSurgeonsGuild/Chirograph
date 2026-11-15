@@ -1,0 +1,15 @@
+# Glossary
+
+The words Chirograph's code, tests and docs use, each with one meaning. Moved here from [the plan](plans/chirograph.md#glossary).
+
+| Term               | Meaning                                                                                                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Client**         | One `OpenApiClient` item, and everything generated for it: the client code, its registration and, with Dovetail, its joint. It is named by `ClientName`, which is unique within a project.                                                 |
+| **Source**         | Where a client's document comes from: a **file**, a **server project**, or a **URL**. The kind is inferred from the item's `Include`, never declared.                                                                                      |
+| **Server project** | A project in the same build whose OpenAPI document `Microsoft.Extensions.ApiDescription.Server` writes when it builds.                                                                                                                     |
+| **Document**       | The OpenAPI description a client is generated from, as Chirograph copies it into `obj`. A source has a document. A client has exactly one.                                                                                                 |
+| **Document cache** | For a URL source only: the last document downloaded. It lives in `obj`, or in a project file named by `DocumentCache`, which can be committed. **Updating** the cache means downloading again and overwriting it when the content differs. |
+| **Generator**      | The tool that turns a document into client code: **Kiota** or **Refitter**. A generator is never a source generator: it runs as a process during the build.                                                                                |
+| **Registration**   | The generated `Add<ClientName>()` extension method that registers the client with `IHttpClientFactory` and reads its base address from configuration.                                                                                      |
+| **Joint**          | Dovetail's unit of registration. Chirograph never writes a joint itself: it declares a **template** that Dovetail expands into one, which calls the registration.                                                                          |
+| **Base address**   | The URI a client calls, read from `Clients:<ClientName>:BaseAddress`.                                                                                                                                                                      |
