@@ -1,9 +1,10 @@
+using System.Text.RegularExpressions;
 using NuGet.Packaging;
 
 namespace Chirograph.Tests;
 
 /// <summary>The Chirograph package that Chirograph.Tests.csproj packs before it builds.</summary>
-public class PackageTests() : LoggerTest<TestRecord>(TestRecord.Create())
+public partial class PackageTests() : LoggerTest<TestRecord>(TestRecord.Create())
 {
     [Test]
     public async Task Should_Ship_Only_Msbuild_Files()
@@ -29,11 +30,15 @@ public class PackageTests() : LoggerTest<TestRecord>(TestRecord.Create())
         using var stream = new StreamReader(reader.GetStream("Sdk/Packages.props"));
         var text = await stream.ReadToEndAsync();
 
-        foreach (var packageId in Config.PinnedPackageProperties.Values)
-        {
-            text = text.Replace($">{Config.CentralPackageVersion(packageId, "netstandard2.0")}<", $">{Config.PinPlaceholder(packageId)}<", StringComparison.Ordinal);
-        }
+        // each version property's value, <ChirographKiotaVersion …>1.2.3</ChirographKiotaVersion>, with its pin scrubbed
+        text = VersionProperty().Replace(
+            text,
+            z => $"{z.Groups["start"].Value}{Config.ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Groups["name"].Value), z.Groups["value"].Value)}</"
+        );
 
         await Verify(text, "xml").ScrubLinesWithReplace(z => z.Replace(Config.ChirographPackageVersion, "{chirograph-version}", StringComparison.Ordinal));
     }
+
+    [GeneratedRegex(@"(?<start><(?<name>Chirograph\w+Version)\b[^>]*>)(?<value>[^<]*)</")]
+    private static partial Regex VersionProperty();
 }

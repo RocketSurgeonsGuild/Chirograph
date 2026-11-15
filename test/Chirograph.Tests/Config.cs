@@ -34,6 +34,24 @@ internal static class Config
     /// </summary>
     public static string PinPlaceholder(string packageId) => $"{{pin: {packageId}}}";
 
+    /// <summary>
+    /// <paramref name="value" /> with the version Chirograph packs for <paramref name="packageId" /> (the pin below net11.0, see
+    /// <see cref="PinnedPackageProperties" />) written as <see cref="PinPlaceholder" />: the version itself, or the exact version a
+    /// <c>PackageDownload</c> asks for, <c>[1.2.3]</c>, as <c>[{pin: …}]</c>. Any other value is left as it is.
+    /// </summary>
+    public static string ScrubPin(string? packageId, string value)
+    {
+        if (packageId is null)
+        {
+            return value;
+        }
+
+        var pin = CentralPackageVersion(packageId, "netstandard2.0");
+        return value == pin ? PinPlaceholder(packageId)
+            : value == $"[{pin}]" ? $"[{PinPlaceholder(packageId)}]"
+            : value;
+    }
+
     [Before(Assembly)]
     public static void Setup(AssemblyHookContext context) => MSBuildAssemblyResolver.Register();
 

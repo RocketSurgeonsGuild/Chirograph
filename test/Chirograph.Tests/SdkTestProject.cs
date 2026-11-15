@@ -93,7 +93,7 @@ public sealed partial class SdkTestProject : IDisposable
         var properties = project.AllEvaluatedProperties
                                 .Where(z => z.Name.StartsWith("Chirograph", StringComparison.Ordinal))
                                 .OrderBy(z => z.Name, StringComparer.Ordinal)
-                                .ToDictionary(z => z.Name, z => ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Name), z.EvaluatedValue));
+                                .ToDictionary(z => z.Name, z => Config.ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Name), z.EvaluatedValue));
 
         return Verify(
                 new
@@ -114,37 +114,29 @@ public sealed partial class SdkTestProject : IDisposable
                     item => item.EvaluatedInclude,
                     item => item.DirectMetadata
                                 .OrderBy(z => z.Name, StringComparer.Ordinal)
-                                .ToDictionary(z => z.Name, z => z.Name == "Version" ? ScrubPin(item.EvaluatedInclude, z.EvaluatedValue) : z.EvaluatedValue)
+                                .ToDictionary(z => z.Name, z => z.Name == "Version" ? Config.ScrubPin(item.EvaluatedInclude, z.EvaluatedValue) : z.EvaluatedValue)
                 );
-
-    // A PackageDownload asks for an exact version, [1.2.3], which shows as [{pin: …}].
-    private static string ScrubPin(string? packageId, string value) =>
-        packageId is null ? value
-        : value == Config.CentralPackageVersion(packageId, "netstandard2.0") ? Config.PinPlaceholder(packageId)
-        : value == $"[{Config.CentralPackageVersion(packageId, "netstandard2.0")}]" ? $"[{Config.PinPlaceholder(packageId)}]"
-        : value;
 
     /// <summary>
     /// The build seam: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in <paramref name="relativePath" />
-    /// and returns the build's binary log.
+    /// and returns the build's binary log. The build must succeed.
     /// </summary>
-    public async Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments = "")
-    {
-        var projectDirectory = Path.Combine(Directory, relativePath);
-        await RunDotnet($"build -bl {arguments}", projectDirectory);
-        return Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog"));
-    }
+    public Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments = "") =>
+        Build(relativePath, arguments, allowFailure: false);
 
     /// <summary>
     /// The build seam for a build that may fail: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in
     /// <paramref name="relativePath" /> and returns Chirograph's errors and warnings (<c>CHIRO</c> codes), as <c>CODE: message</c>
     /// with the scaffold's folder written as <c>{scaffold}</c>.
     /// </summary>
-    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "")
+    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "") =>
+        Diagnostics(await Build(relativePath, arguments, allowFailure: true));
+
+    private async Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments, bool allowFailure)
     {
         var projectDirectory = Path.Combine(Directory, relativePath);
-        await RunDotnet($"build -bl {arguments}", projectDirectory, allowFailure: true);
-        return Diagnostics(Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog")));
+        await RunDotnet($"build -bl {arguments}", projectDirectory, allowFailure: allowFailure);
+        return Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog"));
     }
 
     /// <summary>
