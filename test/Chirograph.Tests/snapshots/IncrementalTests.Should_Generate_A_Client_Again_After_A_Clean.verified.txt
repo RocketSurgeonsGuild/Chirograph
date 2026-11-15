@@ -1,0 +1,8 @@
+﻿{
+  AfterClean: [
+    Generating the OpenAPI client RocketsClient with Kiota
+  ],
+  First: [
+    Generating the OpenAPI client RocketsClient with Kiota
+  ]
+}

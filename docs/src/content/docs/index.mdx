@@ -1,19 +1,105 @@
 ---
 title: Chirograph
-description: Typed HTTP clients generated from OpenAPI documents at build time.
+description: Typed HTTP clients generated from OpenAPI documents at build time. One MSBuild item, a Kiota or Refitter client, registered with IHttpClientFactory.
 template: splash
 hero:
     title: Chirograph
     tagline: Typed HTTP clients generated from OpenAPI documents at build time. One MSBuild item, a Kiota or Refitter client, registered with IHttpClientFactory.
     actions:
+        - text: Get started
+          link: guides/
+          icon: right-arrow
+          variant: primary
         - text: View on GitHub
           link: https://github.com/RocketSurgeonsGuild/Chirograph
           icon: external
           variant: minimal
 ---
 
-> [!NOTE]
-> Chirograph is being extracted from LaunchPad's MSBuild SDK and has no release yet. These docs are a placeholder until the first beta.
+import { Card, CardGrid, LinkCard, TabItem, Tabs } from "@astrojs/starlight/components";
 
 A chirograph was a medieval contract written twice on one sheet and cut apart, so each half proved the other. Here the OpenAPI
-document and the generated client are the two halves.
+document and the generated client are the two halves: Chirograph keeps them together by generating the client from the document on
+every build that needs it.
+
+Declare a client with one item. Where its document comes from is inferred from the `Include`:
+
+<Tabs>
+<TabItem label="A file">
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="1.0.0" />
+
+  <ItemGroup>
+    <OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" />
+  </ItemGroup>
+</Project>
+```
+
+</TabItem>
+<TabItem label="A server project">
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="1.0.0" />
+
+  <ItemGroup>
+    <OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Kiota" ClientName="RocketsClient" />
+  </ItemGroup>
+</Project>
+```
+
+</TabItem>
+<TabItem label="A URL">
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="1.0.0" />
+
+  <ItemGroup>
+    <OpenApiClient
+      Include="https://rockets.example.com/openapi/v1.json"
+      Generator="Refitter"
+      ClientName="RocketsClient"
+      DocumentCache="openapi/rockets.json"
+    />
+  </ItemGroup>
+</Project>
+```
+
+</TabItem>
+</Tabs>
+
+Then register it, and give it a base address in `Clients:RocketsClient:BaseAddress`:
+
+```csharp
+builder.Services.AddRocketsClient();
+```
+
+> [!NOTE]
+> Chirograph has no release on nuget.org yet. [Getting started](guides/) shows how to pack it from a clone until the first beta ships.
+
+<CardGrid stagger>
+    <Card title="Two generators you already use" icon="puzzle">
+        Kiota, or Refit through Refitter. Chirograph generates no code of its own, so it keeps each generator's fidelity and follows their
+        releases by changing a version.
+    </Card>
+    <Card title="Three sources" icon="document">
+        A file in the project, a server project in the same build, or a URL with a document cache you can commit.
+    </Card>
+    <Card title="Quiet builds" icon="setting">
+        Tools come from the packages folder, output stays in `obj`, generation is incremental, and the generators' telemetry is off.
+    </Card>
+    <Card title="Registered" icon="rocket">
+        Every client gets an `Add<ClientName>()` extension that registers it with `IHttpClientFactory` and returns the
+        `IHttpClientBuilder`.
+    </Card>
+</CardGrid>
+
+<CardGrid>
+    <LinkCard title="Getting started" href="guides/" description="Add the SDK, declare a client and call it." />
+    <LinkCard title="Concepts" href="concepts/" description="Sources, generators, registration, the document cache and how generation runs." />
+    <LinkCard title="Reference" href="reference/" description="Every metadata value, property and diagnostic code." />
+    <LinkCard title="Compared with" href="concepts/compared-with/" description="OpenApiReference, Refitter.MSBuild, hand-written targets and source generators." />
+</CardGrid>

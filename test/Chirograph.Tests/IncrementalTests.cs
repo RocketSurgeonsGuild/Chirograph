@@ -40,4 +40,18 @@ public class IncrementalTests(string targetFramework)
             generator.ToString()
         );
     }
+
+    /// <summary><c>dotnet clean</c> removes the generated code, so the next build generates the client again instead of failing to compile.</summary>
+    [Test]
+    public async Task Should_Generate_A_Client_Again_After_A_Clean()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project.AddRocketsApp(targetFramework, Generator.Kiota);
+
+        var first = await project.Build("app");
+        await project.Build("app", "-t:Clean");
+        var afterClean = await project.Build("app");
+
+        await project.VerifyResult(new { First = first.GeneratedClients(), AfterClean = afterClean.GeneratedClients() });
+    }
 }
