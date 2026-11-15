@@ -1,0 +1,13 @@
+<!--
+    A Refitter client generated from a committed document, rockets.json, for an API whose server isn't in the solution.
+    (Here it is a copy of what Rockets.Api writes.) Edit the file and rebuild to regenerate.
+
+    The build writes the Refit interface IRocketsRefitClient and the registration AddRocketsRefitClient(), both in
+    Rockets.Client.Refitter. Chirograph adds the package reference the generated code needs (Refit.HttpClientFactory).
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="0.0.0-sample" />
+  <ItemGroup>
+    <OpenApiClient Include="rockets.json" Generator="Refitter" ClientName="RocketsRefitClient" Namespace="Rockets.Client.Refitter" />
+  </ItemGroup>
+</Project>
