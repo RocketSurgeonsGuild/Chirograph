@@ -87,8 +87,7 @@ public sealed partial class SdkTestProject : IDisposable
     /// </summary>
     public SettingsTask VerifyEvaluation(string path, string? variant = null, [CallerMemberName] string method = "")
     {
-        var fullPath = Path.Combine(Directory, path);
-        var project = _projects.Single(z => z.FullPath == fullPath).Project;
+        var project = Evaluated(path);
 
         var properties = project.AllEvaluatedProperties
                                 .Where(z => z.Name.StartsWith("Chirograph", StringComparison.Ordinal))
@@ -105,6 +104,21 @@ public sealed partial class SdkTestProject : IDisposable
                 },
                 settings: Settings(variant, method)
             );
+    }
+
+    /// <summary>
+    /// The evaluation seam, for what Chirograph keeps to itself: the items of type <paramref name="itemType" /> evaluation gives the
+    /// project at <paramref name="path" />, each with its own metadata.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> EvaluatedItems(string path, string itemType) => Items(Evaluated(path), itemType);
+
+    /// <summary>The evaluation seam, for what Chirograph keeps to itself: the value of <paramref name="name" /> in the project at <paramref name="path" />.</summary>
+    public string EvaluatedProperty(string path, string name) => Evaluated(path).GetPropertyValue(name);
+
+    private Project Evaluated(string path)
+    {
+        var fullPath = Path.Combine(Directory, path);
+        return _projects.Single(z => z.FullPath == fullPath).Project;
     }
 
     private static Dictionary<string, Dictionary<string, string>> Items(Project project, string itemType) =>

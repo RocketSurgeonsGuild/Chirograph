@@ -27,6 +27,22 @@ public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(T
         await project.VerifyResult(await project.BuildDiagnostics("app"), $"{generator ?? "none"}_{clientName ?? "none"}");
     }
 
+    /// <summary><c>CHIRO108</c>: two clients have the same <c>ClientName</c>, so they would be generated into the same folder and types.</summary>
+    [Test]
+    public async Task Should_Fail_When_Two_Clients_Have_The_Same_Name()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddProject(
+                "app/app.csproj",
+                project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, "rockets.json").OpenApiClient(Generator.Refitter, "other.json")
+            )
+           .AddFile("app/rockets.json", RocketsApi.Document)
+           .AddFile("app/other.json", RocketsApi.Document);
+
+        await project.VerifyResult(await project.BuildDiagnostics("app"));
+    }
+
     /// <summary><c>CHIRO102</c>: the document file does not exist.</summary>
     [Test]
     public async Task Should_Fail_When_The_Document_Does_Not_Exist()

@@ -206,6 +206,27 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     }
 
     /// <summary>
+    /// Evaluation seam: what Chirograph knows of each client before it builds, its source, its namespace (<c>$(RootNamespace)</c> when
+    /// not set) and whether its <c>ClientName</c> is a C# identifier, so a file imported after Chirograph's can declare items from the
+    /// clients at evaluation (ticket #11's Dovetail joints). A build raises the errors.
+    /// </summary>
+    [Test]
+    public async Task Should_Know_Each_Client_At_Evaluation()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project.AddProject(
+            "app/app.csproj",
+            project
+               .CreateConsumer()
+               .OpenApiClient(Generator.Kiota, "rockets.json", "NamedClient")
+               .ItemInclude("OpenApiClient", "https://example.com/openapi.json", metadata: new Dictionary<string, string?> { ["Generator"] = "Refitter", ["ClientName"] = "DefaultClient" })
+               .ItemInclude("OpenApiClient", "../server/server.csproj", metadata: new Dictionary<string, string?> { ["Generator"] = "Kiota", ["ClientName"] = "Server.Client" })
+        );
+
+        await project.VerifyResult(project.EvaluatedItems("app/app.csproj", "_ChirographOpenApiClient"));
+    }
+
+    /// <summary>
     /// Evaluation seam: a package Chirograph adds for a client is left alone when the project references it itself: the project's own
     /// reference and version win.
     /// </summary>

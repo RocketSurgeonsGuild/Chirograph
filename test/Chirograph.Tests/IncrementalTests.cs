@@ -54,4 +54,37 @@ public class IncrementalTests(string targetFramework) : LoggerTest<TestRecord>(T
 
         await project.VerifyResult(new { First = first.GeneratedClients(), AfterClean = afterClean.GeneratedClients() });
     }
+
+    /// <summary>
+    /// <c>dotnet clean</c> removes every file the build wrote for a client in <c>obj</c> (the copy of the document, the download, the
+    /// settings and the code), but not its <c>DocumentCache</c>, a file of the project kept for a build that cannot reach the URL.
+    /// </summary>
+    [Test]
+    public async Task Should_Remove_What_The_Build_Wrote_On_Clean_But_Not_The_Document_Cache()
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        project.AddRocketsApp(
+            targetFramework,
+            Generator.Refitter,
+            api.DocumentAddress.ToString(),
+            new Dictionary<string, string?> { ["DocumentCache"] = "openapi/rockets.json" }
+        );
+        var app = Path.Combine(project.Directory, "app");
+        var clients = Path.Combine(app, "obj", "Debug", targetFramework, "openapi");
+
+        await project.Build("app");
+        await project.Build("app", "-t:Clean");
+
+        await project.VerifyResult(
+            new
+            {
+                LeftInTheClientsFolder = Directory.EnumerateFiles(clients, "*", SearchOption.AllDirectories)
+                                                  .Select(z => Path.GetRelativePath(clients, z).Replace('\\', '/'))
+                                                  .Order(StringComparer.Ordinal)
+                                                  .ToArray(),
+                LeftInTheProject = Directory.EnumerateFiles(Path.Combine(app, "openapi")).Select(Path.GetFileName).ToArray(),
+            }
+        );
+    }
 }
