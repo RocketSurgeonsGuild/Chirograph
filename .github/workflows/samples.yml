@@ -33,7 +33,7 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    # The sample only builds from src/, sample/ and the root Directory.*.props/targets, plus the toolchain (.config/mise.toml,
+    # The sample only builds from src/, sample/, build/Chirograph.PackLocal.targets and the root Directory.*.props/targets, plus the toolchain (.config/mise.toml,
     # global.json, NuGet.config) and this workflow. Anything else skips the legs; tags always build them.
     changes:
         runs-on: ubuntu-latest
@@ -55,6 +55,7 @@ jobs:
                       samples:
                           - 'src/**'
                           - 'sample/**'
+                          - 'build/Chirograph.PackLocal.targets'
                           - 'Directory.*.props'
                           - 'Directory.*.targets'
                           - '.config/mise.toml'

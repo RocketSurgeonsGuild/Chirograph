@@ -5,33 +5,20 @@
 
         dotnet msbuild build/pack.proj      (or: mise run sample:pack)
 
-    Rerun after changing anything under src/, then build/run the sample as usual.
+    Rerun after changing anything under src/, then build/run the sample as usual. The packing itself is
+    the repository's build/Chirograph.PackLocal.targets, which the tests use too.
 -->
 <Project DefaultTargets="Pack">
   <PropertyGroup>
-    <ChirographSampleVersion>0.0.0-sample</ChirographSampleVersion>
-    <ChirographSampleFeed>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', 'artifacts', 'nuget-sample'))</ChirographSampleFeed>
-    <ChirographSamplePackagesFolder>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '.nuget', 'packages'))</ChirographSamplePackagesFolder>
-    <_ChirographSampleProperties>Configuration=Release;Version=$(ChirographSampleVersion);PackageOutputPath=$(ChirographSampleFeed)</_ChirographSampleProperties>
+    <ChirographLocalPackFeed>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', 'artifacts', 'nuget-sample'))</ChirographLocalPackFeed>
+    <ChirographLocalPackProperties>Version=0.0.0-sample</ChirographLocalPackProperties>
+    <!-- the sample's own packages folder (see NuGet.config), which would otherwise keep serving the first 0.0.0-sample restored -->
+    <ChirographLocalPackagesFolder>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '.nuget', 'packages'))</ChirographLocalPackagesFolder>
   </PropertyGroup>
 
-  <ItemGroup>
-    <_ChirographSourceProject Include="$(MSBuildThisFileDirectory)..\..\..\src\**\*.csproj" />
-  </ItemGroup>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\build\Chirograph.PackLocal.targets" />
 
-  <Target Name="Pack">
-    <ItemGroup>
-      <_ChirographStalePackage Include="$(ChirographSampleFeed)*.nupkg;$(ChirographSampleFeed)*.snupkg" />
-      <_ChirographStaleCacheDirectory Include="$([System.IO.Directory]::GetDirectories('$(ChirographSamplePackagesFolder)', 'chirograph*'))"
-                                      Condition="Exists('$(ChirographSamplePackagesFolder)')" />
-    </ItemGroup>
-    <Delete Files="@(_ChirographStalePackage)" />
-    <RemoveDir Directories="@(_ChirographStaleCacheDirectory)" />
-
-    <!-- Restore separately (with a distinct global property) so Pack runs against a fresh evaluation. -->
-    <MSBuild Projects="@(_ChirographSourceProject)" Targets="Restore" Properties="$(_ChirographSampleProperties);_ChirographSampleRestore=true" BuildInParallel="true" />
-    <MSBuild Projects="@(_ChirographSourceProject)" Targets="Pack" Properties="$(_ChirographSampleProperties)" BuildInParallel="true" />
-
-    <Message Importance="high" Text="Chirograph packages $(ChirographSampleVersion) -> $(ChirographSampleFeed)" />
+  <Target Name="Pack" DependsOnTargets="ChirographPackLocally">
+    <Message Importance="high" Text="Chirograph packages $(ChirographLocalPackProperties) -> $(ChirographLocalPackFeed)" />
   </Target>
 </Project>
