@@ -37,6 +37,19 @@ public class DiagnosticsTests(string targetFramework)
         await project.VerifyResult(await project.BuildDiagnostics("app"));
     }
 
+    /// <summary><c>CHIRO105</c>: the document cannot be downloaded from its URL, and there is no cached copy to use instead.</summary>
+    [Test]
+    public async Task Should_Fail_When_The_Url_Cannot_Be_Reached_Without_A_Cache()
+    {
+        var api = RocketsApi.Start();
+        var address = api.DocumentAddress.ToString();
+        await api.DisposeAsync();
+        using var project = new SdkTestProject(targetFramework);
+        project.AddProject("app/app.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, address));
+
+        await project.VerifyResult(await project.BuildDiagnostics("app"));
+    }
+
     /// <summary>
     /// <c>CHIRO103</c>: the server writes two documents, and the client doesn't say with <c>DocumentName</c> which one it is generated
     /// from.

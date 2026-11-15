@@ -48,6 +48,8 @@ public sealed partial class SdkTestProject : IDisposable
         _settings.ScrubLinesWithReplace(
             line => TargetFrameworkPattern().Replace(line.Replace(Config.ChirographPackageVersion, "{chirograph-version}", StringComparison.Ordinal), "{TargetFramework}")
         );
+        // RocketsApi listens on a free port, which differs on every run.
+        _settings.ScrubLinesWithReplace(line => RocketsApiPattern().Replace(line, "{rockets-api}/"));
     }
 
     /// <summary>
@@ -142,15 +144,21 @@ public sealed partial class SdkTestProject : IDisposable
     {
         var projectDirectory = Path.Combine(Directory, relativePath);
         await RunDotnet($"build -bl {arguments}", projectDirectory, allowFailure: true);
-        var build = Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog"));
-        return [.. build
+        return Diagnostics(Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog")));
+    }
+
+    /// <summary>
+    /// Chirograph's errors and warnings (<c>CHIRO</c> codes) in <paramref name="build" />, as <c>CODE: message</c> with the scaffold's
+    /// folder written as <c>{scaffold}</c>.
+    /// </summary>
+    public string[] Diagnostics(Microsoft.Build.Logging.StructuredLogger.Build build) =>
+        [.. build
               .FindChildrenRecursive<Microsoft.Build.Logging.StructuredLogger.AbstractDiagnostic>(
                    z => z.Code?.StartsWith("CHIRO", StringComparison.Ordinal) == true
                )
               // macOS gives the temp folder as /var/… and tools resolve it to /private/var/…
               .Select(z => $"{z.Code}: {z.Text}".Replace($"/private{Directory}", "{scaffold}", StringComparison.Ordinal).Replace(Directory, "{scaffold}", StringComparison.Ordinal))
               .Distinct(StringComparer.Ordinal)];
-    }
 
     /// <summary>
     /// Builds and runs the application in <paramref name="relativePath" /> with <c>dotnet run</c>, with <paramref name="environment" />
@@ -234,6 +242,9 @@ public sealed partial class SdkTestProject : IDisposable
 
     [GeneratedRegex(@"\bnet1[01]\.0\b")]
     private static partial Regex TargetFrameworkPattern();
+
+    [GeneratedRegex(@"http://127\.0\.0\.1:\d+/")]
+    private static partial Regex RocketsApiPattern();
 
     public void Dispose()
     {

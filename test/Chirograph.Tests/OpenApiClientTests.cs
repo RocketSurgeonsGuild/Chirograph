@@ -18,8 +18,10 @@ public class OpenApiClientTests(string targetFramework)
     [Test]
     [Arguments(Generator.Kiota, Source.File)]
     [Arguments(Generator.Kiota, Source.Project)]
+    [Arguments(Generator.Kiota, Source.Url)]
     [Arguments(Generator.Refitter, Source.File)]
     [Arguments(Generator.Refitter, Source.Project)]
+    [Arguments(Generator.Refitter, Source.Url)]
     public async Task Should_Generate_A_Registered_Client(Generator generator, Source source)
     {
         await using var api = RocketsApi.Start();
@@ -31,6 +33,9 @@ public class OpenApiClientTests(string targetFramework)
                 break;
             case Source.Project:
                 project.AddRocketsServer([targetFramework]).AddRocketsApp(targetFramework, generator, RocketsServer.Include);
+                break;
+            case Source.Url:
+                project.AddRocketsApp(targetFramework, generator, api.DocumentAddress.ToString());
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(source), source, null);
@@ -227,5 +232,8 @@ public class OpenApiClientTests(string targetFramework)
 
         /// <summary>A server project, which writes its document when it builds.</summary>
         Project,
+
+        /// <summary>A URL, which <see cref="RocketsApi" /> serves.</summary>
+        Url,
     }
 }

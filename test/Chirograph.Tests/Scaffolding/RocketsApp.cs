@@ -47,7 +47,8 @@ internal static class RocketsApp
 
     /// <summary>
     /// Adds <c>app/app.csproj</c>, a Chirograph consumer that generates <c>RocketsClient</c> with <paramref name="generator" /> from
-    /// <paramref name="include" /> (<c>app/rockets.json</c> by default, which it writes), and its <c>Program.cs</c>.
+    /// <paramref name="include" /> (<c>app/rockets.json</c> unless it says otherwise) with more <paramref name="metadata" />, and its
+    /// <c>Program.cs</c>.
     /// </summary>
     public static SdkTestProject AddRocketsApp(
         this SdkTestProject project,
