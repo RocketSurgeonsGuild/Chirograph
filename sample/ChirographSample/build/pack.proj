@@ -1,0 +1,37 @@
+<!--
+    Packs every src/*.csproj into artifacts/nuget-sample at the fixed version each project's
+    <Sdk Name="Chirograph" Version="..." /> names, so this sample consumes Chirograph exactly as a
+    published package - never via ProjectReference or direct props/targets imports.
+
+        dotnet msbuild build/pack.proj      (or: mise run sample:pack)
+
+    Rerun after changing anything under src/, then build/run the sample as usual.
+-->
+<Project DefaultTargets="Pack">
+  <PropertyGroup>
+    <ChirographSampleVersion>0.0.0-sample</ChirographSampleVersion>
+    <ChirographSampleFeed>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', 'artifacts', 'nuget-sample'))</ChirographSampleFeed>
+    <ChirographSamplePackagesFolder>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '.nuget', 'packages'))</ChirographSamplePackagesFolder>
+    <_ChirographSampleProperties>Configuration=Release;Version=$(ChirographSampleVersion);PackageOutputPath=$(ChirographSampleFeed)</_ChirographSampleProperties>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_ChirographSourceProject Include="$(MSBuildThisFileDirectory)..\..\..\src\**\*.csproj" />
+  </ItemGroup>
+
+  <Target Name="Pack">
+    <ItemGroup>
+      <_ChirographStalePackage Include="$(ChirographSampleFeed)*.nupkg;$(ChirographSampleFeed)*.snupkg" />
+      <_ChirographStaleCacheDirectory Include="$([System.IO.Directory]::GetDirectories('$(ChirographSamplePackagesFolder)', 'chirograph*'))"
+                                      Condition="Exists('$(ChirographSamplePackagesFolder)')" />
+    </ItemGroup>
+    <Delete Files="@(_ChirographStalePackage)" />
+    <RemoveDir Directories="@(_ChirographStaleCacheDirectory)" />
+
+    <!-- Restore separately (with a distinct global property) so Pack runs against a fresh evaluation. -->
+    <MSBuild Projects="@(_ChirographSourceProject)" Targets="Restore" Properties="$(_ChirographSampleProperties);_ChirographSampleRestore=true" BuildInParallel="true" />
+    <MSBuild Projects="@(_ChirographSourceProject)" Targets="Pack" Properties="$(_ChirographSampleProperties)" BuildInParallel="true" />
+
+    <Message Importance="high" Text="Chirograph packages $(ChirographSampleVersion) -> $(ChirographSampleFeed)" />
+  </Target>
+</Project>

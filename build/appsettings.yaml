@@ -1,0 +1,6 @@
+solution: Chirograph.slnx
+# Coverage settings for the TestSolution module (the library writes its own default when this is missing).
+runSettings: test/coverage.runsettings
+# One `dotnet test` per test project (the library's default). Solution mode runs `dotnet test --solution`, which fails on a solution
+# with no projects ("The solution configuration 'Release|' is invalid"); per project, no test projects means nothing to run.
+TestMode: PerProject

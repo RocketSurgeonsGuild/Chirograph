@@ -1,0 +1,60 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+  </Configurations>
+  <Folder Name="/config/">
+    <File Path=".codecov.yml" />
+    <File Path=".config/hk.pkl" />
+    <File Path=".config/mise.ci.toml" />
+    <File Path=".config/mise.toml" />
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="AGENTS.md" />
+    <File Path="apm.yml" />
+    <File Path="CHANGELOG.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="Directory.Packages.props" />
+    <File Path="GitReleaseManager.yaml" />
+    <File Path="GitVersion.yml" />
+    <File Path="GLOSSARY.md" />
+    <File Path="global.json" />
+    <File Path="LICENSE" />
+    <File Path="NuGet.config" />
+    <File Path="package.json" />
+    <File Path="Readme.md" />
+  </Folder>
+  <Folder Name="/config/.github/">
+    <File Path=".github/labels.yml" />
+    <File Path=".github/release.yml" />
+    <File Path=".github/renovate.json" />
+  </Folder>
+  <Folder Name="/config/.github/workflows/">
+    <File Path=".github/workflows/build.yml" />
+    <File Path=".github/workflows/close-milestone.yml" />
+    <File Path=".github/workflows/dependabot-merge.yml" />
+    <File Path=".github/workflows/docs-preview-cleanup.yml" />
+    <File Path=".github/workflows/draft-release.yml" />
+    <File Path=".github/workflows/lint.yml" />
+    <File Path=".github/workflows/publish-results.yml" />
+    <File Path=".github/workflows/samples.yml" />
+    <File Path=".github/workflows/sync-labels.yml" />
+    <File Path=".github/workflows/update-milestone.yml" />
+  </Folder>
+  <Folder Name="/build/">
+    <File Path="build/appsettings.yaml" />
+    <File Path="build/Build.cs" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/.editorconfig" />
+    <File Path="src/Directory.Build.props" />
+    <File Path="src/Directory.Build.targets" />
+  </Folder>
+  <Folder Name="/test/">
+    <File Path="test/.editorconfig" />
+    <File Path="test/coverage.runsettings" />
+    <File Path="test/Directory.Build.props" />
+    <File Path="test/Directory.Build.targets" />
+  </Folder>
+</Solution>

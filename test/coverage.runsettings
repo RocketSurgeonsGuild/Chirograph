@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Code coverage settings for the CI build (build/appsettings.yaml points the pipeline's TestSolution module at this file).
+
+    Chirograph ships no compiled code: it is an MSBuild SDK of props, targets and templates, and its tests build throwaway
+    consumer projects. Collecting coverage from those projects (and the generated clients in them) would only pad the report,
+    so the include list names only Chirograph's own assemblies, of which there are none today.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage">
+        <Configuration>
+          <Format>Cobertura</Format>
+          <CodeCoverage>
+            <EnableStaticManagedInstrumentation>True</EnableStaticManagedInstrumentation>
+            <EnableDynamicManagedInstrumentation>True</EnableDynamicManagedInstrumentation>
+            <!--
+                The SDK tests start many `dotnet build` processes. Collecting from them attaches the coverage profiler to every
+                MSBuild node and compiler run they start.
+            -->
+            <CollectFromChildProcesses>True</CollectFromChildProcesses>
+            <ModulePaths>
+              <Include>
+                <ModulePath>.*[\\/]Chirograph(\.[^\\/]+)?\.dll$</ModulePath>
+              </Include>
+              <Exclude>
+                <ModulePath>.*\.Tests\.dll$</ModulePath>
+              </Exclude>
+            </ModulePaths>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
