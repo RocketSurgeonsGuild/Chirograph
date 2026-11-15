@@ -66,7 +66,7 @@ internal sealed class RocketsApi : IAsyncDisposable
     public Uri DocumentAddress => new(BaseAddress, "openapi.json");
 
     /// <summary>
-    ///     How many times the OpenAPI document was downloaded.
+    ///     How many times the OpenAPI document was downloaded (not counting the requests <see cref="DocumentUnavailable" /> turned away).
     /// </summary>
     public int DocumentRequests => _documentRequests;
 
@@ -100,19 +100,29 @@ internal sealed class RocketsApi : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    ///     Whether <c>/openapi.json</c> answers <c>404 Not Found</c>, a failure a download doesn't retry, instead of the document. The API
+    ///     stays up and keeps its port, so a build after this is set cannot reach the document, and no other test can take the port in
+    ///     the meantime.
+    /// </summary>
+    public bool DocumentUnavailable { get; set; }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        _listener.Stop();
-        _listener.Close();
+        // Close alone: Stop and Close both unregister the prefixes, and on macOS the second time binds the port again, which fails when
+        // another test took it in between.
         try
         {
-            await _serving;
+            _listener.Close();
         }
         catch (HttpListenerException) { }
         catch (ObjectDisposedException) { }
+
+        await _serving;
     }
 
+    // One request at a time. A request that fails (its client went away, say) is dropped, and the API keeps serving.
     private async Task Serve()
     {
         while (_listener.IsListening)
@@ -122,36 +132,45 @@ internal sealed class RocketsApi : IAsyncDisposable
             {
                 context = await _listener.GetContextAsync();
             }
-            catch (HttpListenerException)
-            {
-                return;
-            }
-            catch (ObjectDisposedException)
-            {
-                return;
-            }
-            // stopped before it was first asked for a request
-            catch (InvalidOperationException)
+            // closed, or closed before it was first asked for a request
+            catch (Exception e) when (e is HttpListenerException or ObjectDisposedException or InvalidOperationException)
             {
                 return;
             }
 
-            var path = context.Request.Url!.AbsolutePath;
-            var (status, body) = path switch
+            try
             {
-                "/openapi.json" => (200, Document),
-                _ when path.StartsWith("/rockets/", StringComparison.Ordinal) => (200, $$"""{ "id": "{{path["/rockets/".Length..]}}", "serialNumber": "FALCON-9" }"""),
-                _ => (404, ""),
-            };
-            if (path == "/openapi.json") Interlocked.Increment(ref _documentRequests);
-
-            var bytes = Encoding.UTF8.GetBytes(body);
-            context.Response.StatusCode = status;
-            context.Response.ContentType = "application/json";
-            context.Response.ContentLength64 = bytes.Length;
-            await context.Response.OutputStream.WriteAsync(bytes);
-            context.Response.Close();
+                await Respond(context);
+            }
+            catch (Exception e) when (e is HttpListenerException or IOException or ObjectDisposedException or InvalidOperationException)
+            {
+                try
+                {
+                    context.Response.Abort();
+                }
+                catch (ObjectDisposedException) { }
+            }
         }
+    }
+
+    private async Task Respond(HttpListenerContext context)
+    {
+        var path = context.Request.Url!.AbsolutePath;
+        var (status, body) = path switch
+        {
+            "/openapi.json" when DocumentUnavailable => (404, ""),
+            "/openapi.json" => (200, Document),
+            _ when path.StartsWith("/rockets/", StringComparison.Ordinal) => (200, $$"""{ "id": "{{path["/rockets/".Length..]}}", "serialNumber": "FALCON-9" }"""),
+            _ => (404, ""),
+        };
+        if (path == "/openapi.json" && status == 200) Interlocked.Increment(ref _documentRequests);
+
+        var bytes = Encoding.UTF8.GetBytes(body);
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/json";
+        context.Response.ContentLength64 = bytes.Length;
+        await context.Response.OutputStream.WriteAsync(bytes);
+        context.Response.Close();
     }
 
     private readonly HttpListener _listener;

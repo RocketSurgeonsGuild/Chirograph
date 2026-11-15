@@ -8,7 +8,7 @@ namespace Chirograph.Tests;
 /// <c>ChirographGenerateDovetailJoint=false</c> turns the joints off, and an older Dovetail gets no templates.
 /// </summary>
 [TargetFrameworks]
-public class DovetailJointTests(string targetFramework)
+public class DovetailJointTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary>
     /// Build seam: an application that builds its host with <c>ConfigureDovetail()</c> resolves the client with no registration call of

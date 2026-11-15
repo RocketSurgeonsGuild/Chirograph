@@ -2,6 +2,9 @@
   DovetailTemplate: {},
   PackageDownload: {
     Refitter: {
+      Arguments: --settings-file "{RefitterSettingsFile}" --output "{GeneratedDirectory}/{ClientName}.cs" --no-logging --no-banner --simple-output,
+      PackageId: Refitter,
+      Tool: refitter.dll,
       Version: [{pin: Refitter}]
     }
   },

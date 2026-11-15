@@ -1,0 +1,23 @@
+﻿{
+  ../server/server.csproj: {
+    ClientName: Server.Client,
+    ClientNameIsValid: False,
+    Generator: Kiota,
+    Kind: Project,
+    Namespace: app
+  },
+  https://example.com/openapi.json: {
+    ClientName: DefaultClient,
+    ClientNameIsValid: True,
+    Generator: Refitter,
+    Kind: Url,
+    Namespace: app
+  },
+  rockets.json: {
+    ClientName: NamedClient,
+    ClientNameIsValid: True,
+    Generator: Kiota,
+    Kind: File,
+    Namespace: Throwaway.Clients
+  }
+}

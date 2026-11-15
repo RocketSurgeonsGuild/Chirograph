@@ -1,0 +1,6 @@
+﻿{
+  LeftInTheClientsFolder: [],
+  LeftInTheProject: [
+    rockets.json
+  ]
+}

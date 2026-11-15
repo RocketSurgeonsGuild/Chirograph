@@ -2,6 +2,9 @@
   DovetailTemplate: {},
   PackageDownload: {
     Microsoft.OpenApi.Kiota: {
+      Arguments: generate --language CSharp --openapi "{Document}" --class-name {ClientName} --namespace-name {Namespace} --output "{GeneratedDirectory}" --clean-output --exclude-backward-compatible --log-level Warning,
+      PackageId: Microsoft.OpenApi.Kiota,
+      Tool: kiota.dll,
       Version: [{pin: Microsoft.OpenApi.Kiota}]
     }
   },

@@ -24,12 +24,6 @@
   ],
   "packageRules": [
     {
-      "description": "The sample consumes this repository's own package at the local 0.0.0-sample placeholder that build/pack.proj packs; never bump it to a published release",
-      "matchPackageNames": ["Chirograph"],
-      "matchFileNames": ["sample/**"],
-      "enabled": false
-    },
-    {
       "description": "The generators and the runtime packages their clients need move together, so a generator's output always matches the runtime it was tested with",
       "matchPackageNames": ["Microsoft.OpenApi.Kiota", "Microsoft.Kiota.Bundle", "Refitter", "Refit.HttpClientFactory"],
       "groupName": "openapi generators"

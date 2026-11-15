@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Utilities.ProjectCreation;
 using TUnit.Core.Exceptions;
@@ -28,13 +29,27 @@ public sealed partial class SdkTestProject : IDisposable
         Directory = Path.Combine(Path.GetTempPath(), "chirograph-tests", id);
         System.IO.Directory.CreateDirectory(Directory);
 
-        // A NuGet.config with nuget.org and the local packages, and a global packages folder of the scaffold's own, so restores never
-        // see a Chirograph package extracted by an earlier run with the same version.
-        // Until the Dovetail the joint tests need is released, its locally packed copy too (Config.DovetailVersion).
-        Uri[] feeds = Config.DovetailStagingPackages is { } staging
-            ? [new("https://api.nuget.org/v3/index.json"), new(Config.NugetArtifactsDirectory), new(staging)]
-            : [new("https://api.nuget.org/v3/index.json"), new(Config.NugetArtifactsDirectory)];
-        _ = PackageRepository.Create(Directory, feeds: feeds);
+        // A NuGet.config with nuget.org and the local packages, and the test run's packages folder (Config.PackagesFolder), which no
+        // earlier run used, so restores never see a Chirograph package extracted by an earlier run with the same version.
+        File.WriteAllText(
+            Path.Combine(Directory, "NuGet.config"),
+            new XDocument(
+                new XElement(
+                    "configuration",
+                    new XElement("config", new XElement("add", new XAttribute("key", "globalPackagesFolder"), new XAttribute("value", Config.PackagesFolder))),
+                    new XElement(
+                        "packageSources",
+                        new XElement("clear"),
+                        new XElement("add", new XAttribute("key", "nuget.org"), new XAttribute("value", "https://api.nuget.org/v3/index.json")),
+                        new XElement("add", new XAttribute("key", "chirograph-local"), new XAttribute("value", Config.NugetArtifactsDirectory)),
+                        // Until the Dovetail the joint tests need is released, its locally packed copy (Config.DovetailVersion).
+                        Config.DovetailStagingPackages is { } staging
+                            ? new XElement("add", new XAttribute("key", "dovetail-staging"), new XAttribute("value", staging))
+                            : null
+                    )
+                )
+            ).ToString()
+        );
 
         GlobalJsonCreator
            .Create(new DirectoryInfo(Directory))
@@ -52,8 +67,8 @@ public sealed partial class SdkTestProject : IDisposable
         _settings.ScrubLinesWithReplace(
             line => TargetFrameworkPattern().Replace(line.Replace(Config.ChirographPackageVersion, "{chirograph-version}", StringComparison.Ordinal), "{TargetFramework}")
         );
-        // The scaffold's folder differs on every run; a DovetailTemplate's File is in its packages folder.
-        _settings.ScrubLinesWithReplace(line => line.Replace(Directory, "{scaffold}", StringComparison.Ordinal));
+        // The packages folder differs on every run, and a DovetailTemplate's File is in it.
+        _settings.ScrubLinesWithReplace(line => line.Replace(Config.PackagesFolder, "{packages}", StringComparison.Ordinal));
         // RocketsApi listens on a free port, which differs on every run.
         _settings.ScrubLinesWithReplace(line => RocketsApiPattern().Replace(line, "{rockets-api}/"));
     }
@@ -93,13 +108,12 @@ public sealed partial class SdkTestProject : IDisposable
     /// </summary>
     public SettingsTask VerifyEvaluation(string path, string? variant = null, [CallerMemberName] string method = "")
     {
-        var fullPath = Path.Combine(Directory, path);
-        var project = _projects.Single(z => z.FullPath == fullPath).Project;
+        var project = Evaluated(path);
 
         var properties = project.AllEvaluatedProperties
                                 .Where(z => z.Name.StartsWith("Chirograph", StringComparison.Ordinal))
                                 .OrderBy(z => z.Name, StringComparer.Ordinal)
-                                .ToDictionary(z => z.Name, z => ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Name), z.EvaluatedValue));
+                                .ToDictionary(z => z.Name, z => Config.ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Name), z.EvaluatedValue));
 
         return Verify(
                 new
@@ -114,6 +128,21 @@ public sealed partial class SdkTestProject : IDisposable
             );
     }
 
+    /// <summary>
+    /// The evaluation seam, for what Chirograph keeps to itself: the items of type <paramref name="itemType" /> evaluation gives the
+    /// project at <paramref name="path" />, each with its own metadata.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> EvaluatedItems(string path, string itemType) => Items(Evaluated(path), itemType);
+
+    /// <summary>The evaluation seam, for what Chirograph keeps to itself: the value of <paramref name="name" /> in the project at <paramref name="path" />.</summary>
+    public string EvaluatedProperty(string path, string name) => Evaluated(path).GetPropertyValue(name);
+
+    private Project Evaluated(string path)
+    {
+        var fullPath = Path.Combine(Directory, path);
+        return _projects.Single(z => z.FullPath == fullPath).Project;
+    }
+
     private static Dictionary<string, Dictionary<string, string>> Items(Project project, string itemType) =>
         project.GetItems(itemType)
                .OrderBy(z => z.EvaluatedInclude, StringComparer.Ordinal)
@@ -121,37 +150,29 @@ public sealed partial class SdkTestProject : IDisposable
                     item => item.EvaluatedInclude,
                     item => item.DirectMetadata
                                 .OrderBy(z => z.Name, StringComparer.Ordinal)
-                                .ToDictionary(z => z.Name, z => z.Name == "Version" ? ScrubPin(item.EvaluatedInclude, z.EvaluatedValue) : z.EvaluatedValue)
+                                .ToDictionary(z => z.Name, z => z.Name == "Version" ? Config.ScrubPin(item.EvaluatedInclude, z.EvaluatedValue) : z.EvaluatedValue)
                 );
-
-    // A PackageDownload asks for an exact version, [1.2.3], which shows as [{pin: …}].
-    private static string ScrubPin(string? packageId, string value) =>
-        packageId is null ? value
-        : value == Config.CentralPackageVersion(packageId, "netstandard2.0") ? Config.PinPlaceholder(packageId)
-        : value == $"[{Config.CentralPackageVersion(packageId, "netstandard2.0")}]" ? $"[{Config.PinPlaceholder(packageId)}]"
-        : value;
 
     /// <summary>
     /// The build seam: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in <paramref name="relativePath" />
-    /// and returns the build's binary log.
+    /// and returns the build's binary log. The build must succeed.
     /// </summary>
-    public async Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments = "")
-    {
-        var projectDirectory = Path.Combine(Directory, relativePath);
-        await RunDotnet($"build -bl {arguments}", projectDirectory);
-        return Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog"));
-    }
+    public Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments = "") =>
+        Build(relativePath, arguments, allowFailure: false);
 
     /// <summary>
     /// The build seam for a build that may fail: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in
     /// <paramref name="relativePath" /> and returns Chirograph's errors and warnings (<c>CHIRO</c> codes), as <c>CODE: message</c>
     /// with the scaffold's folder written as <c>{scaffold}</c>.
     /// </summary>
-    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "")
+    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "") =>
+        Diagnostics(await Build(relativePath, arguments, allowFailure: true));
+
+    private async Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments, bool allowFailure)
     {
         var projectDirectory = Path.Combine(Directory, relativePath);
-        await RunDotnet($"build -bl {arguments}", projectDirectory, allowFailure: true);
-        return Diagnostics(Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog")));
+        await RunDotnet($"build -bl {arguments}", projectDirectory, allowFailure: allowFailure);
+        return Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog"));
     }
 
     /// <summary>
@@ -164,7 +185,13 @@ public sealed partial class SdkTestProject : IDisposable
                    z => z.Code?.StartsWith("CHIRO", StringComparison.Ordinal) == true
                )
               // macOS gives the temp folder as /var/… and tools resolve it to /private/var/…
-              .Select(z => $"{z.Code}: {z.Text}".Replace($"/private{Directory}", "{scaffold}", StringComparison.Ordinal).Replace(Directory, "{scaffold}", StringComparison.Ordinal))
+              .Select(
+                   z => $"{z.Code}: {z.Text}"
+                       .Replace($"/private{Directory}", "{scaffold}", StringComparison.Ordinal)
+                       .Replace(Directory, "{scaffold}", StringComparison.Ordinal)
+                       .Replace($"/private{Config.PackagesFolder}", "{packages}", StringComparison.Ordinal)
+                       .Replace(Config.PackagesFolder, "{packages}", StringComparison.Ordinal)
+               )
               .Distinct(StringComparer.Ordinal)];
 
     /// <summary>

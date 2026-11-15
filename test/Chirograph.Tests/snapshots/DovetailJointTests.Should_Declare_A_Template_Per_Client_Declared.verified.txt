@@ -3,23 +3,33 @@
     Chirograph.LaunchesClient: {
       ChirographVersion: {chirograph-version},
       ClientName: LaunchesClient,
-      File: {scaffold}/.nuget/packages/chirograph/{chirograph-version}/Sdk/templates/OpenApiClientJoint.cs.template,
+      ClientNameIsValid: True,
+      File: {packages}/chirograph/{chirograph-version}/Sdk/templates/OpenApiClientJoint.cs.template,
       Generator: Refitter,
+      Kind: File,
       Namespace: app
     },
     Chirograph.RocketsClient: {
       ChirographVersion: {chirograph-version},
       ClientName: RocketsClient,
-      File: {scaffold}/.nuget/packages/chirograph/{chirograph-version}/Sdk/templates/OpenApiClientJoint.cs.template,
+      ClientNameIsValid: True,
+      File: {packages}/chirograph/{chirograph-version}/Sdk/templates/OpenApiClientJoint.cs.template,
       Generator: Kiota,
+      Kind: File,
       Namespace: Throwaway.Clients
     }
   },
   PackageDownload: {
     Microsoft.OpenApi.Kiota: {
+      Arguments: generate --language CSharp --openapi "{Document}" --class-name {ClientName} --namespace-name {Namespace} --output "{GeneratedDirectory}" --clean-output --exclude-backward-compatible --log-level Warning,
+      PackageId: Microsoft.OpenApi.Kiota,
+      Tool: kiota.dll,
       Version: [{pin: Microsoft.OpenApi.Kiota}]
     },
     Refitter: {
+      Arguments: --settings-file "{RefitterSettingsFile}" --output "{GeneratedDirectory}/{ClientName}.cs" --no-logging --no-banner --simple-output,
+      PackageId: Refitter,
+      Tool: refitter.dll,
       Version: [{pin: Refitter}]
     }
   },

@@ -2,7 +2,7 @@ namespace Chirograph.Tests;
 
 /// <summary>A consumer of the Chirograph SDK without any <c>OpenApiClient</c> item.</summary>
 [TargetFrameworks]
-public class SdkTests(string targetFramework)
+public class SdkTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary>Evaluation seam: the SDK sets its version properties and adds no package reference or download.</summary>
     [Test]
@@ -12,6 +12,21 @@ public class SdkTests(string targetFramework)
         project.AddProject("app/app.csproj", project.CreateConsumer());
 
         await project.VerifyEvaluation("app/app.csproj");
+    }
+
+    /// <summary>
+    /// Evaluation seam: each error and warning links to the docs of the installed version when it is a release, which the docs site
+    /// keeps in <c>v&lt;version&gt;/</c>, and to the root, main's docs, for a prerelease, which has no folder of its own.
+    /// </summary>
+    [Test]
+    [Arguments("1.2.3")]
+    [Arguments("1.2.3-beta.4")]
+    public async Task Should_Link_The_Diagnostics_To_The_Docs_Of_The_Version(string version)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project.AddProject("app/app.csproj", project.CreateConsumer().Property("ChirographVersion", version));
+
+        await project.VerifyResult(project.EvaluatedProperty("app/app.csproj", "_ChirographDiagnosticsUrl"), version);
     }
 
     /// <summary>Build seam: a consumer with no <c>OpenApiClient</c> items builds and runs, with the environment the test gives it.</summary>
