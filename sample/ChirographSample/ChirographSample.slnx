@@ -1,1 +1,6 @@
-<Solution />
+<Solution>
+  <Project Path="Rockets.Api/Rockets.Api.csproj" />
+  <Project Path="Rockets.Client.Kiota/Rockets.Client.Kiota.csproj" />
+  <Project Path="Rockets.Client.Refitter/Rockets.Client.Refitter.csproj" />
+  <Project Path="Rockets.Console/Rockets.Console.csproj" />
+</Solution>

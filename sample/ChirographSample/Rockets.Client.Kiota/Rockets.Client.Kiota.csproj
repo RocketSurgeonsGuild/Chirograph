@@ -1,0 +1,13 @@
+<!--
+    A Kiota client generated from the server project. Naming a .csproj as the OpenApiClient's source makes Chirograph build
+    Rockets.Api first and read the document it writes, so the client always matches the server.
+
+    The build writes the class RocketsClient (Kiota) and the registration AddRocketsClient(), both in Rockets.Client.Kiota.
+    Chirograph adds the package references the generated code needs (Microsoft.Kiota.Bundle, Microsoft.Extensions.Http).
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="0.0.0-sample" />
+  <ItemGroup>
+    <OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Kiota" ClientName="RocketsClient" Namespace="Rockets.Client.Kiota" />
+  </ItemGroup>
+</Project>

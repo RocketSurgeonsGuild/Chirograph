@@ -128,6 +128,9 @@ jobs:
               run: '"$DOTNET_ROOT/dotnet" msbuild build/pack.proj -bl:../../artifacts/logs/sample-pack.binlog'
             - name: ⚙️ Build sample/ChirographSample
               run: '"$DOTNET_ROOT/dotnet" build sample/ChirographSample/ChirographSample.slnx -bl:artifacts/logs/sample-build.binlog'
+            # Resolves both generated clients from the container and prints their types; it calls no server.
+            - name: ▶️ Run Rockets.Console
+              run: '"$DOTNET_ROOT/dotnet" run --no-build --project sample/ChirographSample/Rockets.Console/Rockets.Console.csproj'
             - name: 🏺 Publish logs
               if: always()
               uses: actions/upload-artifact@v7
