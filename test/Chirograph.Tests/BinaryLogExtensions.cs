@@ -26,8 +26,8 @@ internal static class BinaryLogExtensions
     public static string[] ParameterValues(this Microsoft.Build.Logging.StructuredLogger.Task task, string parameterName)
     {
         var parameters = task.FindChild<Folder>("Parameters");
-        return  parameters is null 
-            ?   []  
+        return parameters is null
+            ? []
             : [.. parameters
               .Children
               .SelectMany(
