@@ -41,6 +41,8 @@
     <ChirographUpdateOpenApiDocumentCache Condition="'$(ChirographUpdateOpenApiDocumentCache)' == ''">true</ChirographUpdateOpenApiDocumentCache>
     <!-- the folder of the tool packages that holds the tools, which run on .NET 10 or later -->
     <_ChirographOpenApiToolFramework>net10.0</_ChirographOpenApiToolFramework>
+    <!-- the reference page of the diagnostics, each error and warning links to the heading of its code -->
+    <_ChirographDiagnosticsUrl>https://rocketsurgeonsguild.github.io/Chirograph/reference/diagnostics/</_ChirographDiagnosticsUrl>
   </PropertyGroup>
 
   <ItemGroup Condition="'@(OpenApiClient)' != ''">
@@ -121,11 +123,13 @@
     <Error
       Condition="'%(OpenApiClient.Generator)' != 'Kiota' and '%(OpenApiClient.Generator)' != 'Refitter'"
       Code="CHIRO100"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro100"
       Text="The OpenApiClient '%(OpenApiClient.Identity)' has Generator '%(OpenApiClient.Generator)': set it to Kiota or Refitter."
     />
     <Error
       Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(OpenApiClient.ClientName)', '^[A-Za-z_][A-Za-z0-9_]*$'))"
       Code="CHIRO101"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro101"
       Text="The OpenApiClient '%(OpenApiClient.Identity)' has ClientName '%(OpenApiClient.ClientName)': set it to the name of the client, a C# identifier."
     />
 
@@ -157,6 +161,7 @@
     <Error
       Condition="'%(_ChirographOpenApiClient.Kind)' == 'File' and !Exists('%(_ChirographOpenApiClient.Source)')"
       Code="CHIRO102"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro102"
       Text="The OpenAPI document '%(_ChirographOpenApiClient.Identity)' of the OpenApiClient '%(_ChirographOpenApiClient.ClientName)' does not exist."
     />
     <MakeDir Directories="@(_ChirographOpenApiClient->'%(ClientDirectory)')" />
@@ -210,6 +215,7 @@
     <Error
       Condition="'$(_ChirographOpenApiKind)' == 'Project' and '@(_ChirographOpenApiChosenDocument->Count())' != '1'"
       Code="CHIRO103"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro103"
       Text="The project '$(_ChirographOpenApiClientIdentity)' of the OpenApiClient '$(_ChirographOpenApiClientName)' wrote the documents '@(_ChirographOpenApiServerDocument)': set DocumentName to the one the client is generated from."
     />
     <PropertyGroup Condition="'$(_ChirographOpenApiKind)' == 'Project'">
@@ -246,11 +252,13 @@
     <Warning
       Condition="'$(_ChirographOpenApiKind)' == 'Url' and '$(_ChirographOpenApiDownload)' == 'true' and !Exists('$(_ChirographOpenApiDownloaded)') and Exists('$(_ChirographOpenApiCache)')"
       Code="CHIRO104"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro104"
       Text="The OpenAPI document of the OpenApiClient '$(_ChirographOpenApiClientName)' could not be downloaded from '$(_ChirographOpenApiClientIdentity)': the client is generated from the cached copy, '$(_ChirographOpenApiCache)'."
     />
     <Error
       Condition="'$(_ChirographOpenApiKind)' == 'Url' and !Exists('$(_ChirographOpenApiDownloaded)') and !Exists('$(_ChirographOpenApiCache)')"
       Code="CHIRO105"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro105"
       Text="The OpenAPI document of the OpenApiClient '$(_ChirographOpenApiClientName)' could not be downloaded from '$(_ChirographOpenApiClientIdentity)', and there is no cached copy."
     />
     <!-- a download updates the cache when it differs from it -->
@@ -401,6 +409,7 @@
     <Error
       Condition="'$(_ChirographOpenApiToolPath)' == ''"
       Code="CHIRO106"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro106"
       Text="The $(_ChirographOpenApiGenerator) tool the OpenApiClient '%(_ChirographOpenApiClient.ClientName)' is generated with was not found in the packages folders ($(NuGetPackageFolders)): restore the project."
     />
 
@@ -428,6 +437,7 @@
     <Error
       Condition="'$(_ChirographOpenApiExitCode)' != '0'"
       Code="CHIRO107"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro107"
       Text="$(_ChirographOpenApiGenerator) could not generate the OpenAPI client %(_ChirographOpenApiClient.ClientName) (exit code $(_ChirographOpenApiExitCode)):%0A@(_ChirographOpenApiOutput, '%0A')"
     />
     <ItemGroup>
@@ -444,6 +454,8 @@
       <_ChirographOpenApiClientCode Include="@(_ChirographOpenApiClient->'%(RegistrationFile)')" Condition="Exists('%(_ChirographOpenApiClient.RegistrationFile)')" />
       <Compile Include="@(_ChirographOpenApiClientCode)" />
       <FileWrites Include="@(_ChirographOpenApiClientCode)" />
+      <!-- the stamp goes with the code dotnet clean removes, so the next build generates the client again -->
+      <FileWrites Include="@(_ChirographOpenApiClient->'%(StampFile)')" Condition="Exists('%(_ChirographOpenApiClient.StampFile)')" />
     </ItemGroup>
   </Target>
 </Project>
