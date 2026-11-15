@@ -1,0 +1,22 @@
+﻿{
+  PackageDownload: {
+    Refitter: {
+      Version: [{pin: Refitter}]
+    }
+  },
+  PackageReference: {
+    Refit.HttpClientFactory: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Refit.HttpClientFactory}
+    }
+  },
+  ProjectReference: {},
+  Properties: {
+    ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
+    ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
+    ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographVersion: {chirograph-version}
+  }
+}

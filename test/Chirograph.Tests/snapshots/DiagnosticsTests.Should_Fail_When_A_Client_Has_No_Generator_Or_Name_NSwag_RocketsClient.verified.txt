@@ -1,0 +1,3 @@
+﻿[
+  CHIRO100: The OpenApiClient 'rockets.json' has Generator 'NSwag': set it to Kiota or Refitter.
+]

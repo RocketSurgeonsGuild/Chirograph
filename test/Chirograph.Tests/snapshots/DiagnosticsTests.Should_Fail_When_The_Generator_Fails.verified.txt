@@ -1,0 +1,3 @@
+﻿[
+  CHIRO107: Kiota could not generate the OpenAPI client RocketsClient (exit code 1):
+]

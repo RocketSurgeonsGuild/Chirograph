@@ -1,0 +1,16 @@
+﻿{
+  AfterABuild: {
+    Compiled: [
+      RocketsClient/RocketsClientServiceCollectionExtensions.g.cs,
+      RocketsClient/generated/Models/Rocket.cs,
+      RocketsClient/generated/Rockets/Item/RocketsItemRequestBuilder.cs,
+      RocketsClient/generated/Rockets/RocketsRequestBuilder.cs,
+      RocketsClient/generated/RocketsClient.cs
+    ],
+    Generated: []
+  },
+  BeforeAnyBuild: {
+    Compiled: [],
+    Generated: []
+  }
+}

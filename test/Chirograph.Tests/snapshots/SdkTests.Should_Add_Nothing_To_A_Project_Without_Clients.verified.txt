@@ -1,6 +1,7 @@
 ﻿{
   PackageDownload: {},
   PackageReference: {},
+  ProjectReference: {},
   Properties: {
     ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
     ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
