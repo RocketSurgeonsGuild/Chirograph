@@ -1,9 +1,9 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Utilities.ProjectCreation;
 using TUnit.Core.Exceptions;
-using Task = System.Threading.Tasks.Task;
 
 namespace Chirograph.Tests;
 
@@ -61,11 +61,14 @@ public sealed partial class SdkTestProject : IDisposable
         return this;
     }
 
-    /// <summary>A consumer: a console application on the test's target framework that uses <c>&lt;Sdk Name="Chirograph" /&gt;</c>.</summary>
-    public ProjectCreator CreateConsumer() =>
-        ProjectCreator
-           .Templates.SdkCsproj(targetFramework: _targetFramework, outputType: "Exe")
-           .Sdk("Chirograph");
+    /// <summary>
+    /// A consumer: a project on the test's target framework that uses <c>&lt;Sdk Name="Chirograph" /&gt;</c>, a console application
+    /// unless <paramref name="outputType" /> says otherwise.
+    /// </summary>
+    public ProjectCreator CreateConsumer(string outputType = "Exe") => CreateProject(outputType).Sdk("Chirograph");
+
+    /// <summary>A project on the test's target framework that doesn't use Chirograph, a console application unless <paramref name="outputType" /> says otherwise.</summary>
+    public ProjectCreator CreateProject(string outputType = "Exe") => ProjectCreator.Templates.SdkCsproj(targetFramework: _targetFramework, outputType: outputType);
 
     public SdkTestProject AddFile(string path, string content)
     {
@@ -77,10 +80,10 @@ public sealed partial class SdkTestProject : IDisposable
 
     /// <summary>
     /// The evaluation seam: evaluates the project at <paramref name="path" /> in-process, without restoring or building it, and
-    /// verifies Chirograph's public properties and the <c>PackageReference</c> and <c>PackageDownload</c> items, each with its own
+    /// verifies Chirograph's public properties and the <c>PackageReference</c>, <c>PackageDownload</c> and <c>ProjectReference</c> items, each with its own
     /// metadata. A version Directory.Packages.props pins shows as <see cref="Config.PinPlaceholder" />.
     /// </summary>
-    public async Task VerifyEvaluation(string path)
+    public SettingsTask VerifyEvaluation(string path, string? variant = null, [CallerMemberName] string method = "")
     {
         var fullPath = Path.Combine(Directory, path);
         var project = _projects.Single(z => z.FullPath == fullPath).Project;
@@ -90,15 +93,16 @@ public sealed partial class SdkTestProject : IDisposable
                                 .OrderBy(z => z.Name, StringComparer.Ordinal)
                                 .ToDictionary(z => z.Name, z => ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Name), z.EvaluatedValue));
 
-        await Verify(
+        return Verify(
                 new
                 {
                     Properties = properties,
                     PackageReference = Items(project, "PackageReference"),
                     PackageDownload = Items(project, "PackageDownload"),
+                    ProjectReference = Items(project, "ProjectReference"),
                 },
-                settings: _settings
-            ).ToTask();
+                settings: Settings(variant, method)
+            );
     }
 
     private static Dictionary<string, Dictionary<string, string>> Items(Project project, string itemType) =>
@@ -111,8 +115,12 @@ public sealed partial class SdkTestProject : IDisposable
                                 .ToDictionary(z => z.Name, z => z.Name == "Version" ? ScrubPin(item.EvaluatedInclude, z.EvaluatedValue) : z.EvaluatedValue)
                 );
 
+    // A PackageDownload asks for an exact version, [1.2.3], which shows as [{pin: …}].
     private static string ScrubPin(string? packageId, string value) =>
-        packageId is not null && value == Config.CentralPackageVersion(packageId, "netstandard2.0") ? Config.PinPlaceholder(packageId) : value;
+        packageId is null ? value
+        : value == Config.CentralPackageVersion(packageId, "netstandard2.0") ? Config.PinPlaceholder(packageId)
+        : value == $"[{Config.CentralPackageVersion(packageId, "netstandard2.0")}]" ? $"[{Config.PinPlaceholder(packageId)}]"
+        : value;
 
     /// <summary>
     /// The build seam: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in <paramref name="relativePath" />
@@ -126,16 +134,57 @@ public sealed partial class SdkTestProject : IDisposable
     }
 
     /// <summary>
+    /// The build seam for a build that may fail: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in
+    /// <paramref name="relativePath" /> and returns Chirograph's errors and warnings (<c>CHIRO</c> codes), as <c>CODE: message</c>
+    /// with the scaffold's folder written as <c>{scaffold}</c>.
+    /// </summary>
+    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "")
+    {
+        var projectDirectory = Path.Combine(Directory, relativePath);
+        await RunDotnet($"build -bl {arguments}", projectDirectory, allowFailure: true);
+        var build = Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(projectDirectory, "msbuild.binlog"));
+        return [.. build
+              .FindChildrenRecursive<Microsoft.Build.Logging.StructuredLogger.AbstractDiagnostic>(
+                   z => z.Code?.StartsWith("CHIRO", StringComparison.Ordinal) == true
+               )
+              // macOS gives the temp folder as /var/… and tools resolve it to /private/var/…
+              .Select(z => $"{z.Code}: {z.Text}".Replace($"/private{Directory}", "{scaffold}", StringComparison.Ordinal).Replace(Directory, "{scaffold}", StringComparison.Ordinal))
+              .Distinct(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
     /// Builds and runs the application in <paramref name="relativePath" /> with <c>dotnet run</c>, with <paramref name="environment" />
     /// added to its environment (say <c>Clients__RocketsClient__BaseAddress</c>), and returns what it wrote to standard output.
     /// </summary>
     public Task<string> Run(string relativePath, IReadOnlyDictionary<string, string>? environment = null, string arguments = "") =>
         RunDotnet(arguments == "" ? "run" : $"run -- {arguments}", Path.Combine(Directory, relativePath), environment);
 
-    /// <summary>Verifies <paramref name="target" /> with the scaffold's scrubbers (the target framework and Chirograph's version).</summary>
-    public Task VerifyResult(object target) => Verify(target, _settings).ToTask();
+    /// <summary>
+    /// Verifies <paramref name="target" /> with the scaffold's scrubbers (the target framework and Chirograph's version). A test whose
+    /// arguments change the result names a <paramref name="variant" />, which becomes part of the snapshot's name.
+    /// </summary>
+    public SettingsTask VerifyResult(object target, string? variant = null, [CallerMemberName] string method = "") =>
+        Verify(target, Settings(variant, method));
 
-    private static async Task<string> RunDotnet(string arguments, string workingDirectory, IReadOnlyDictionary<string, string>? environment = null)
+    // Both target frameworks share one verified file (IgnoreParametersForVerified), so a variant goes into the method name instead of
+    // the parameters, which only name the received files.
+    private VerifySettings Settings(string? variant, string method)
+    {
+        var settings = new VerifySettings(_settings);
+        if (variant is not null)
+        {
+            settings.UseMethodName($"{method}_{variant}");
+        }
+
+        return settings;
+    }
+
+    private static async Task<string> RunDotnet(
+        string arguments,
+        string workingDirectory,
+        IReadOnlyDictionary<string, string>? environment = null,
+        bool allowFailure = false
+    )
     {
         var psi = CreateHermeticStartInfo(arguments, workingDirectory);
         foreach (var (name, value) in environment ?? new Dictionary<string, string>())
@@ -147,7 +196,7 @@ public sealed partial class SdkTestProject : IDisposable
         var stdout = proc.StandardOutput.ReadToEndAsync();
         var stderr = proc.StandardError.ReadToEndAsync();
         await proc.WaitForExitAsync();
-        return proc.ExitCode == 0
+        return proc.ExitCode == 0 || allowFailure
             ? await stdout
             : throw new TUnitException($"dotnet {arguments} failed in {workingDirectory}:\n{await stdout}\n{await stderr}");
     }
