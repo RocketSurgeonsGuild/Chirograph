@@ -1,6 +1,19 @@
 <!--
-    Stops MSBuild from walking up into the repository's Directory.Packages.props, which enables
-    central package management and repo-only GlobalPackageReferences. The SDK's implicit
-    PackageReferences carry explicit versions, like they would in any external consumer.
+    The sample's own central package management, so MSBuild doesn't walk up into the repository's Directory.Packages.props (with its
+    repo-only GlobalPackageReferences). The projects name packages without versions; the versions are pinned here, where Renovate
+    updates them.
+
+    Chirograph isn't pinned here: it is an MSBuild SDK, named with its version in each client project's <Sdk Name="Chirograph" />,
+    always the 0.0.0-sample that build/pack.proj packs. The packages Chirograph adds to a client project are implicit references with
+    their own versions, which central package management leaves alone.
 -->
-<Project />
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
+  </ItemGroup>
+</Project>
