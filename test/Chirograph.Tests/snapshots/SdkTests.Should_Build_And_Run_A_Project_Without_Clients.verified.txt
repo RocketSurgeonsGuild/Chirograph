@@ -1,0 +1,1 @@
+﻿Clients__RocketsClient__BaseAddress=http://127.0.0.1:5000/

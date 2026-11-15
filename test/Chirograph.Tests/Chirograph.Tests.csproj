@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+        MSBuild.ProjectCreation loads MSBuild in-proc from an SDK of the host's major version, and only SDK 11 is installed (mise adds
+        just the .NET 10 runtime). The scaffolded projects cover both target frameworks instead, through TargetFrameworksAttribute.
+    -->
+    <TargetFramework>net11.0</TargetFramework>
+    <!--
+        MSB3277: Microsoft.Build references a newer NuGet.Frameworks than the newest NuGet.* packages. Harmless: MSBuild and NuGet are
+        loaded from the installed SDK at run time, so these only compile against.
+    -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSBuild.ProjectCreation" />
+    <!-- Load all of MSBuild from the SDK (MSBuildAssemblyResolver): copies from these packages don't match its Microsoft.Build.dll. -->
+    <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" ExcludeAssets="runtime" />
+    <PackageReference Include="MSBuild.StructuredLogger.Utils" />
+    <PackageReference Include="NuGet.Packaging" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+  <!--
+      The tests scaffold throwaway consumer projects that restore Chirograph from artifacts/nuget-local (see SdkTestProject.cs and
+      Config.NugetArtifactsDirectory), so the package has to exist and be current before they run. Every src/*.csproj is packed on
+      every build of this project instead of in a separate manual step.
+  -->
+  <ItemGroup>
+    <_ChirographSrcProject Include="$(MSBuildThisFileDirectory)..\..\src\**\*.csproj" />
+  </ItemGroup>
+
+  <Target Name="PackChirographSourcePackages" BeforeTargets="Build">
+    <!-- One call without a TargetFramework: MSBuild caches it, and the src projects never inherit this project's TargetFramework. -->
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="_PackChirographSourcePackages"
+      Properties="Configuration=$(Configuration)"
+      RemoveProperties="TargetFramework;RuntimeIdentifier"
+    />
+  </Target>
+
+  <Target Name="_PackChirographSourcePackages">
+    <!--
+        artifacts/nuget-local also collects packages from other packs (a GitVersion-numbered one run locally, say). SdkTestProject
+        hands the scaffold the highest Chirograph version it finds there, so a stale higher version would win over the package this
+        target is about to rebuild. Clear the old ones first.
+    -->
+    <ItemGroup>
+      <_StaleChirographPackage Include="$(MSBuildThisFileDirectory)..\..\artifacts\nuget-local\Chirograph.*.nupkg;$(MSBuildThisFileDirectory)..\..\artifacts\nuget-local\Chirograph.*.snupkg" />
+    </ItemGroup>
+    <Delete Files="@(_StaleChirographPackage)" />
+    <!--
+        Restore and Pack run as separate calls: in one call, Pack reuses the evaluation made before restore and, on a clean checkout,
+        builds without the package-provided references. The extra global property gives the restore its own evaluation.
+    -->
+    <MSBuild
+      Projects="@(_ChirographSrcProject)"
+      Targets="Restore"
+      Properties="Configuration=$(Configuration);VersionSuffix=local;_ChirographTestsRestore=true"
+      RemoveProperties="TargetFramework;RuntimeIdentifier"
+      BuildInParallel="false"
+    />
+    <MSBuild
+      Projects="@(_ChirographSrcProject)"
+      Targets="Pack"
+      Properties="Configuration=$(Configuration);VersionSuffix=local"
+      RemoveProperties="TargetFramework;RuntimeIdentifier"
+      BuildInParallel="true"
+    />
+  </Target>
+</Project>

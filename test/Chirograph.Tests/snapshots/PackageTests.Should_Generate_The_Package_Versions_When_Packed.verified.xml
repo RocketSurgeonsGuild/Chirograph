@@ -1,0 +1,11 @@
+﻿<Project>
+<!-- Generated when Chirograph is packed. Each version is only set when the project has not set it already. -->
+<PropertyGroup>
+<ChirographVersion Condition="'$(ChirographVersion)' == ''">{chirograph-version}</ChirographVersion>
+<ChirographKiotaVersion Condition="'$(ChirographKiotaVersion)' == ''">{pin: Microsoft.OpenApi.Kiota}</ChirographKiotaVersion>
+<ChirographRefitterVersion Condition="'$(ChirographRefitterVersion)' == ''">{pin: Refitter}</ChirographRefitterVersion>
+<ChirographKiotaBundleVersion Condition="'$(ChirographKiotaBundleVersion)' == ''">{pin: Microsoft.Kiota.Bundle}</ChirographKiotaBundleVersion>
+<ChirographRefitVersion Condition="'$(ChirographRefitVersion)' == ''">{pin: Refit.HttpClientFactory}</ChirographRefitVersion>
+<ChirographMicrosoftExtensionsHttpVersion Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' == ''">{pin: Microsoft.Extensions.Http}</ChirographMicrosoftExtensionsHttpVersion>
+</PropertyGroup>
+</Project>
