@@ -1,0 +1,23 @@
+<Project>
+  <!--
+      A package Chirograph adds to a project is declared as one private item, which becomes a PackageReference here:
+
+          <_ChirographImplicitPackageReference Include="Microsoft.Kiota.Bundle" Version="$(ChirographKiotaBundleVersion)" />
+
+      Every metadata value (PrivateAssets, IncludeAssets, ...) is copied onto the PackageReference. The expansion happens at evaluation,
+      not in a target, because NuGet restore only sees the items that exist when evaluation finishes. It only sees the items declared
+      before it, so Sdk.targets imports this file last.
+
+      A package the project references itself wins: its own PackageReference, and its version, are left alone, and nothing is added.
+  -->
+  <ItemGroup>
+    <!--
+        Exclude drops the packages the project references itself (item identities compare case-insensitively). Dovetail's
+        DovetailSdkImplicitPackageReference uses a condition on %(Identity) instead, which evaluation doesn't batch: it added a second
+        PackageReference next to the project's own.
+    -->
+    <_ChirographImplicitPackageReferenceToAdd Include="@(_ChirographImplicitPackageReference)" Exclude="@(PackageReference)" />
+    <PackageReference Include="@(_ChirographImplicitPackageReferenceToAdd)" IsImplicitlyDefined="true" />
+    <_ChirographImplicitPackageReferenceToAdd Remove="@(_ChirographImplicitPackageReferenceToAdd)" />
+  </ItemGroup>
+</Project>

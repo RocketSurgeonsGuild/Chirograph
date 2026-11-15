@@ -50,11 +50,13 @@
     <File Path="src/.editorconfig" />
     <File Path="src/Directory.Build.props" />
     <File Path="src/Directory.Build.targets" />
+    <Project Path="src/Chirograph/Chirograph.csproj" />
   </Folder>
   <Folder Name="/test/">
     <File Path="test/.editorconfig" />
     <File Path="test/coverage.runsettings" />
     <File Path="test/Directory.Build.props" />
     <File Path="test/Directory.Build.targets" />
+    <Project Path="test/Chirograph.Tests/Chirograph.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,21 @@
+﻿{
+  PackageDownload: {},
+  PackageReference: {
+    Microsoft.Kiota.Bundle: {
+      Version: 2.0.0
+    },
+    Refit.HttpClientFactory: {
+      IsImplicitlyDefined: true,
+      PrivateAssets: analyzers,
+      Version: {pin: Refit.HttpClientFactory}
+    }
+  },
+  Properties: {
+    ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
+    ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
+    ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographVersion: {chirograph-version}
+  }
+}

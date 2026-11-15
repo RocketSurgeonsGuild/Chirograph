@@ -1,0 +1,16 @@
+﻿{
+  Files: [
+    Chirograph.nuspec,
+    LICENSE,
+    Readme.md,
+    Sdk/Chirograph.ImplicitPackageReferences.targets,
+    Sdk/Packages.props,
+    Sdk/Sdk.props,
+    Sdk/Sdk.targets,
+    images/chirograph-icon.png
+  ],
+  Id: Chirograph,
+  PackageTypes: [
+    MSBuildSdk
+  ]
+}
