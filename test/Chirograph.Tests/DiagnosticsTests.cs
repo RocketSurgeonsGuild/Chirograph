@@ -41,11 +41,10 @@ public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(T
     [Test]
     public async Task Should_Fail_When_The_Url_Cannot_Be_Reached_Without_A_Cache()
     {
-        var api = RocketsApi.Start();
-        var address = api.DocumentAddress.ToString();
-        await api.DisposeAsync();
+        await using var api = RocketsApi.Start();
+        api.DocumentUnavailable = true;
         using var project = new SdkTestProject(targetFramework);
-        project.AddProject("app/app.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, address));
+        project.AddProject("app/app.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, api.DocumentAddress.ToString()));
 
         await project.VerifyResult(await project.BuildDiagnostics("app"));
     }

@@ -12,29 +12,20 @@ namespace Chirograph.Tests;
 public class DocumentCacheTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary>
-    /// Two builds download the document twice but generate the client once. With the API stopped, the build uses the last download,
+    /// Two builds download the document twice but generate the client once. When the URL then answers with an error, the build uses the last download,
     /// with <c>CHIRO104</c>, and generates nothing.
     /// </summary>
     [Test]
     public async Task Should_Use_The_Last_Download_When_The_Url_Cannot_Be_Reached()
     {
-        var api = RocketsApi.Start();
+        await using var api = RocketsApi.Start();
         using var project = new SdkTestProject(targetFramework);
         project.AddRocketsApp(targetFramework, Generator.Kiota, api.DocumentAddress.ToString());
 
-        Microsoft.Build.Logging.StructuredLogger.Build first, again;
-        int documentRequests;
-        try
-        {
-            first = await project.Build("app");
-            again = await project.Build("app");
-            documentRequests = api.DocumentRequests;
-        }
-        finally
-        {
-            await api.DisposeAsync();
-        }
-
+        var first = await project.Build("app");
+        var again = await project.Build("app");
+        var documentRequests = api.DocumentRequests;
+        api.DocumentUnavailable = true;
         var offline = await project.Build("app");
 
         await project.VerifyResult(
@@ -55,7 +46,7 @@ public class DocumentCacheTests(string targetFramework) : LoggerTest<TestRecord>
     [Test]
     public async Task Should_Generate_From_The_Document_Cache_When_The_Url_Cannot_Be_Reached()
     {
-        var api = RocketsApi.Start();
+        await using var api = RocketsApi.Start();
         using var project = new SdkTestProject(targetFramework);
         project.AddRocketsApp(
             targetFramework,
@@ -64,24 +55,17 @@ public class DocumentCacheTests(string targetFramework) : LoggerTest<TestRecord>
             new Dictionary<string, string?> { ["DocumentCache"] = "openapi/rockets.json" }
         );
 
-        try
-        {
-            await project.Build("app");
-        }
-        finally
-        {
-            await api.DisposeAsync();
-        }
-
+        await project.Build("app");
         var cache = await File.ReadAllTextAsync(Path.Combine(project.Directory, "app", "openapi", "rockets.json"));
         Directory.Delete(Path.Combine(project.Directory, "app", "obj"), recursive: true);
         Directory.Delete(Path.Combine(project.Directory, "app", "bin"), recursive: true);
+        api.DocumentUnavailable = true;
         var offline = await project.Build("app");
 
         await project.VerifyResult(
             new
             {
-                CacheIsTheDocument = cache == RocketsApi.Document,
+                Cache = cache,
                 Offline = new { Generated = offline.GeneratedClients(), Diagnostics = project.Diagnostics(offline) },
             }
         );
