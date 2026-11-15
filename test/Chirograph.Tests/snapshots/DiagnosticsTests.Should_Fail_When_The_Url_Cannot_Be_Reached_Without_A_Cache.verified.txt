@@ -1,0 +1,3 @@
+﻿[
+  CHIRO105: The OpenAPI document of the OpenApiClient 'RocketsClient' could not be downloaded from '{rockets-api}/openapi.json', and there is no cached copy.
+]

@@ -1,0 +1,11 @@
+﻿{
+  CacheIsTheDocument: true,
+  Offline: {
+    Diagnostics: [
+      CHIRO104: The OpenAPI document of the OpenApiClient 'RocketsClient' could not be downloaded from '{rockets-api}/openapi.json': the client is generated from the cached copy, '{scaffold}/app/openapi/rockets.json'.
+    ],
+    Generated: [
+      Generating the OpenAPI client RocketsClient with Kiota
+    ]
+  }
+}
