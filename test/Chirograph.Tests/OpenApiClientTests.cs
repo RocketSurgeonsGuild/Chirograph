@@ -9,7 +9,7 @@ namespace Chirograph.Tests;
 /// the loopback interface.
 /// </summary>
 [TargetFrameworks]
-public class OpenApiClientTests(string targetFramework)
+public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary>
     /// Build seam: each generator generates a client from each kind of source, and the application registers it with

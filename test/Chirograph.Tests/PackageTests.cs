@@ -3,7 +3,7 @@ using NuGet.Packaging;
 namespace Chirograph.Tests;
 
 /// <summary>The Chirograph package that Chirograph.Tests.csproj packs before it builds.</summary>
-public class PackageTests
+public class PackageTests() : LoggerTest<TestRecord>(TestRecord.Create())
 {
     [Test]
     public async Task Should_Ship_Only_Msbuild_Files()

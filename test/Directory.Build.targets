@@ -5,6 +5,7 @@
         <PackageReference Include="Rocket.Surgery.Extensions.Testing.TUnit" />
         <PackageReference Include="TUnit" />
         <PackageReference Include="TUnit.Assertions.Should" />
+        <Using Include="Rocket.Surgery.Extensions.Testing" />
         <Using Include="TUnit.Assertions.Should" />
         <Using Include="TUnit.Assertions.Should.Extensions" />
         <Using Include="TUnit.Assertions.Enums" />

@@ -7,7 +7,7 @@ namespace Chirograph.Tests;
 /// by hand. These tests read the SDK's files and fail when a page lists something the SDK doesn't read or raise, or misses something it
 /// does, as Dovetail's <c>DovetailItemDocumentationTests</c> does for its items.
 /// </summary>
-public partial class ReferenceDocumentationTests
+public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(TestRecord.Create())
 {
     private const string OpenApiClientsTargets = "src/Chirograph/Sdk/Chirograph.OpenApiClients.targets";
     private const string ItemPage = "docs/src/content/docs/reference/openapiclient.md";

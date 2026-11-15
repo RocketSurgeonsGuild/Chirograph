@@ -7,7 +7,7 @@ namespace Chirograph.Tests;
 /// earlier build generated.
 /// </summary>
 [TargetFrameworks]
-public class DesignTimeBuildTests(string targetFramework)
+public class DesignTimeBuildTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     // What an IDE runs: a design-time build up to the compiler, which only gives its command line.
     private const string DesignTime = "-t:Compile -p:DesignTimeBuild=true -p:SkipCompilerExecution=true -p:ProvideCommandLineArgs=true";

@@ -7,7 +7,7 @@ namespace Chirograph.Tests;
 /// when the document is written again with the same content.
 /// </summary>
 [TargetFrameworks]
-public class IncrementalTests(string targetFramework)
+public class IncrementalTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     [Test]
     [Arguments(Generator.Kiota)]

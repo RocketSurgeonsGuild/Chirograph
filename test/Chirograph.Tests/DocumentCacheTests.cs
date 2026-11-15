@@ -9,7 +9,7 @@ namespace Chirograph.Tests;
 /// downloading.
 /// </summary>
 [TargetFrameworks]
-public class DocumentCacheTests(string targetFramework)
+public class DocumentCacheTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary>
     /// Two builds download the document twice but generate the client once. With the API stopped, the build uses the last download,

@@ -2,7 +2,7 @@ namespace Chirograph.Tests;
 
 /// <summary>A consumer of the Chirograph SDK without any <c>OpenApiClient</c> item.</summary>
 [TargetFrameworks]
-public class SdkTests(string targetFramework)
+public class SdkTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary>Evaluation seam: the SDK sets its version properties and adds no package reference or download.</summary>
     [Test]

@@ -4,7 +4,7 @@ namespace Chirograph.Tests;
 
 /// <summary>Build seam: what a build reports when a client cannot be generated, as its CHIRO errors and warnings.</summary>
 [TargetFrameworks]
-public class DiagnosticsTests(string targetFramework)
+public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
     /// <summary><c>CHIRO100</c> and <c>CHIRO101</c>: a client without a known generator, or without a name that is a C# identifier.</summary>
     [Test]
