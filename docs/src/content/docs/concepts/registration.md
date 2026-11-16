@@ -1,6 +1,6 @@
 ---
 title: Registration
-description: The Add<ClientName>() extension every client gets, the Clients:<ClientName> configuration section (BaseAddress, Timeout, DefaultRequestHeaders, Resilience), and configuring the client further on IHttpClientBuilder.
+description: The Add<ClientName>() extension every client gets, its generated <ClientName>Options, filled from Clients:<ClientName> and a connection string and validated at startup, and configuring the client further on IHttpClientBuilder.
 tags: [kiota, refitter]
 sidebar:
     order: 3
@@ -10,12 +10,12 @@ Every client gets a registration: a public extension method on `IServiceCollecti
 named `RocketsClient` it is:
 
 ```csharp
-public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services);
+public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services, Action<RocketsClientOptions>? configure = null);
 ```
 
-It is in the client's namespace, in a `partial` class named `RocketsClientServiceCollectionExtensions`. It is public, so an
-application can register a client that a library it references generated. The project of the client must implement one hook of that
-class, or it fails to compile with `CS8795`: the build writes that part for a new client (see [The registration file](#the-registration-file)).
+It is in the client's namespace, in a static class named `RocketsClientServiceCollectionExtensions`, next to the client's options,
+`RocketsClientOptions`. Both are public, so an application can register and configure a client that a library it references generated.
+The project of the client writes no code of its own.
 
 ## What it registers
 
@@ -23,6 +23,7 @@ class, or it fails to compile with `CS8795`: the build writes that part for a ne
   with the authentication provider from the container (see [Authentication](#authentication)).
 - **Refitter:** `IRocketsClient`, through Refit's `AddRefitGeneratedClient`. Refit's source generator writes the implementation at
   build time, so there is no reflection.
+- **Both:** the options, `RocketsClientOptions`, with their validation, which runs when the host starts.
 
 Resolve the client from the container, or inject it:
 
@@ -31,10 +32,27 @@ public sealed class LaunchService(RocketsClient rockets) { … }    // Kiota
 public sealed class LaunchService(IRocketsClient rockets) { … }   // Refitter
 ```
 
+## The options
+
+`RocketsClientOptions` holds what the registration applies to the client each time its `HttpClient` is created. Generated code fills it
+from configuration, without the reflection binder, so it is safe for trimming and AOT. The registration reads it through
+`IOptionsMonitor<RocketsClientOptions>`, so a configuration reload applies when the client's handlers rotate.
+
+The options are filled from three sources, from lowest to highest:
+
+1. The keys under `Clients:RocketsClient`.
+2. Code: the `configure` argument of `AddRocketsClient()`, and any `services.Configure<RocketsClientOptions>(…)`, wherever it is called.
+3. The client's [connection string](#the-connection-string), applied as a post-configuration, so it wins over everything else.
+
+Code that must win over the connection string uses `services.PostConfigure<RocketsClientOptions>(…)`.
+
+```csharp
+builder.Services.AddRocketsClient(options => options.Timeout = TimeSpan.FromSeconds(10));
+```
+
 ## Configuration
 
-The registration reads the section `Clients:<ClientName>` from `IConfiguration` each time the `HttpClient` is created. The section's
-path is a constant on the class, `RocketsClientServiceCollectionExtensions.SectionKey`.
+The section's path is a constant on the registration class, `RocketsClientServiceCollectionExtensions.SectionKey`.
 
 ```json
 {
@@ -53,15 +71,69 @@ path is a constant on the class, `RocketsClientServiceCollectionExtensions.Secti
 
 | Key                     | Type                 | Effect                                                                                                                                                                                                      |
 | ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called.                                                                    |
-| `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                                                    |
-| `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it.                                                                                                                       |
+| `ConnectionString`      | string               | The client's [connection string](#the-connection-string).                                                                                                                                                   |
+| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called.                               |
+| `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` in the invariant culture (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                           |
+| `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. Not in a connection string.                                                                                           |
 | `Resilience`            | bool                 | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. |
+| `AllowedHosts`          | array of hosts       | More hosts than the `BaseAddress` host that may receive the client's credentials, for the authentication methods to come. In a connection string, a comma-separated list.                                   |
+| `Authentication`        | method               | How the client authenticates. Only `None` (the default) so far: the client takes its authentication from the [container](#authentication).                                                                  |
 
-A missing key leaves the `HttpClient` as it is. Any configuration source works: the environment variable
-`Clients__RocketsClient__DefaultRequestHeaders__X-Api-Version` sets a header, for example.
+Keys are case-insensitive. A key that isn't set leaves the `HttpClient` as it is. Any configuration source works: the environment
+variable `Clients__RocketsClient__DefaultRequestHeaders__X-Api-Version` sets a header, for example.
 
-### Resilience
+### The connection string
+
+A client can take its settings as one SqlClient-style string, as a database does. It is read from
+`Clients:RocketsClient:ConnectionString` (`RocketsClientServiceCollectionExtensions.ConnectionStringKey`) when that key exists, else from
+`ConnectionStrings:RocketsClient`, which is where Aspire and most hosts put connection strings. The first one found is used, and the two
+are never merged.
+
+```json
+{
+    "ConnectionStrings": {
+        "RocketsClient": "Endpoint=https://rockets.example.com/;Timeout=00:00:30"
+    }
+}
+```
+
+It has the syntax of `DbConnectionStringBuilder`:
+
+- `key=value` pairs separated by `;`. Whitespace around keys and unquoted values is trimmed.
+- A value that contains `;`, or leading or trailing spaces, is quoted with `'` or `"`. A doubled quote stands for itself:
+  `Endpoint='https://rockets.example.com/?a=1;b=2'`.
+- An unquoted value may contain `=`.
+
+It takes the keys of the table above, except `ConnectionString` and `DefaultRequestHeaders`. The parser is stricter than
+`DbConnectionStringBuilder`: an unknown key and a key given twice (an alias with its key, `Endpoint` and `BaseAddress`, too) are errors.
+
+When an application already has a connection string named after the client for something else, a database say, set
+`Clients:RocketsClient:ConnectionString` to an empty value. The client then reads no connection string:
+
+```json
+{
+    "ConnectionStrings": { "RocketsClient": "Data Source=db;Initial Catalog=rockets" },
+    "Clients": { "RocketsClient": { "ConnectionString": "", "BaseAddress": "https://rockets.example.com/" } }
+}
+```
+
+## Validation
+
+The registration validates the options with a generated `IValidateOptions<RocketsClientOptions>`, and asks for it at startup
+(`ValidateOnStart`). Under a host, a bad client stops the host from starting, with an `OptionsValidationException` that lists every
+problem. With a bare `ServiceCollection`, the same exception is thrown when the client is first created.
+
+It fails on:
+
+- an unknown key under `Clients:RocketsClient`, or in the connection string;
+- a key given twice, or an alias with its key;
+- a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
+- a `BaseAddress` that isn't an absolute `http` or `https` URI, or a `Timeout` that isn't positive.
+
+The messages name the source (`Clients:RocketsClient:Timeout`, `ConnectionStrings:RocketsClient`) and the key, never a value, so they
+are safe to log even when a value is a secret.
+
+## Resilience
 
 Chirograph adds no resilience package. When the project references
 [Microsoft.Extensions.Http.Resilience](https://www.nuget.org/packages/Microsoft.Extensions.Http.Resilience) (directly or through
@@ -117,45 +189,19 @@ builder.Services.AddRocketsClient();
 
 Refit's `AuthorizationHeaderValueGetter` fills an `Authorization` header that the operation declares (`[Headers("Authorization: Bearer")]`).
 
-### The hook
+### The last word
 
-The project of the client decides what the client uses at last, in a partial method of the registration's class that it must implement
-(the build fails with `CS8795` without one). It gets what the container gave; returning it as is keeps that. Return something else to
-change it: another adapter (say with an authentication provider of the library's own), or settings with a serializer or a handler set.
+A delegate on the options decides what the client uses at last. It gets what the container gave; without it, the client uses that.
 
-## The registration file
-
-The project owns one part of the registration class, `RocketsClientServiceCollectionExtensions.cs` in the project's folder (the
-`RegistrationFile` metadata moves it). When it is missing, the build writes it, so a new client compiles straight away:
+- **Kiota:** `ConfigureRequestAdapter`, given the adapter built over the client's `HttpClient`. Return another adapter, say with an
+  authentication provider of the library's own.
+- **Refitter:** `ConfigureRefitSettings`, given the settings from the container, or `null`. Return settings with a serializer or a
+  handler set.
 
 ```csharp
-namespace MyApp.Rockets;
-
-static partial class RocketsClientServiceCollectionExtensions
-{
-    // Required. Kiota:
-    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter) => adapter;
-    // Refitter:
-    // private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
-
-    // Optional: called at the end of AddRocketsClient()
-    static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder)
-    {
-    }
-}
+builder.Services.AddRocketsClient(options =>
+    options.ConfigureRefitSettings = (services, settings) => new RefitSettings { ContentSerializer = mySerializer });
 ```
-
-Commit it and edit it: the build never writes it again, and `dotnet clean` keeps it. A design-time build doesn't write it.
-`ConfigureHttpClientBuilder` is the place for handlers, resilience and the like that every application of the client gets:
-
-```csharp
-static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder) =>
-    builder.AddHttpMessageHandler<ApiKeyHandler>().AddStandardResilienceHandler();
-```
-
-Set `ChirographScaffoldRegistration` to `false` for a project that keeps the file somewhere the build can't see; the project then
-compiles the part itself. When a client is removed, renamed, or moves to another generator or namespace, delete its file (the build
-writes a new one).
 
 ## Without the registration
 

@@ -1,6 +1,6 @@
 ---
 title: Generated code
-description: The files Chirograph writes for each client in obj, which of them are compiled, and the shape of the generated Add<ClientName>() registration.
+description: The files Chirograph writes for each client in obj, which of them are compiled, and the shape of the generated Add<ClientName>() registration and <ClientName>Options.
 tags: [msbuild, kiota, refitter]
 sidebar:
     order: 4
@@ -16,6 +16,7 @@ into the project, and nothing there is meant to be committed.
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | `generated/**`                                  | The generator's output. Kiota: the `RocketsClient` class, its request builders and models, and `kiota-lock.json`. Refitter: `RocketsClient.cs`, with `IRocketsClient` and its contracts. | `*.cs`   |
 | `RocketsClientServiceCollectionExtensions.g.cs` | The [registration](#the-registration).                                                                                                                                                   | yes      |
+| `RocketsClientOptions.g.cs`                     | The [options](#the-options) the registration reads, with their connection-string parser and validation.                                                                                  | yes      |
 | `openapi.json`, `openapi.yaml` or `openapi.yml` | The client's copy of its document, written only when the content changes.                                                                                                                | no       |
 | `settings.txt`                                  | The generator, its version, `ClientName`, `Namespace` and `Options`, written only when they change.                                                                                      | no       |
 | `generated.stamp`                               | Touched after each generation. The generator runs again when the document's copy or `settings.txt` is newer.                                                                             | no       |
@@ -33,28 +34,29 @@ Kiota's registration:
 namespace MyApp.Rockets;
 
 [GeneratedCode("Chirograph", "1.0.0")]
-public static partial class RocketsClientServiceCollectionExtensions
+public static class RocketsClientServiceCollectionExtensions
 {
     public const string SectionKey = "Clients:RocketsClient";
     public const string BaseAddressKey = SectionKey + ":BaseAddress";
     public const string ResilienceKey = SectionKey + ":Resilience";
+    public const string ConnectionStringKey = SectionKey + ":ConnectionString";
 
-    public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services)
+    public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services, Action<RocketsClientOptions>? configure = null)
     {
+        // the options: keys, then code, then the connection string; validated at startup
+        RocketsClientOptionsSetup.Register(services);
+        if (configure is not null) services.Configure(configure);
+
         var builder = services.AddHttpClient("RocketsClient");
         builder.ConfigureHttpClient((provider, httpClient) =>
         {
-            var configuration = provider.GetService<IConfiguration>();
-            if (configuration is null) return;
-
-            var section = configuration.GetSection(SectionKey);
-            if (section["BaseAddress"] is { Length: > 0 } baseAddress)
+            var options = Options(provider);
+            if (options.BaseAddress is { Length: > 0 } baseAddress)
                 httpClient.BaseAddress = new Uri(baseAddress, UriKind.Absolute);
-            if (section["Timeout"] is { Length: > 0 } timeout)
-                httpClient.Timeout = TimeSpan.Parse(timeout, CultureInfo.InvariantCulture);
-            foreach (var header in section.GetSection("DefaultRequestHeaders").GetChildren())
-                if (header.Value is { } value)
-                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
+            if (options.Timeout is { } timeout)
+                httpClient.Timeout = timeout;
+            foreach (var header in options.DefaultRequestHeaders)
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
         });
         builder.AddTypedClient<RocketsClient>((httpClient, services) =>
         {
@@ -64,13 +66,15 @@ public static partial class RocketsClientServiceCollectionExtensions
                 Resolve<IParseNodeFactory>(services),
                 Resolve<ISerializationWriterFactory>(services),
                 httpClient);
-            return new RocketsClient(CreateRequestAdapter(services, adapter));
+            var configureRequestAdapter = Options(services).ConfigureRequestAdapter;
+            return new RocketsClient(configureRequestAdapter is null ? adapter : configureRequestAdapter(services, adapter));
         });
         return builder;
     }
 
-    // the project of the client implements it: see Authentication on the Registration page
-    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter);
+    // read when the HttpClient is created, so a configuration reload applies
+    private static RocketsClientOptions Options(IServiceProvider services) =>
+        services.GetRequiredService<IOptionsMonitor<RocketsClientOptions>>().CurrentValue;
 }
 ```
 
@@ -81,8 +85,7 @@ out otherwise:
 builder.AddStandardResilienceHandler();
 builder.ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
 {
-    var configuration = provider.GetService<IConfiguration>();
-    var resilience = bool.TryParse(configuration?[ResilienceKey], out var value) && value;
+    var resilience = Options(provider).Resilience;
     // the handler added just above is the last one so far
     if (!resilience && handlers.Count > 0 && handlers[^1] is ResilienceHandler)
         handlers.RemoveAt(handlers.Count - 1);
@@ -94,18 +97,34 @@ See [Configuration](../../concepts/registration/#configuration) for what each ke
 Refitter's is the same, except that it registers the Refit interface instead of a named client:
 
 ```csharp
-var builder = services.AddRefitGeneratedClient<IRocketsClient>(
-    static provider => CreateRefitSettings(provider, Resolve<RefitSettings>(provider)));
-
-// the project of the client implements it
-private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings);
+var builder = services.AddRefitGeneratedClient<IRocketsClient>(static provider =>
+{
+    var settings = Resolve<RefitSettings>(provider);
+    var configureRefitSettings = Options(provider).ConfigureRefitSettings;
+    return configureRefitSettings is null ? settings : configureRefitSettings(provider, settings);
+});
 ```
 
 The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the
 project's usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file.
 
-The class name, the method name, the hooks (`CreateRequestAdapter` or `CreateRefitSettings`, and `ConfigureHttpClientBuilder`, which `AddRocketsClient()` calls last), the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between
-releases.
+The class name, the method name and its parameters, the `SectionKey`, `BaseAddressKey`, `ResilienceKey` and `ConnectionStringKey`
+constants and the return type are public API. The body can change between releases.
+
+## The options
+
+`RocketsClientOptions.g.cs` holds the client's options and what fills them:
+
+- `RocketsClientOptions`, public: `BaseAddress`, `Timeout`, `DefaultRequestHeaders`, `Resilience`, `AllowedHosts` and
+  `Authentication`, plus `ConfigureRequestAdapter` (Kiota) or `ConfigureRefitSettings` (Refitter).
+- `RocketsClientAuthentication`, public: the methods the client can be configured with (`None` so far).
+- `RocketsClientOptionsSetup`, internal: it fills the options from the keys under `Clients:RocketsClient` (an
+  `IConfigureOptions`) and from the connection string (an `IPostConfigureOptions`), validates them (an `IValidateOptions`), and
+  reloads them with the configuration (an `IOptionsChangeTokenSource`). It parses the connection string itself, without
+  `DbConnectionStringBuilder` or the configuration binder, so nothing in it needs reflection.
+
+The two public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
+the sources and [Validation](../../concepts/registration/#validation) for what fails.
 
 ## The Dovetail joint
 
