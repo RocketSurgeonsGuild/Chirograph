@@ -1,0 +1,41 @@
+﻿{
+  ApiKey and Key:
+OptionsValidationException:
+  Clients:RocketsClient sets ApiKey twice, as ApiKey and as Key.,
+  ApiKey with ApiKeyHeader and ApiKeyQuery:
+OptionsValidationException:
+  The Authentication of RocketsClient is ApiKey, which takes ApiKeyHeader or ApiKeyQuery, not both.,
+  ApiKey without a key:
+OptionsValidationException:
+  The Authentication of RocketsClient is ApiKey, which needs ApiKey (or Key).,
+  Authentication:
+OptionsValidationException:
+  Clients:RocketsClient:Authentication is not a method RocketsClient can use: None, ApiKey, Bearer, Basic.,
+  Basic with a colon in the username:
+OptionsValidationException:
+  The Username of RocketsClient has a colon, which Basic authentication cannot send.,
+  Basic without a password:
+OptionsValidationException:
+  The Authentication of RocketsClient is Basic, which needs Username and Password.,
+  Bearer with the keys of Basic and ApiKey:
+OptionsValidationException:
+  The Authentication of RocketsClient is Bearer, and keys of another method are set: ApiKeyHeader (ApiKey), Username (Basic), Password (Basic).,
+  Bearer with Token and TokenProvider:
+OptionsValidationException:
+  The Authentication of RocketsClient is Bearer, which takes Token or TokenProvider, not both.,
+  Bearer without a token:
+OptionsValidationException:
+  The Authentication of RocketsClient is Bearer, which needs Token, or TokenProvider in code.,
+  Connection string with the keys of another method:
+OptionsValidationException:
+  The Authentication of RocketsClient is Basic, and keys of another method are set: Token (Bearer).,
+  No host to send the credentials to:
+OptionsValidationException:
+  The Authentication of RocketsClient is Bearer, and it has no host to send the credentials to: set BaseAddress, or AllowedHosts.,
+  None with a token:
+OptionsValidationException:
+  The Authentication of RocketsClient is None, and keys of another method are set: Token (Bearer).,
+  None with TokenProvider:
+OptionsValidationException:
+  The Authentication of RocketsClient is None, and keys of another method are set: TokenProvider (Bearer).
+}

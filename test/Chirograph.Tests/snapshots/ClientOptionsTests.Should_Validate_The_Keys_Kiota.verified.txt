@@ -4,7 +4,7 @@ OptionsValidationException:
   Clients:RocketsClient:AllowedHosts is a value, and must be an array of hosts (a comma-separated list is for a connection string).,
   Authentication:
 OptionsValidationException:
-  Clients:RocketsClient:Authentication is not a method RocketsClient can use: None.,
+  Clients:RocketsClient:Authentication is not a method RocketsClient can use: None, ApiKey, Bearer, Basic.,
   DefaultRequestHeaders as a value:
 OptionsValidationException:
   Clients:RocketsClient:DefaultRequestHeaders is a value, and must be an object of header names and values.,
@@ -32,5 +32,5 @@ OptionsValidationException:
   Clients:RocketsClient:Timeout is not a TimeSpan, such as 00:00:30.,
   Unknown key:
 OptionsValidationException:
-  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts and Authentication.
+  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username and Password.
 }

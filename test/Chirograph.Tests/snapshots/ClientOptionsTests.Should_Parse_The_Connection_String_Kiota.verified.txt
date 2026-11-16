@@ -15,7 +15,7 @@ DefaultRequestHeaders: []
 Authentication: None,
   Authentication=s3cr3t:
 OptionsValidationException:
-  ConnectionStrings:RocketsClient (Authentication) is not a method RocketsClient can use: None.,
+  ConnectionStrings:RocketsClient (Authentication) is not a method RocketsClient can use: None, ApiKey, Bearer, Basic.,
   Endpoint="http://rockets.example/?a=1;b=2":
 BaseAddress: http://rockets.example/?a=1;b=2
 Timeout: 
@@ -41,8 +41,7 @@ OptionsValidationException:
   ConnectionStrings:RocketsClient sets BaseAddress twice, as Endpoint and as BaseAddress.,
   Endpoint=http://rockets.example/;Password=s3cr3t:
 OptionsValidationException:
-  ConnectionStrings:RocketsClient has an unknown key, Password. Its keys are BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts and Authentication.
-  When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.,
+  The Authentication of RocketsClient is None, and keys of another method are set: Password (Basic).,
   Endpoint=http://rockets.example/;Timeout=00:00:05;Resilience=true;AllowedHosts=a.example, b.example;Authentication=None:
 BaseAddress: http://rockets.example/
 Timeout: 00:00:05

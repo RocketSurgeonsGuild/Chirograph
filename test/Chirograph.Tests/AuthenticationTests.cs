@@ -86,6 +86,29 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
         await project.VerifyResult(output, generator.ToString());
     }
 
+    /// <summary>
+    /// With <c>Authentication</c> set, configuration wins: Kiota's adapter gets an anonymous provider instead of the container's (no
+    /// <c>KEYED</c>), and the handler sets the credentials. Refit still takes its <c>RefitSettings</c> from the container, which carry its
+    /// serializers (and here the handler that sends <c>KEYED</c>).
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota)]
+    [Arguments(Generator.Refitter)]
+    public async Task Should_Prefer_The_Configured_Authentication(Generator generator)
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        project.AddRocketsApp(targetFramework, generator).AddFile("app/Program.cs", Program(generator, Registration.Keyed));
+
+        await project.Build("app");
+        var environment = RocketsApp.Environment(api);
+        environment["Clients__RocketsClient__Authentication"] = "Bearer";
+        environment["Clients__RocketsClient__Token"] = "t0k3n";
+        var output = await project.Run("app", environment);
+
+        await project.VerifyResult(output, generator.ToString());
+    }
+
     private static string Program(Generator generator, Registration registration, string configure = "")
     {
         var register = registration switch
