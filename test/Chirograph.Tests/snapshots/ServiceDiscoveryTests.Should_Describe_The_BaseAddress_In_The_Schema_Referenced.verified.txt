@@ -1,0 +1,12 @@
+﻿{
+  "KiotaClient": {
+    "type": "string",
+    "format": "uri",
+    "description": "The URI the client calls (HttpClient.BaseAddress): an absolute URI, or a service-discovery address such as https+http://rockets, whose endpoints come from Services:rockets. When not set, https+http://KiotaClient."
+  },
+  "RefitterClient": {
+    "type": "string",
+    "format": "uri",
+    "description": "The URI the client calls (HttpClient.BaseAddress): an absolute URI, or a service-discovery address such as https+http://rockets, whose endpoints come from Services:rockets. When not set, https+http://RefitterClient."
+  }
+}

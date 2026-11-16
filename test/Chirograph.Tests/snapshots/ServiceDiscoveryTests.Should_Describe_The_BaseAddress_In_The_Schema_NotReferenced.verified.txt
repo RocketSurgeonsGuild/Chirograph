@@ -1,0 +1,12 @@
+﻿{
+  "KiotaClient": {
+    "type": "string",
+    "format": "uri",
+    "description": "The absolute URI the client calls (HttpClient.BaseAddress). When not set, the client calls the first server of its OpenAPI document."
+  },
+  "RefitterClient": {
+    "type": "string",
+    "format": "uri",
+    "description": "The absolute URI the client calls (HttpClient.BaseAddress). A Refit client has no default: give it here, or in a connection string."
+  }
+}

@@ -16,13 +16,14 @@
   },
   ProjectReference: {},
   Properties: {
+    ChirographAzureIdentityVersion: {pin: Azure.Identity},
+    ChirographDuendeAccessTokenManagementVersion: {pin: Duende.AccessTokenManagement},
     ChirographGenerateDovetailJoint: true,
     ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
     ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
     ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
     ChirographRefitterVersion: 2.3.0,
     ChirographRefitVersion: 15.0.0,
-    ChirographScaffoldRegistration: true,
     ChirographUpdateOpenApiDocumentCache: true,
     ChirographVersion: {chirograph-version}
   }

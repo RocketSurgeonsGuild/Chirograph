@@ -2,17 +2,19 @@
   Clients:KiotaClient: {
     ClientName: KiotaClient,
     ClientNameIsValid: True,
-    File: {packages}/chirograph/{chirograph-version}/Sdk/schemas/kiota.schema.json,
+    File: obj/Debug/{TargetFramework}/openapi/KiotaClient/KiotaClient.schema.json,
     Generator: Kiota,
     Kind: File,
-    Namespace: Throwaway.Clients
+    Namespace: Throwaway.Clients,
+    _ChirographOpenApiClientSchema: true
   },
   Clients:RefitterClient: {
     ClientName: RefitterClient,
     ClientNameIsValid: True,
-    File: {packages}/chirograph/{chirograph-version}/Sdk/schemas/refitter.schema.json,
+    File: obj/Debug/{TargetFramework}/openapi/RefitterClient/RefitterClient.schema.json,
     Generator: Refitter,
     Kind: File,
-    Namespace: Throwaway.Clients
+    Namespace: Throwaway.Clients,
+    _ChirographOpenApiClientSchema: true
   }
 }

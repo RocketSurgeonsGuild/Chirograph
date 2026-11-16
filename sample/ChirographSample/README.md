@@ -8,7 +8,7 @@ The projects:
 
 | Project                   | What it shows                                                                                                                                                                                                                                                     |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Rockets.Api`             | The server: two fixed rockets at `/rockets` and `/rockets/{id}`. It writes its OpenAPI document when it builds and serves it at `/openapi/v1.json`.                                                                                                                  |
+| `Rockets.Api`             | The server: two fixed rockets at `/rockets` and `/rockets/{id}`. A request with an `X-Api-Key` header must carry the right key, `sample-key`. It writes its OpenAPI document when it builds and serves it at `/openapi/v1.json`.                                                                                                                  |
 | `Rockets.Client.Kiota`    | `RocketsClient`, generated with Kiota from the server project (a `.csproj` source): Chirograph builds `Rockets.Api` first and reads the document it writes.                                                                                                       |
 | `Rockets.Client.Refitter` | `IRocketsRefitClient`, generated with Refitter from a committed document, `rockets.json` (a file source).                                                                                                                                                       |
 | `Rockets.Client.Url`      | `RocketsUrlClient`, generated with Kiota from `http://localhost:5179/openapi/v1.json` (a URL source). The document is cached in the committed `rockets.openapi.json`, and `UpdateDocumentCache="false"` builds from that copy, so the build needs no server. |
@@ -17,7 +17,9 @@ The projects:
 
 Each client reads its base address from `Clients:<ClientName>:BaseAddress`, for example the environment variable
 `Clients__RocketsClient__BaseAddress=http://localhost:5179/`. `Rockets.Console/appsettings.json` also gives each of its clients a
-`Timeout` and a default request header from the same section.
+`Timeout` and a default request header from the same section; `RocketsUrlClient` takes its `Timeout` from a connection string
+instead, and authenticates with an API key from it (`Authentication=ApiKey;Key=sample-key`), which the generated handler sends only to
+the base address's host. The client projects hold no code of their own: the registration and the options are generated.
 
 ## Running it
 
@@ -45,7 +47,7 @@ RocketsClient (Kiota, generated from the Rockets.Api project)
   got    7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
 IRocketsRefitClient (Refitter, generated from rockets.json)
   ...
-RocketsUrlClient (Kiota, generated from http://localhost:5179/openapi/v1.json, cached in rockets.openapi.json)
+RocketsUrlClient (Kiota, generated from http://localhost:5179/openapi/v1.json, cached in rockets.openapi.json, with an API key)
   ...
 The three clients agree.
 ```

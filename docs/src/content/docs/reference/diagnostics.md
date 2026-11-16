@@ -1,6 +1,6 @@
 ---
 title: Diagnostics
-description: Every error and warning Chirograph raises, CHIRO100 to CHIRO108, with the message, the cause and the fix.
+description: Every error and warning Chirograph raises, CHIRO100 to CHIRO109, with the message, the cause and the fix.
 tags: [msbuild]
 sidebar:
     order: 3
@@ -23,6 +23,7 @@ from LaunchPad's preview (`LPSDK0100` is `CHIRO100`); see [Migrating from Launch
 | [`CHIRO106`](#chiro106) | error    | The generator tool is not in the packages folders. Restore the project.     |
 | [`CHIRO107`](#chiro107) | error    | The generator exited with an error. Its output is included.                 |
 | [`CHIRO108`](#chiro108) | error    | Two clients have the same `ClientName`.                                     |
+| [`CHIRO109`](#chiro109) | error    | `Authentication` lists a value Chirograph doesn't know.                     |
 
 ## CHIRO100
 
@@ -94,3 +95,13 @@ an `Options` value the generator doesn't accept. Run the generator by hand on th
 Two `OpenApiClient` items in one project have the same `ClientName`. They would be generated into the same folder, with the same
 types and the same `Add<ClientName>()`, so the build stops before it generates either. Give each client its own `ClientName`; two
 clients can still be generated from the same document.
+
+## CHIRO109
+
+> The OpenApiClient 'RocketsClient' has Authentication values Chirograph doesn't know (Bearer, Kerberos): set it to a ;-separated list of ClientCredentials, Azure, or leave it out.
+
+The item's `Authentication` metadata lists the methods that need a package, which the item must declare: `ClientCredentials` (which
+allows `PrivateKeyJwt` too) and `Azure` (the four Azure methods). The
+comparison ignores case. `None`, `ApiKey`, `Bearer` and `Basic` need no package and are always available, so they don't go in the
+metadata: configuration chooses among them with `Clients:<ClientName>:Authentication`. Remove the unknown values; see
+[Authentication](../openapiclient/#metadata).

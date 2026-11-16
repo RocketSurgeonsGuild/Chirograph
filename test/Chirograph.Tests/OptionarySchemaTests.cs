@@ -14,9 +14,14 @@ namespace Chirograph.Tests;
 [TargetFrameworks]
 public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
 {
+    // What an IDE runs: a design-time build up to the compiler, which only gives its command line.
+    private const string DesignTime = "-t:Compile -p:DesignTimeBuild=true -p:SkipCompilerExecution=true -p:ProvideCommandLineArgs=true";
+    // the clients of the application ClientsApp declares
+    private static readonly string[] ClientNames = ["KiotaClient", "RefitterClient"];
+
     /// <summary>
-    /// Evaluation seam: one item per client with a valid name, its section <c>Clients:&lt;ClientName&gt;</c> and the schema file of its
-    /// generator, unless <c>ChirographOptionarySchema=false</c>.
+    /// Evaluation seam: one item per client with a valid name, its section <c>Clients:&lt;ClientName&gt;</c> and the client's schema file in
+    /// <c>obj</c> (relative to the project), unless <c>ChirographOptionarySchema=false</c>.
     /// </summary>
     [Test]
     [Arguments("")]
@@ -33,8 +38,67 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
     }
 
     /// <summary>
-    /// Build seam: an application with a Kiota and a Refitter client that references Optionary merges both sections into its
-    /// <c>appsettings.schema.json</c>, with <c>BaseAddress</c> required only for the Refitter client.
+    /// Build seam: each client's schema is written into its folder in <c>obj</c>, with or without Optionary: the keys of the section,
+    /// <c>Authentication</c> as an enum of the methods the client allows, and a rule per method that requires its keys and forbids the
+    /// keys of the other methods. The result is each client's schema, by client. A method the item's <c>Authentication</c> metadata
+    /// declares (<c>ClientCredentials</c>, written in any case, or <c>Azure</c> and its four methods) adds its values and its keys; without
+    /// it, they are not there.
+    /// </summary>
+    [Test]
+    [Arguments(null, null)]
+    [Arguments(" clientcredentials ", "ClientCredentials")]
+    [Arguments("Azure", "Azure")]
+    public async Task Should_Write_The_Schema_Of_Each_Client(string? authentication, string? variant)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        AddClientsApp(project, optionaryVersion: null, authentication: authentication);
+
+        await project.Build("app");
+
+        var clients = new JsonObject(
+            ClientNames.Select(
+                name => KeyValuePair.Create(
+                    name,
+                    JsonNode.Parse(File.ReadAllText(Path.Combine(project.Directory, "app", "obj", "Debug", targetFramework, "openapi", name, $"{name}.schema.json")))
+                )
+            )
+        );
+
+        await project.VerifyResult(
+            clients.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }),
+            variant
+        );
+    }
+
+    /// <summary>
+    /// Build seam: a design-time build before any build (what an IDE runs when it opens the project) writes the schemas too, since
+    /// Optionary reads the items in that build and fails on a file that doesn't exist. The result is Optionary's errors, and the schema
+    /// files that exist.
+    /// </summary>
+    [Test]
+    public async Task Should_Write_The_Schemas_In_A_Design_Time_Build()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        AddClientsApp(project, Config.OptionaryVersion);
+
+        var diagnostics = await project.BuildDiagnostics("app", DesignTime, codePrefix: "OPT");
+        var clients = Path.Combine(project.Directory, "app", "obj", "Debug", targetFramework, "openapi");
+
+        await project.VerifyResult(
+            new
+            {
+                Diagnostics = diagnostics,
+                Schemas = Directory.EnumerateFiles(clients, "*.schema.json", SearchOption.AllDirectories)
+                                   .Select(z => Path.GetRelativePath(clients, z).Replace('\\', '/'))
+                                   .Order(StringComparer.Ordinal)
+                                   .ToArray(),
+            }
+        );
+    }
+
+    /// <summary>
+    /// Build seam: an application with a Kiota and a Refitter client that references Optionary merges both generated sections into its
+    /// <c>appsettings.schema.json</c>.
     /// </summary>
     [Test]
     public async Task Should_Merge_The_Clients_Into_The_Application_Schema()
@@ -98,21 +162,22 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
         );
     }
 
-    private static void AddClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema = "") =>
+    private static void AddClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema = "", string? authentication = null) =>
         project
-           .AddProject("app/app.csproj", ClientsApp(project, optionaryVersion, optionarySchema))
+           .AddProject("app/app.csproj", ClientsApp(project, optionaryVersion, optionarySchema, authentication))
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", "System.Console.WriteLine();\n");
 
     // An application with a Kiota client (KiotaClient) and a Refitter client (RefitterClient), referencing Optionary at
-    // optionaryVersion (none when null).
-    private static ProjectCreator ClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema)
+    // optionaryVersion (none when null), both with the Authentication metadata authentication.
+    private static ProjectCreator ClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema, string? authentication = null)
     {
+        var metadata = new Dictionary<string, string?> { ["Authentication"] = authentication };
         var app = project
                  .CreateConsumer()
                  .Property("ChirographOptionarySchema", optionarySchema == "" ? null : optionarySchema)
-                 .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient")
-                 .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient");
+                 .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient", metadata)
+                 .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient", metadata);
         return optionaryVersion is null ? app : app.ItemPackageReference("Optionary", optionaryVersion);
     }
 }

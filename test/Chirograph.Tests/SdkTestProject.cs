@@ -214,6 +214,16 @@ public sealed partial class SdkTestProject : IDisposable
         RunDotnet(arguments, Path.Combine(Directory, relativePath), environment);
 
     /// <summary>
+    /// Runs the executable <paramref name="fileName" /> in <paramref name="relativePath" /> (say, an application published natively), with
+    /// <paramref name="environment" /> added to its environment, and returns what it wrote to standard output. It must succeed.
+    /// </summary>
+    public Task<string> Execute(string relativePath, string fileName, IReadOnlyDictionary<string, string>? environment = null)
+    {
+        var workingDirectory = Path.Combine(Directory, relativePath);
+        return Run(Path.Combine(workingDirectory, fileName), "", workingDirectory, environment);
+    }
+
+    /// <summary>
     /// Verifies <paramref name="target" /> with the scaffold's scrubbers (the target framework and Chirograph's version). A test whose
     /// arguments change the result names a <paramref name="variant" />, which becomes part of the snapshot's name.
     /// </summary>
@@ -233,14 +243,23 @@ public sealed partial class SdkTestProject : IDisposable
         return settings;
     }
 
-    private static async Task<string> RunDotnet(
+    private static Task<string> RunDotnet(
+        string arguments,
+        string workingDirectory,
+        IReadOnlyDictionary<string, string>? environment = null,
+        bool allowFailure = false
+    ) =>
+        Run("dotnet", arguments, workingDirectory, environment, allowFailure);
+
+    private static async Task<string> Run(
+        string fileName,
         string arguments,
         string workingDirectory,
         IReadOnlyDictionary<string, string>? environment = null,
         bool allowFailure = false
     )
     {
-        var psi = CreateHermeticStartInfo(arguments, workingDirectory);
+        var psi = CreateHermeticStartInfo(fileName, arguments, workingDirectory);
         foreach (var (name, value) in environment ?? new Dictionary<string, string>())
         {
             psi.Environment[name] = value;
@@ -252,12 +271,12 @@ public sealed partial class SdkTestProject : IDisposable
         await proc.WaitForExitAsync();
         return proc.ExitCode == 0 || allowFailure
             ? await stdout
-            : throw new TUnitException($"dotnet {arguments} failed in {workingDirectory}:\n{await stdout}\n{await stderr}");
+            : throw new TUnitException($"{fileName} {arguments} failed in {workingDirectory}:\n{await stdout}\n{await stderr}");
     }
 
-    private static ProcessStartInfo CreateHermeticStartInfo(string arguments, string workingDirectory)
+    private static ProcessStartInfo CreateHermeticStartInfo(string fileName, string arguments, string workingDirectory)
     {
-        var psi = new ProcessStartInfo("dotnet", arguments)
+        var psi = new ProcessStartInfo(fileName, arguments)
         {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,

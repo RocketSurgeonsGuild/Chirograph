@@ -7,12 +7,13 @@ namespace __Namespace__;
 
 /// <summary>
 ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, as a typed client named __ClientName__, configured from
-///     <c>Clients:__ClientName__</c>. Without a BaseAddress the client uses the first server of its OpenAPI document.
+///     <c>Clients:__ClientName__</c>. Without a BaseAddress the client uses the first server of its OpenAPI document, or, when the project
+///     references Microsoft.Extensions.ServiceDiscovery, <c>https+http://__ClientName__</c>.
 /// </summary>
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
-public static partial class __ClientName__ServiceCollectionExtensions
+public static class __ClientName__ServiceCollectionExtensions
 {
-    /// <summary>The configuration section of the client: its BaseAddress, Timeout, DefaultRequestHeaders and Resilience.</summary>
+    /// <summary>The configuration section of the client, whose keys fill <see cref="__ClientName__Options" />.</summary>
     public const string SectionKey = "Clients:__ClientName__";
 
     /// <summary>The configuration key of the base address of the client.</summary>
@@ -25,60 +26,90 @@ public static partial class __ClientName__ServiceCollectionExtensions
     public const string ResilienceKey = SectionKey + ":Resilience";
 
     /// <summary>
-    ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>. When the client is created, its <c>HttpClient</c> takes
-    ///     BaseAddress, Timeout and DefaultRequestHeaders from <c>Clients:__ClientName__</c>, and the standard resilience handler is kept
-    ///     when Resilience is <c>true</c> (only when the project references Microsoft.Extensions.Http.Resilience). A missing key leaves
-    ///     the <c>HttpClient</c> as it is.
+    ///     The configuration key of the connection string of the client. When it is missing, the client reads
+    ///     <c>ConnectionStrings:__ClientName__</c>; set to an empty value, it keeps the client from reading that one.
+    /// </summary>
+    public const string ConnectionStringKey = SectionKey + ":ConnectionString";
+
+    /// <summary>
+    ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, with its options, <see cref="__ClientName__Options" />. Each time
+    ///     the client's <c>HttpClient</c> is created, it takes BaseAddress, Timeout and DefaultRequestHeaders from the options, and the
+    ///     standard resilience handler is kept when Resilience is <c>true</c> (only when the project references
+    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
+    ///     handler is made, it presents the client certificate the options give, for mutual TLS; a <c>ConfigurePrimaryHttpMessageHandler</c>
+    ///     that makes a new handler, on the builder this returns, replaces that handler, certificate included. The options are validated
+    ///     when the host starts, or when the client is first created without a host.
     /// </summary>
     /// <param name="services">The services to add the client to.</param>
+    /// <param name="configure">
+    ///     Configures the options in code: after the keys under <c>Clients:__ClientName__</c>, before the connection string.
+    /// </param>
     /// <returns>The builder of the named HTTP client, to configure it further.</returns>
-    public static global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder Add__ClientName__(this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    public static global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder Add__ClientName__(
+        this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
+        global::System.Action<global::__Namespace__.__ClientName__Options>? configure = null
+    )
     {
+        global::__Namespace__.__ClientName__OptionsSetup.Register(services);
+        //#if ClientCredentials
+        global::__Namespace__.__ClientName__ClientCredentials.Register(services);
+        //#endif
+        //#if Azure
+        global::__Namespace__.__ClientName__AzureCredential.Register(services);
+        //#endif
+        if (configure is not null)
+        {
+            global::Microsoft.Extensions.DependencyInjection.OptionsServiceCollectionExtensions.Configure(services, configure);
+        }
+
         var builder = global::Microsoft.Extensions.DependencyInjection.HttpClientFactoryServiceCollectionExtensions.AddHttpClient(services, "__ClientName__");
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureHttpClient(
             builder,
             static (global::System.IServiceProvider provider, global::System.Net.Http.HttpClient httpClient) =>
             {
-                var configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)provider.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
-                if (configuration is null)
-                {
-                    return;
-                }
-
-                var section = configuration.GetSection(SectionKey);
-                if (section["BaseAddress"] is { Length: > 0 } baseAddress)
+                var options = Options(provider);
+                if (options.BaseAddress is { Length: > 0 } baseAddress)
                 {
                     httpClient.BaseAddress = new global::System.Uri(baseAddress, global::System.UriKind.Absolute);
                 }
 
-                if (section["Timeout"] is { Length: > 0 } timeout)
+                if (options.Timeout is { } timeout)
                 {
-                    httpClient.Timeout = global::System.TimeSpan.Parse(timeout, global::System.Globalization.CultureInfo.InvariantCulture);
+                    httpClient.Timeout = timeout;
                 }
 
-                foreach (var header in section.GetSection("DefaultRequestHeaders").GetChildren())
+                foreach (var header in options.DefaultRequestHeaders)
                 {
-                    if (header.Value is { } value)
-                    {
-                        httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
-                    }
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
                 }
             }
+        );
+        // the client certificate (mutual TLS) goes on the primary handler the factory made, each time it is made: a
+        // ConfigurePrimaryHttpMessageHandler that makes a new handler, on the builder this returns, replaces it, certificate included
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigurePrimaryHttpMessageHandler(
+            builder,
+            static (global::System.Net.Http.HttpMessageHandler handler, global::System.IServiceProvider provider) =>
+                global::__Namespace__.__ClientName__Certificate.Present(handler, Options(provider))
         );
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.AddTypedClient<global::__Namespace__.__ClientName__>(
             builder,
             static (global::System.Net.Http.HttpClient httpClient, global::System.IServiceProvider services) =>
             {
-                // the authentication provider comes from the container: keyed with the name of the client, else unkeyed, else anonymous;
-                // the project's CreateRequestAdapter then decides the adapter the client uses
+                // the authentication provider comes from the container (keyed with the name of the client, else unkeyed, else anonymous),
+                // unless the options set an Authentication: the handler then sets the credentials, and the provider is anonymous;
+                // ConfigureRequestAdapter on the options, when it is set, then has the last word
+                var options = Options(services);
                 var adapter = new global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
-                    Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                    (options.Authentication == global::__Namespace__.__ClientName__Authentication.None
+                        ? Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                        : null)
                     ?? new global::Microsoft.Kiota.Abstractions.Authentication.AnonymousAuthenticationProvider(),
                     Resolve<global::Microsoft.Kiota.Abstractions.Serialization.IParseNodeFactory>(services),
                     Resolve<global::Microsoft.Kiota.Abstractions.Serialization.ISerializationWriterFactory>(services),
                     httpClient
                 );
-                return new global::__Namespace__.__ClientName__(CreateRequestAdapter(services, adapter));
+                var configureRequestAdapter = options.ConfigureRequestAdapter;
+                return new global::__Namespace__.__ClientName__(configureRequestAdapter is null ? adapter : configureRequestAdapter(services, adapter));
             }
         );
         //#if Resilience
@@ -89,8 +120,7 @@ public static partial class __ClientName__ServiceCollectionExtensions
             builder,
             static (global::System.Collections.Generic.IList<global::System.Net.Http.DelegatingHandler> handlers, global::System.IServiceProvider provider) =>
             {
-                var configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)provider.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
-                var resilience = bool.TryParse(configuration?[ResilienceKey], out var value) && value;
+                var resilience = Options(provider).Resilience;
                 // the handler added just above is the last one so far: a resilience handler added before (by ConfigureHttpClientDefaults,
                 // say) or after (on the builder this returns) stays
                 if (!resilience && handlers.Count > 0 && handlers[handlers.Count - 1] is global::Microsoft.Extensions.Http.Resilience.ResilienceHandler)
@@ -100,25 +130,26 @@ public static partial class __ClientName__ServiceCollectionExtensions
             }
         );
         //#endif
-        ConfigureHttpClientBuilder(builder);
+        // configured authentication: when Authentication isn't None, the handler that adds the credentials, after the handlers added so far
+        // and before those added later (service discovery's among them, so the host check sees the address as configured)
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureHttpMessageHandlerBuilder(
+            builder,
+            static (global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder handlers) => global::__Namespace__.__ClientName__AuthenticationHandler.Configure(handlers)
+        );
+        //#if ServiceDiscovery
+        // The project references Microsoft.Extensions.ServiceDiscovery: its handler resolves a service-discovery address, such as the
+        // default https+http://__ClientName__, after the authentication handler has checked the host. The providers are the application's
+        // to register (AddServiceDiscovery() on the services): the options validation fails at startup without any.
+        global::Microsoft.Extensions.DependencyInjection.ServiceDiscoveryHttpClientBuilderExtensions.AddServiceDiscovery(builder);
+        //#endif
         return builder;
     }
 
-    /// <summary>
-    ///     Optional: implement it in the project of the client to configure the builder of the client further (handlers, resilience and
-    ///     the like). <c>Add__ClientName__()</c> calls it last; unimplemented, the call compiles away.
-    /// </summary>
-    static partial void ConfigureHttpClientBuilder(global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder builder);
-
-    /// <summary>
-    ///     The request adapter of <see cref="__ClientName__" />. The project of the client implements it (CS8795 otherwise), in a
-    ///     <c>partial class __ClientName__ServiceCollectionExtensions</c> in the same namespace: return <paramref name="adapter" /> to
-    ///     use the authentication provider from the container, or change or replace it.
-    /// </summary>
-    /// <param name="services">The services of the application.</param>
-    /// <param name="adapter">The adapter built over the client's <c>HttpClient</c> with the authentication provider from the container.</param>
-    /// <returns>The adapter the client uses.</returns>
-    private static partial global::Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(global::System.IServiceProvider services, global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter);
+    /// <summary>The options of the client as they are now: <c>IOptionsMonitor</c> fills them again when configuration reloads.</summary>
+    private static global::__Namespace__.__ClientName__Options Options(global::System.IServiceProvider services) =>
+        global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+           .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::__Namespace__.__ClientName__Options>>(services)
+           .CurrentValue;
 
     /// <summary>
     ///     Resolves <typeparamref name="T" /> registered with the key <c>"__ClientName__"</c>, else unkeyed, else <c>null</c>.

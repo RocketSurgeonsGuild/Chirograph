@@ -1,0 +1,311 @@
+<Project>
+  <!--
+      The schema of each client's configuration section, Clients:<ClientName>, for Optionary. Imported by Sdk.targets after
+      Chirograph.OpenApiClients.targets, whose _ChirographOpenApiClient items it reads.
+
+      Each client with a valid ClientName gets an OptionarySchemaFragment item, declared here at evaluation: Include is the section, and
+      File the client's schema, <ClientName>.schema.json in the client's folder in obj (relative to the project). An Optionary that reads the item puts the section
+      into the application's appsettings.schema.json; without Optionary, or with one that predates the item, nothing reads it. The
+      client's metadata comes along (KeepMetadata is ignored at evaluation); Optionary only reads File. ChirographOptionarySchema=false
+      turns the items, and the schemas, off.
+
+      The schemas are written when the project builds, a design-time build too, before Optionary reads the items. The hook is
+      _OptionaryReadSchemaFragments, not _OptionarySchemaFragments: a target runs its BeforeTargets after its own dependencies, and
+      reading the items is one of them.
+  -->
+
+  <PropertyGroup>
+    <!--
+        Where evaluation expects the clients' folders. _ChirographLocateOpenApiClients decides when the project builds, since this file
+        can be imported before IntermediateOutputPath is set, and _ChirographLocateOpenApiClientSchemas then corrects File.
+    -->
+    <_ChirographOpenApiClientSchemasDirectory>$(ChirographOpenApiClientsDirectory)</_ChirographOpenApiClientSchemasDirectory>
+    <_ChirographOpenApiClientSchemasDirectory Condition="'$(_ChirographOpenApiClientSchemasDirectory)' == ''">$(IntermediateOutputPath)openapi/</_ChirographOpenApiClientSchemasDirectory>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'@(OpenApiClient)' != '' and '$(ChirographOptionarySchema)' != 'false'">
+    <OptionarySchemaFragment Include="@(_ChirographOpenApiClient->WithMetadataValue('ClientNameIsValid', 'true')->'Clients:%(ClientName)')">
+      <File>$([MSBuild]::EnsureTrailingSlash('$(_ChirographOpenApiClientSchemasDirectory)'))%(ClientName)/%(ClientName).schema.json</File>
+      <!-- an element: MSBuild doesn't take a metadata name that starts with an underscore as an attribute -->
+      <_ChirographOpenApiClientSchema>true</_ChirographOpenApiClientSchema>
+    </OptionarySchemaFragment>
+  </ItemGroup>
+
+  <Target
+    Name="_ChirographWriteOpenApiClientSchemas"
+    BeforeTargets="_OptionaryReadSchemaFragments;BeforeCompile;CoreCompile"
+    DependsOnTargets="ResolveAssemblyReferences;_ChirographLocateOpenApiClientSchemas;_ChirographWriteOpenApiClientSchema"
+    Condition="'@(OpenApiClient)' != '' and '$(ChirographOptionarySchema)' != 'false'"
+  />
+
+  <!-- Names each client's schema file, in the client's folder, and registers it, so dotnet clean removes it. -->
+  <Target Name="_ChirographLocateOpenApiClientSchemas" DependsOnTargets="_ChirographLocateOpenApiClients">
+    <ItemGroup>
+      <OptionarySchemaFragment Condition="'%(OptionarySchemaFragment._ChirographOpenApiClientSchema)' == 'true'">
+        <File>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(ChirographOpenApiClientsDirectory)', '%(OptionarySchemaFragment.ClientName)'))%(OptionarySchemaFragment.ClientName).schema.json</File>
+      </OptionarySchemaFragment>
+      <_ChirographOpenApiClientSchemaFile Remove="@(_ChirographOpenApiClientSchemaFile)" />
+      <_ChirographOpenApiClientSchemaFile Include="@(OptionarySchemaFragment->WithMetadataValue('_ChirographOpenApiClientSchema', 'true')->'%(File)')" />
+      <FileWrites Include="@(_ChirographOpenApiClientSchemaFile)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+      Writes the schema of one client, batched on the schema files. It is built from the methods and the keys below: a later method or
+      key is one more item, and the rules follow from them.
+
+      _ChirographOpenApiClientMethod, the values of Authentication:
+        - Feature: the value of the client's Authentication metadata (a ;-list) that allows the method; none when the method is always
+          allowed.
+        - Requires: the keys the method needs, a ;-list, where A|B means one of them. A secret is never required: it should come from
+          somewhere other than appsettings.json, which is the file the schema checks.
+
+      _ChirographOpenApiClientKey, the keys of the section:
+        - Schema: its JSON Schema, without the description ("type": "string" when not set). __Methods__ stands for the client's methods.
+        - Description: what it is. No backslash and no double quote; %3B for a semicolon, __ClientName__ for the client's name.
+        - Generator: only for the clients of that generator.
+        - ServiceDiscovery: true only when the project references Microsoft.Extensions.ServiceDiscovery, false only when it doesn't.
+        - Methods: the methods that use it, a ;-list. The schema has the key when the client allows one of them, and the other methods
+          forbid it. A key without methods (a certificate key, say) goes with every method.
+        - Secret: true for a credential, whose description then says to keep it out of appsettings.json.
+
+      Authentication is an enum of the client's methods, and each method gets an if/then: when Authentication is that method, its keys
+      are required and the keys of the other methods are not allowed. A section without Authentication is not checked against them,
+      since a connection string can name the method.
+  -->
+  <Target Name="_ChirographWriteOpenApiClientSchema" Outputs="%(_ChirographOpenApiClientSchemaFile.Identity)">
+    <ItemGroup>
+      <_ChirographOpenApiClientMethod Remove="@(_ChirographOpenApiClientMethod)" />
+      <_ChirographOpenApiClientMethod Include="None" />
+      <_ChirographOpenApiClientMethod Include="ApiKey" />
+      <_ChirographOpenApiClientMethod Include="Bearer" />
+      <_ChirographOpenApiClientMethod Include="Basic" Requires="Username" />
+      <_ChirographOpenApiClientMethod Include="ClientCredentials" Feature="ClientCredentials" Requires="ClientId;TokenEndpoint|Authority" />
+      <_ChirographOpenApiClientMethod Include="PrivateKeyJwt" Feature="ClientCredentials" Requires="ClientId;TokenEndpoint|Authority;CertificatePath|CertificateThumbprint" />
+      <_ChirographOpenApiClientMethod Include="AzureDefault" Feature="Azure" Requires="Scope" />
+      <_ChirographOpenApiClientMethod Include="AzureManagedIdentity" Feature="Azure" Requires="Scope" />
+      <_ChirographOpenApiClientMethod Include="AzureWorkloadIdentity" Feature="Azure" Requires="Scope" />
+      <_ChirographOpenApiClientMethod Include="AzureServicePrincipal" Feature="Azure" Requires="Scope;TenantId;ClientId" />
+
+      <_ChirographOpenApiClientKey Remove="@(_ChirographOpenApiClientKey)" />
+      <_ChirographOpenApiClientKey Include="ConnectionString">
+        <Description>The client's connection string, such as Endpoint=https://rockets.example.com/%3BTimeout=00:00:30. It wins over the other keys. When this key is set, even to an empty value, ConnectionStrings:__ClientName__ is not read.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="BaseAddress" Generator="Kiota" ServiceDiscovery="false">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>The absolute URI the client calls (HttpClient.BaseAddress). When not set, the client calls the first server of its OpenAPI document.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="BaseAddress" Generator="Refitter" ServiceDiscovery="false">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>The absolute URI the client calls (HttpClient.BaseAddress). A Refit client has no default: give it here, or in a connection string.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="BaseAddress" ServiceDiscovery="true">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>The URI the client calls (HttpClient.BaseAddress): an absolute URI, or a service-discovery address such as https+http://rockets, whose endpoints come from Services:rockets. When not set, https+http://__ClientName__.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Endpoint">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>An alias of BaseAddress. Set one or the other, not both.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Timeout">
+        <Schema>"type": "string", "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$"</Schema>
+        <Description>How long a request may take before it is canceled (HttpClient.Timeout), as a TimeSpan: hh:mm:ss, such as 00:00:30. HttpClient's default, 100 seconds, when not set.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="DefaultRequestHeaders">
+        <Schema>"type": "object", "additionalProperties": { "type": "string" }</Schema>
+        <Description>Headers sent with every request (HttpClient.DefaultRequestHeaders): each name with its value.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Resilience">
+        <Schema>"type": "boolean"</Schema>
+        <Description>true adds the standard resilience handler (AddStandardResilienceHandler()) to the client. Only takes effect when the project references Microsoft.Extensions.Http.Resilience%3B otherwise it is ignored.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="AllowedHosts">
+        <Schema>"type": "array", "items": { "type": "string" }</Schema>
+        <Description>More hosts than the BaseAddress host (and port) that may receive the client's credentials: a host alone allows each of its ports, host:port that port only.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Authentication">
+        <Schema>"type": "string", "enum": [__Methods__]</Schema>
+        <Description>How the client authenticates. None (the default): the client takes its authentication from the container. Another method: the client sends the credentials its keys give, and only to the BaseAddress host and the AllowedHosts.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ApiKey" Methods="ApiKey" Secret="true">
+        <Description>The API key of ApiKey. Alias Key.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Key" Methods="ApiKey" Secret="true">
+        <Description>An alias of ApiKey. Set one or the other, not both.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ApiKeyHeader" Methods="ApiKey">
+        <Description>The header ApiKey sends the key in. X-Api-Key when neither it nor ApiKeyQuery is set.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ApiKeyQuery" Methods="ApiKey">
+        <Description>The query parameter ApiKey sends the key in, instead of a header.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Token" Methods="Bearer" Secret="true">
+        <Description>The token of Bearer, sent as Authorization: Bearer &lt;token&gt;. In code, TokenProvider on the options can give it instead.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Username" Methods="Basic">
+        <Description>The user name of Basic. It cannot hold a colon.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Password" Methods="Basic" Secret="true">
+        <Description>The password of Basic.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="CertificatePath">
+        <Description>A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="CertificatePassword" Secret="true">
+        <Description>The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="CertificateKeyPath">
+        <Description>The PEM private key, when CertificatePath is a PEM certificate without its key.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="CertificateThumbprint">
+        <Description>The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="CertificateStore">
+        <Schema>"type": "string", "pattern": "^[A-Za-z]+/[^/]+$"</Schema>
+        <Description>The store CertificateThumbprint is in, as &lt;location&gt;/&lt;name&gt;: CurrentUser/My (the default) or LocalMachine/My, say.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ClientId" Methods="ClientCredentials;PrivateKeyJwt;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Description>The client id of ClientCredentials and PrivateKeyJwt, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ClientSecret" Methods="ClientCredentials;AzureServicePrincipal" Secret="true">
+        <Description>The client secret of ClientCredentials or AzureServicePrincipal. Not with PrivateKeyJwt, which signs with the certificate instead%3B AzureServicePrincipal takes it or the certificate keys, not both.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Scope" Methods="ClientCredentials;PrivateKeyJwt;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Description>The scopes a token is asked for, space-separated: optional for ClientCredentials and PrivateKeyJwt, needed by an Azure method (api://rockets/.default, say).</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="TokenEndpoint" Methods="ClientCredentials;PrivateKeyJwt">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>The token endpoint of ClientCredentials and PrivateKeyJwt, an absolute http or https URI. Not with Authority.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Authority" Methods="ClientCredentials;PrivateKeyJwt">
+        <Schema>"type": "string", "format": "uri", "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"</Schema>
+        <Description>The authority of ClientCredentials and PrivateKeyJwt, an absolute https URI whose discovery document gives the token endpoint, read on the first token request. Not with TokenEndpoint.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Resource" Methods="ClientCredentials;PrivateKeyJwt">
+        <Description>The resource ClientCredentials and PrivateKeyJwt ask a token for (RFC 8707).</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ClientCredentialStyle" Methods="ClientCredentials">
+        <Schema>"type": "string", "enum": ["Header", "Body"]</Schema>
+        <Description>How ClientCredentials sends the client id and secret: in the Authorization header (Header, the default), or in the body of the token request (Body).</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="TenantId" Methods="AzureDefault;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Schema>"type": "string", "pattern": "^[A-Za-z0-9.-]+$"</Schema>
+        <Description>The tenant of an Azure method, its id or a domain: needed by AzureServicePrincipal, optional for AzureDefault and AzureWorkloadIdentity.</Description>
+      </_ChirographOpenApiClientKey>
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_ChirographOpenApiClientSchemaClientName>%(_ChirographOpenApiClientSchemaFile.ClientName)</_ChirographOpenApiClientSchemaClientName>
+      <_ChirographOpenApiClientSchemaGenerator>%(_ChirographOpenApiClientSchemaFile.Generator)</_ChirographOpenApiClientSchemaGenerator>
+      <!-- the values of Authentication, without spaces and in lowercase: ;clientcredentials; -->
+      <_ChirographOpenApiClientSchemaFeatures>;$([System.Text.RegularExpressions.Regex]::Replace('%(_ChirographOpenApiClientSchemaFile.Authentication)', '\s+', '').ToLowerInvariant());</_ChirographOpenApiClientSchemaFeatures>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
+      <_ChirographServiceDiscoveryReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.ServiceDiscovery'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <!-- whether the project references Microsoft.Extensions.ServiceDiscovery, as the registration's ServiceDiscovery block says -->
+      <_ChirographOpenApiClientSchemaServiceDiscovery>false</_ChirographOpenApiClientSchemaServiceDiscovery>
+      <_ChirographOpenApiClientSchemaServiceDiscovery Condition="'@(_ChirographServiceDiscoveryReference)' != ''">true</_ChirographOpenApiClientSchemaServiceDiscovery>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <!-- the client's methods, and the keys of its generator, in order (filtered by Remove, since a batched Include would regroup them) -->
+      <_ChirographOpenApiClientSchemaMethod Remove="@(_ChirographOpenApiClientSchemaMethod)" />
+      <_ChirographOpenApiClientSchemaMethod Include="@(_ChirographOpenApiClientMethod)" />
+      <_ChirographOpenApiClientSchemaMethod
+        Remove="@(_ChirographOpenApiClientSchemaMethod)"
+        Condition="'%(_ChirographOpenApiClientSchemaMethod.Feature)' != '' and !$(_ChirographOpenApiClientSchemaFeatures.Contains($([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethod.Feature);').ToLowerInvariant())))"
+      />
+      <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaKey)" />
+      <_ChirographOpenApiClientSchemaKey Include="@(_ChirographOpenApiClientKey)" />
+      <_ChirographOpenApiClientSchemaKey
+        Remove="@(_ChirographOpenApiClientSchemaKey)"
+        Condition="'%(_ChirographOpenApiClientSchemaKey.Generator)' != '' and '%(_ChirographOpenApiClientSchemaKey.Generator)' != '$(_ChirographOpenApiClientSchemaGenerator)'"
+      />
+      <_ChirographOpenApiClientSchemaKey
+        Remove="@(_ChirographOpenApiClientSchemaKey)"
+        Condition="'%(_ChirographOpenApiClientSchemaKey.ServiceDiscovery)' != '' and '%(_ChirographOpenApiClientSchemaKey.ServiceDiscovery)' != '$(_ChirographOpenApiClientSchemaServiceDiscovery)'"
+      />
+
+      <!-- the keys of methods: each with each of the client's methods (a cross product), and whether the method uses it -->
+      <_ChirographOpenApiClientSchemaMethodKey Remove="@(_ChirographOpenApiClientSchemaMethodKey)" />
+      <_ChirographOpenApiClientSchemaMethodKey Include="@(_ChirographOpenApiClientSchemaMethod)" Condition="'%(_ChirographOpenApiClientSchemaKey.Methods)' != ''">
+        <Key>%(_ChirographOpenApiClientSchemaKey.Identity)</Key>
+        <KeyMethods>%(_ChirographOpenApiClientSchemaKey.Methods)</KeyMethods>
+      </_ChirographOpenApiClientSchemaMethodKey>
+      <_ChirographOpenApiClientSchemaMethodKey>
+        <Uses>$([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethodKey.KeyMethods);').Contains(';%(_ChirographOpenApiClientSchemaMethodKey.Identity);'))</Uses>
+      </_ChirographOpenApiClientSchemaMethodKey>
+
+      <!-- a key that none of the client's methods uses goes -->
+      <_ChirographOpenApiClientSchemaUsedKey Remove="@(_ChirographOpenApiClientSchemaUsedKey)" />
+      <_ChirographOpenApiClientSchemaUsedKey Include="@(_ChirographOpenApiClientSchemaMethodKey->WithMetadataValue('Uses', 'True')->'%(Key)'->Distinct())" />
+      <_ChirographOpenApiClientSchemaUnusedKey Remove="@(_ChirographOpenApiClientSchemaUnusedKey)" />
+      <_ChirographOpenApiClientSchemaUnusedKey Include="@(_ChirographOpenApiClientSchemaMethodKey->'%(Key)'->Distinct())" Exclude="@(_ChirographOpenApiClientSchemaUsedKey)" />
+      <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaUnusedKey)" />
+      <_ChirographOpenApiClientSchemaMethodKey Remove="@(_ChirographOpenApiClientSchemaMethodKey)" />
+      <_ChirographOpenApiClientSchemaMethodKey Include="@(_ChirographOpenApiClientSchemaMethod)" Condition="'%(_ChirographOpenApiClientSchemaKey.Methods)' != ''">
+        <Key>%(_ChirographOpenApiClientSchemaKey.Identity)</Key>
+        <KeyMethods>%(_ChirographOpenApiClientSchemaKey.Methods)</KeyMethods>
+      </_ChirographOpenApiClientSchemaMethodKey>
+      <_ChirographOpenApiClientSchemaMethodKey>
+        <Uses>$([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethodKey.KeyMethods);').Contains(';%(_ChirographOpenApiClientSchemaMethodKey.Identity);'))</Uses>
+      </_ChirographOpenApiClientSchemaMethodKey>
+
+      <!-- each key, as a property of the schema -->
+      <_ChirographOpenApiClientSchemaKey>
+        <Schema Condition="'%(_ChirographOpenApiClientSchemaKey.Schema)' == ''">"type": "string"</Schema>
+        <Description Condition="'%(_ChirographOpenApiClientSchemaKey.Secret)' == 'true'">%(_ChirographOpenApiClientSchemaKey.Description) It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say.</Description>
+      </_ChirographOpenApiClientSchemaKey>
+
+      <!--
+          Each method, as the then of its if: the keys it requires, and the keys of the other methods, which it forbids. A;B|C becomes
+          "allOf": [{ "required": ["A"] }, { "anyOf": [{ "required": ["B"] }, { "required": ["C"] }] }].
+      -->
+      <_ChirographOpenApiClientSchemaRule Remove="@(_ChirographOpenApiClientSchemaRule)" />
+      <_ChirographOpenApiClientSchemaRule
+        Include="%(_ChirographOpenApiClientSchemaMethodKey.Identity)"
+        Requires="%(_ChirographOpenApiClientSchemaMethodKey.Requires)"
+        Forbids="@(_ChirographOpenApiClientSchemaMethodKey->WithMetadataValue('Uses', 'False')->'&quot;%(Key)&quot;: false', ', ')"
+      />
+      <_ChirographOpenApiClientSchemaRule>
+        <Then>"properties": { %(_ChirographOpenApiClientSchemaRule.Forbids) }</Then>
+        <Then Condition="'%(_ChirographOpenApiClientSchemaRule.Requires)' != ''">"allOf": [$([System.Text.RegularExpressions.Regex]::Replace($([System.Text.RegularExpressions.Regex]::Replace('%(_ChirographOpenApiClientSchemaRule.Requires)', '[^;]+', '{ "required": ["$0"] }')), '[{] "required": [[]"([^"]*[|][^"]*)"[]] [}]', '{ "anyOf": [{ "required": ["$1"] }] }').Replace('|', '"] }, { "required": ["').Replace(';', ', '))], "properties": { %(_ChirographOpenApiClientSchemaRule.Forbids) }</Then>
+      </_ChirographOpenApiClientSchemaRule>
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_ChirographOpenApiClientSchemaMethods>@(_ChirographOpenApiClientSchemaMethod->'&quot;%(Identity)&quot;', ', ')</_ChirographOpenApiClientSchemaMethods>
+      <_ChirographOpenApiClientSchema>{
+  "type": "object",
+  "description": "__ClientName__, a $(_ChirographOpenApiClientSchemaGenerator) client Chirograph generates: its Add__ClientName__() registration reads this section to configure the client's HttpClient.",
+  "properties": {
+    @(_ChirographOpenApiClientSchemaKey->'&quot;%(Identity)&quot;: { %(Schema), &quot;description&quot;: &quot;%(Description)&quot; }', ',%0A    ')
+  },
+  "allOf": [
+    @(_ChirographOpenApiClientSchemaRule->'{ &quot;if&quot;: { &quot;properties&quot;: { &quot;Authentication&quot;: { &quot;const&quot;: &quot;%(Identity)&quot; } }, &quot;required&quot;: [&quot;Authentication&quot;] }, &quot;then&quot;: { %(Then) } }', ',%0A    ')
+  ]
+}</_ChirographOpenApiClientSchema>
+    </PropertyGroup>
+
+    <WriteLinesToFile
+      File="%(_ChirographOpenApiClientSchemaFile.Identity)"
+      Lines="$(_ChirographOpenApiClientSchema.Replace('__Methods__', '$(_ChirographOpenApiClientSchemaMethods)').Replace('__ClientName__', '$(_ChirographOpenApiClientSchemaClientName)'))"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true"
+    />
+
+    <ItemGroup>
+      <_ChirographOpenApiClientMethod Remove="@(_ChirographOpenApiClientMethod)" />
+      <_ChirographOpenApiClientKey Remove="@(_ChirographOpenApiClientKey)" />
+      <_ChirographOpenApiClientSchemaMethod Remove="@(_ChirographOpenApiClientSchemaMethod)" />
+      <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaKey)" />
+      <_ChirographOpenApiClientSchemaMethodKey Remove="@(_ChirographOpenApiClientSchemaMethodKey)" />
+      <_ChirographOpenApiClientSchemaUsedKey Remove="@(_ChirographOpenApiClientSchemaUsedKey)" />
+      <_ChirographOpenApiClientSchemaUnusedKey Remove="@(_ChirographOpenApiClientSchemaUnusedKey)" />
+      <_ChirographOpenApiClientSchemaRule Remove="@(_ChirographOpenApiClientSchemaRule)" />
+    </ItemGroup>
+  </Target>
+</Project>

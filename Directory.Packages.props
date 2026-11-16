@@ -43,6 +43,10 @@
     <PackageVersion Include="Microsoft.Kiota.Bundle" Version="2.1.6" />
     <PackageVersion Include="Refitter" Version="2.3.1" />
     <PackageVersion Include="Refit.HttpClientFactory" Version="16.4.0" />
+    <!-- Added for a client whose Authentication metadata declares ClientCredentials. Only 4.x: its API differs from 3.x. -->
+    <PackageVersion Include="Duende.AccessTokenManagement" Version="4.3.0" />
+    <!-- Added for a client whose Authentication metadata declares Azure. -->
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
   </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="MSBuild.ProjectCreation" Version="20.0.0" />
@@ -52,14 +56,14 @@
     <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="18.12.2" />
     <PackageVersion Include="MSBuild.StructuredLogger.Utils" Version="2.3.269" />
     <PackageVersion Include="NuGet.Packaging" Version="8.0.0" />
-    <!-- NuGet.Packaging pulls the vulnerable 8.0.1 (GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx). -->
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <PackageVersion Include="Rocket.Surgery.Extensions.Testing.TUnit" Version="11.0.1" />
     <PackageVersion Include="TUnit" Version="1.85.0" />
     <PackageVersion Include="TUnit.Mocks" Version="1.85.0" />
     <PackageVersion Include="TUnit.Assertions.Should" Version="1.85.0-beta" />
     <PackageVersion Include="Verify.TUnit" Version="33.4.0" />
+    <!-- Not a dependency of Chirograph: the tests register it as the token cache of a client-credentials client. -->
+    <PackageVersion Include="ZiggyCreatures.FusionCache" Version="2.9.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump" Version="2.5.3" />
     <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.3" />
   </ItemGroup>
@@ -71,6 +75,8 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
     <!-- Not a dependency of Chirograph: the tests reference it to show the registration adds the standard resilience handler. -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
+    <!-- Not a dependency of Chirograph: the tests reference it to show the registration adds service discovery. -->
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">
     <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
@@ -79,5 +85,7 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <!-- Not a dependency of Chirograph: the tests reference it to show the registration adds the standard resilience handler. -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
+    <!-- Not a dependency of Chirograph: the tests reference it to show the registration adds service discovery. -->
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="11.0.0" />
   </ItemGroup>
 </Project>

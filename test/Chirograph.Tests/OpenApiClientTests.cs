@@ -115,34 +115,51 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
 
     /// <summary>
     /// Build seam: the registration Chirograph writes for each generator, a public <c>Add&lt;ClientName&gt;()</c> that returns the
-    /// <c>IHttpClientBuilder</c>, stamped with the version of Chirograph. It reads <c>Clients:RocketsClient</c>, and adds the standard
-    /// resilience handler only when the project references Microsoft.Extensions.Http.Resilience.
+    /// <c>IHttpClientBuilder</c>, and the options it reads, <c>RocketsClientOptions</c>, both stamped with the version of Chirograph. The
+    /// options carry the generator's delegate, and the registration adds the standard resilience handler only when the project references
+    /// Microsoft.Extensions.Http.Resilience, and service discovery only when it references Microsoft.Extensions.ServiceDiscovery. The code
+    /// of <c>ClientCredentials</c> (Duende.AccessTokenManagement) and of the Azure methods (Azure.Identity) is written only when the item's
+    /// <c>Authentication</c> metadata declares it.
     /// </summary>
     [Test]
-    [Arguments(Generator.Kiota, false)]
-    [Arguments(Generator.Refitter, false)]
-    [Arguments(Generator.Kiota, true)]
-    [Arguments(Generator.Refitter, true)]
-    public async Task Should_Write_The_Registration(Generator generator, bool referencesResilience)
+    [Arguments(Generator.Kiota, null, null)]
+    [Arguments(Generator.Refitter, null, null)]
+    [Arguments(Generator.Kiota, "Resilience", null)]
+    [Arguments(Generator.Refitter, "Resilience", null)]
+    [Arguments(Generator.Kiota, "ServiceDiscovery", null)]
+    [Arguments(Generator.Refitter, "ServiceDiscovery", null)]
+    [Arguments(Generator.Kiota, null, "ClientCredentials")]
+    [Arguments(Generator.Refitter, null, "ClientCredentials")]
+    [Arguments(Generator.Kiota, null, "Azure")]
+    [Arguments(Generator.Refitter, null, "Azure")]
+    public async Task Should_Write_The_Registration(Generator generator, string? block, string? authentication)
     {
         using var project = new SdkTestProject(targetFramework);
-        var lib = project.CreateConsumer("Library").OpenApiClient(generator, "rockets.json");
-        if (referencesResilience)
+        var lib = project
+                 .CreateConsumer("Library")
+                 .OpenApiClient(generator, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = authentication });
+        if (block is not null)
         {
-            lib.ItemPackageReference(
-                "Microsoft.Extensions.Http.Resilience",
-                Config.CentralPackageVersion("Microsoft.Extensions.Http.Resilience", targetFramework)
-            );
+            // the package whose reference turns the block on
+            var package = block switch
+            {
+                "Resilience" => "Microsoft.Extensions.Http.Resilience",
+                _ => "Microsoft.Extensions.ServiceDiscovery",
+            };
+            lib.ItemPackageReference(package, Config.CentralPackageVersion(package, targetFramework));
         }
 
         project.AddProject("lib/lib.csproj", lib).AddFile("lib/rockets.json", RocketsApi.Document);
 
         await project.Build("lib");
-        var registration = await File.ReadAllTextAsync(
-            Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient", "RocketsClientServiceCollectionExtensions.g.cs")
-        );
+        var directory = Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient");
+        var registration = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientServiceCollectionExtensions.g.cs"));
+        var options = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientOptions.g.cs"));
 
-        await project.VerifyResult(registration, referencesResilience ? $"{generator}_Resilience" : generator.ToString());
+        await project.VerifyResult(
+            new { Registration = registration, Options = options },
+            $"{generator}{( block is null ? "" : $"_{block}" )}{( authentication is null ? "" : $"_{authentication}" )}"
+        );
     }
 
     /// <summary>
@@ -259,6 +276,39 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         );
 
         await project.VerifyEvaluation("app/app.csproj");
+    }
+
+    /// <summary>
+    /// Evaluation seam: the <c>Authentication</c> metadata of a client adds the packages its methods need, Duende.AccessTokenManagement for
+    /// <c>ClientCredentials</c> (written in any case, with spaces around it), in place of Microsoft.Extensions.Http, which it brings, and
+    /// Azure.Identity for <c>Azure</c>, beside it. Without the metadata, no package is added; with the package referenced by the project,
+    /// its own reference wins.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota, null, false)]
+    [Arguments(Generator.Kiota, " clientcredentials ", false)]
+    [Arguments(Generator.Refitter, "ClientCredentials", false)]
+    [Arguments(Generator.Kiota, "ClientCredentials", true)]
+    [Arguments(Generator.Kiota, "Azure", false)]
+    [Arguments(Generator.Refitter, "ClientCredentials; azure", false)]
+    public async Task Should_Add_The_Packages_The_Authentication_Needs(Generator generator, string? authentication, bool referencesDuende)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        var app = project
+                 .CreateConsumer()
+                 .OpenApiClient(generator, "rockets.json", "OtherClient")
+                 .OpenApiClient(generator, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = authentication });
+        if (referencesDuende)
+        {
+            app.ItemPackageReference("Duende.AccessTokenManagement", version: "4.0.0");
+        }
+
+        project.AddProject("app/app.csproj", app);
+
+        await project.VerifyEvaluation(
+            "app/app.csproj",
+            $"{generator}_{( authentication is null ? "none" : string.Join('_', authentication.ToLowerInvariant().Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)) )}{( referencesDuende ? "_Referenced" : "" )}"
+        );
     }
 
     /// <summary>

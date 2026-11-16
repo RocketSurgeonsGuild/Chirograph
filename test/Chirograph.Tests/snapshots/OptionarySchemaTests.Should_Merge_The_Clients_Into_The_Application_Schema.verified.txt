@@ -20,16 +20,25 @@
   },
   "Clients:KiotaClient": {
     "type": "object",
-    "description": "A Kiota client Chirograph generates: its Add<ClientName>() registration reads this section to configure the client's HttpClient.",
+    "description": "KiotaClient, a Kiota client Chirograph generates: its AddKiotaClient() registration reads this section to configure the client's HttpClient.",
     "properties": {
+      "ConnectionString": {
+        "type": "string",
+        "description": "The client's connection string, such as Endpoint=https://rockets.example.com/;Timeout=00:00:30. It wins over the other keys. When this key is set, even to an empty value, ConnectionStrings:KiotaClient is not read."
+      },
       "BaseAddress": {
         "type": "string",
         "format": "uri",
         "description": "The absolute URI the client calls (HttpClient.BaseAddress). When not set, the client calls the first server of its OpenAPI document."
       },
+      "Endpoint": {
+        "type": "string",
+        "format": "uri",
+        "description": "An alias of BaseAddress. Set one or the other, not both."
+      },
       "Timeout": {
         "type": "string",
-        "pattern": "^-?(\\d+\\.)?\\d{1,2}:\\d{2}(:\\d{2}(\\.\\d{1,7})?)?$",
+        "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
         "description": "How long a request may take before it is canceled (HttpClient.Timeout), as a TimeSpan: hh:mm:ss, such as 00:00:30. HttpClient's default, 100 seconds, when not set."
       },
       "DefaultRequestHeaders": {
@@ -42,26 +51,195 @@
       "Resilience": {
         "type": "boolean",
         "description": "true adds the standard resilience handler (AddStandardResilienceHandler()) to the client. Only takes effect when the project references Microsoft.Extensions.Http.Resilience; otherwise it is ignored."
+      },
+      "AllowedHosts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "More hosts than the BaseAddress host (and port) that may receive the client's credentials: a host alone allows each of its ports, host:port that port only."
+      },
+      "Authentication": {
+        "type": "string",
+        "enum": [
+          "None",
+          "ApiKey",
+          "Bearer",
+          "Basic"
+        ],
+        "description": "How the client authenticates. None (the default): the client takes its authentication from the container. Another method: the client sends the credentials its keys give, and only to the BaseAddress host and the AllowedHosts."
+      },
+      "ApiKey": {
+        "type": "string",
+        "description": "The API key of ApiKey. Alias Key. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "Key": {
+        "type": "string",
+        "description": "An alias of ApiKey. Set one or the other, not both. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "ApiKeyHeader": {
+        "type": "string",
+        "description": "The header ApiKey sends the key in. X-Api-Key when neither it nor ApiKeyQuery is set."
+      },
+      "ApiKeyQuery": {
+        "type": "string",
+        "description": "The query parameter ApiKey sends the key in, instead of a header."
+      },
+      "Token": {
+        "type": "string",
+        "description": "The token of Bearer, sent as Authorization: Bearer <token>. In code, TokenProvider on the options can give it instead. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "Username": {
+        "type": "string",
+        "description": "The user name of Basic. It cannot hold a colon."
+      },
+      "Password": {
+        "type": "string",
+        "description": "The password of Basic. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "CertificatePath": {
+        "type": "string",
+        "description": "A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint."
+      },
+      "CertificatePassword": {
+        "type": "string",
+        "description": "The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "CertificateKeyPath": {
+        "type": "string",
+        "description": "The PEM private key, when CertificatePath is a PEM certificate without its key."
+      },
+      "CertificateThumbprint": {
+        "type": "string",
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath."
+      },
+      "CertificateStore": {
+        "type": "string",
+        "pattern": "^[A-Za-z]+/[^/]+$",
+        "description": "The store CertificateThumbprint is in, as <location>/<name>: CurrentUser/My (the default) or LocalMachine/My, say."
       }
     },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "None"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "properties": {
+            "ApiKey": false,
+            "Key": false,
+            "ApiKeyHeader": false,
+            "ApiKeyQuery": false,
+            "Token": false,
+            "Username": false,
+            "Password": false
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "ApiKey"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "properties": {
+            "Token": false,
+            "Username": false,
+            "Password": false
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "Bearer"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "properties": {
+            "ApiKey": false,
+            "Key": false,
+            "ApiKeyHeader": false,
+            "ApiKeyQuery": false,
+            "Username": false,
+            "Password": false
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "Basic"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "allOf": [
+            {
+              "required": [
+                "Username"
+              ]
+            }
+          ],
+          "properties": {
+            "ApiKey": false,
+            "Key": false,
+            "ApiKeyHeader": false,
+            "ApiKeyQuery": false,
+            "Token": false
+          }
+        }
+      }
+    ],
     "propertyNames": {
-      "pattern": "^(?:[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee])$",
-      "patternErrorMessage": "Unknown key in section \"Clients:KiotaClient\". Known keys (case-insensitive): BaseAddress, Timeout, DefaultRequestHeaders, Resilience.",
+      "pattern": "^(?:[Cc][Oo][Nn][Nn][Ee][Cc][Tt][Ii][Oo][Nn][Ss][Tt][Rr][Ii][Nn][Gg]|[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Ee][Nn][Dd][Pp][Oo][Ii][Nn][Tt]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee]|[Aa][Ll][Ll][Oo][Ww][Ee][Dd][Hh][Oo][Ss][Tt][Ss]|[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ii][Oo][Nn]|[Aa][Pp][Ii][Kk][Ee][Yy]|[Kk][Ee][Yy]|[Aa][Pp][Ii][Kk][Ee][Yy][Hh][Ee][Aa][Dd][Ee][Rr]|[Aa][Pp][Ii][Kk][Ee][Yy][Qq][Uu][Ee][Rr][Yy]|[Tt][Oo][Kk][Ee][Nn]|[Uu][Ss][Ee][Rr][Nn][Aa][Mm][Ee]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Kk][Ee][Yy][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Tt][Hh][Uu][Mm][Bb][Pp][Rr][Ii][Nn][Tt]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Ss][Tt][Oo][Rr][Ee])$",
+      "patternErrorMessage": "Unknown key in section \"Clients:KiotaClient\". Known keys (case-insensitive): ConnectionString, BaseAddress, Endpoint, Timeout, DefaultRequestHeaders, Resilience, AllowedHosts, Authentication, ApiKey, Key, ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint, CertificateStore.",
       "doNotSuggest": true
     }
   },
   "Clients:RefitterClient": {
     "type": "object",
-    "description": "A Refitter client Chirograph generates: its Add<ClientName>() registration reads this section to configure the client's HttpClient.",
+    "description": "RefitterClient, a Refitter client Chirograph generates: its AddRefitterClient() registration reads this section to configure the client's HttpClient.",
     "properties": {
+      "ConnectionString": {
+        "type": "string",
+        "description": "The client's connection string, such as Endpoint=https://rockets.example.com/;Timeout=00:00:30. It wins over the other keys. When this key is set, even to an empty value, ConnectionStrings:RefitterClient is not read."
+      },
       "BaseAddress": {
         "type": "string",
         "format": "uri",
-        "description": "The absolute URI the client calls (HttpClient.BaseAddress). Required: a Refit client has no default."
+        "description": "The absolute URI the client calls (HttpClient.BaseAddress). A Refit client has no default: give it here, or in a connection string."
+      },
+      "Endpoint": {
+        "type": "string",
+        "format": "uri",
+        "description": "An alias of BaseAddress. Set one or the other, not both."
       },
       "Timeout": {
         "type": "string",
-        "pattern": "^-?(\\d+\\.)?\\d{1,2}:\\d{2}(:\\d{2}(\\.\\d{1,7})?)?$",
+        "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
         "description": "How long a request may take before it is canceled (HttpClient.Timeout), as a TimeSpan: hh:mm:ss, such as 00:00:30. HttpClient's default, 100 seconds, when not set."
       },
       "DefaultRequestHeaders": {
@@ -74,14 +252,171 @@
       "Resilience": {
         "type": "boolean",
         "description": "true adds the standard resilience handler (AddStandardResilienceHandler()) to the client. Only takes effect when the project references Microsoft.Extensions.Http.Resilience; otherwise it is ignored."
+      },
+      "AllowedHosts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "More hosts than the BaseAddress host (and port) that may receive the client's credentials: a host alone allows each of its ports, host:port that port only."
+      },
+      "Authentication": {
+        "type": "string",
+        "enum": [
+          "None",
+          "ApiKey",
+          "Bearer",
+          "Basic"
+        ],
+        "description": "How the client authenticates. None (the default): the client takes its authentication from the container. Another method: the client sends the credentials its keys give, and only to the BaseAddress host and the AllowedHosts."
+      },
+      "ApiKey": {
+        "type": "string",
+        "description": "The API key of ApiKey. Alias Key. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "Key": {
+        "type": "string",
+        "description": "An alias of ApiKey. Set one or the other, not both. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "ApiKeyHeader": {
+        "type": "string",
+        "description": "The header ApiKey sends the key in. X-Api-Key when neither it nor ApiKeyQuery is set."
+      },
+      "ApiKeyQuery": {
+        "type": "string",
+        "description": "The query parameter ApiKey sends the key in, instead of a header."
+      },
+      "Token": {
+        "type": "string",
+        "description": "The token of Bearer, sent as Authorization: Bearer <token>. In code, TokenProvider on the options can give it instead. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "Username": {
+        "type": "string",
+        "description": "The user name of Basic. It cannot hold a colon."
+      },
+      "Password": {
+        "type": "string",
+        "description": "The password of Basic. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "CertificatePath": {
+        "type": "string",
+        "description": "A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint."
+      },
+      "CertificatePassword": {
+        "type": "string",
+        "description": "The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+      },
+      "CertificateKeyPath": {
+        "type": "string",
+        "description": "The PEM private key, when CertificatePath is a PEM certificate without its key."
+      },
+      "CertificateThumbprint": {
+        "type": "string",
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath."
+      },
+      "CertificateStore": {
+        "type": "string",
+        "pattern": "^[A-Za-z]+/[^/]+$",
+        "description": "The store CertificateThumbprint is in, as <location>/<name>: CurrentUser/My (the default) or LocalMachine/My, say."
       }
     },
-    "required": [
-      "BaseAddress"
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "None"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "properties": {
+            "ApiKey": false,
+            "Key": false,
+            "ApiKeyHeader": false,
+            "ApiKeyQuery": false,
+            "Token": false,
+            "Username": false,
+            "Password": false
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "ApiKey"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "properties": {
+            "Token": false,
+            "Username": false,
+            "Password": false
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "Bearer"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "properties": {
+            "ApiKey": false,
+            "Key": false,
+            "ApiKeyHeader": false,
+            "ApiKeyQuery": false,
+            "Username": false,
+            "Password": false
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "Authentication": {
+              "const": "Basic"
+            }
+          },
+          "required": [
+            "Authentication"
+          ]
+        },
+        "then": {
+          "allOf": [
+            {
+              "required": [
+                "Username"
+              ]
+            }
+          ],
+          "properties": {
+            "ApiKey": false,
+            "Key": false,
+            "ApiKeyHeader": false,
+            "ApiKeyQuery": false,
+            "Token": false
+          }
+        }
+      }
     ],
     "propertyNames": {
-      "pattern": "^(?:[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee])$",
-      "patternErrorMessage": "Unknown key in section \"Clients:RefitterClient\". Known keys (case-insensitive): BaseAddress, Timeout, DefaultRequestHeaders, Resilience.",
+      "pattern": "^(?:[Cc][Oo][Nn][Nn][Ee][Cc][Tt][Ii][Oo][Nn][Ss][Tt][Rr][Ii][Nn][Gg]|[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Ee][Nn][Dd][Pp][Oo][Ii][Nn][Tt]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee]|[Aa][Ll][Ll][Oo][Ww][Ee][Dd][Hh][Oo][Ss][Tt][Ss]|[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ii][Oo][Nn]|[Aa][Pp][Ii][Kk][Ee][Yy]|[Kk][Ee][Yy]|[Aa][Pp][Ii][Kk][Ee][Yy][Hh][Ee][Aa][Dd][Ee][Rr]|[Aa][Pp][Ii][Kk][Ee][Yy][Qq][Uu][Ee][Rr][Yy]|[Tt][Oo][Kk][Ee][Nn]|[Uu][Ss][Ee][Rr][Nn][Aa][Mm][Ee]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Kk][Ee][Yy][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Tt][Hh][Uu][Mm][Bb][Pp][Rr][Ii][Nn][Tt]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Ss][Tt][Oo][Rr][Ee])$",
+      "patternErrorMessage": "Unknown key in section \"Clients:RefitterClient\". Known keys (case-insensitive): ConnectionString, BaseAddress, Endpoint, Timeout, DefaultRequestHeaders, Resilience, AllowedHosts, Authentication, ApiKey, Key, ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint, CertificateStore.",
       "doNotSuggest": true
     }
   }

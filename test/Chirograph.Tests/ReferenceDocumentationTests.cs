@@ -14,6 +14,7 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
     private const string PropertiesPage = "docs/src/content/docs/reference/properties.md";
     private const string DiagnosticsPage = "docs/src/content/docs/reference/diagnostics.md";
     private const string OptionaryPage = "docs/src/content/docs/guides/with-optionary.md";
+    private const string OptionsTemplate = "src/Chirograph/Sdk/templates/OpenApiClientOptions.cs.template";
 
     /// <summary>
     /// The metadata a project can set: every metadata the targets read from <c>OpenApiClient</c> or its private copy
@@ -93,31 +94,34 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
     }
 
     /// <summary>
-    /// The keys of a client's <c>Clients:&lt;ClientName&gt;</c> section that the schema files the SDK ships describe: both files list the same
-    /// keys, and the Optionary guide's table lists exactly those.
+    /// The keys of a client's <c>Clients:&lt;ClientName&gt;</c> section: the keys the generated schemas describe (every client in the
+    /// accepted snapshots of <see cref="OptionarySchemaTests.Should_Write_The_Schema_Of_Each_Client" />, one per variant), the keys the
+    /// options class reads from the section (its <c>ObjectKeyList</c>, with each alias) and the keys the Optionary guide's table lists
+    /// are the same.
     /// </summary>
     [Test]
-    public async Task Should_List_Exactly_The_Keys_The_Schemas_Describe()
+    public async Task Should_List_Exactly_The_Keys_The_Schema_And_The_Options_Read()
     {
-        var schemas = Directory.EnumerateFiles(Path.Combine(Config.RootDirectory, "src", "Chirograph", "Sdk", "schemas"), "*.schema.json")
-                               .Order(StringComparer.Ordinal)
-                               .ToDictionary(
-                                    Path.GetFileName,
-                                    z => System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(z))!["properties"]!
-                                                                        .AsObject()
-                                                                        .Select(p => p.Key)
-                                                                        .Order(StringComparer.Ordinal)
-                                                                        .ToArray()
-                                );
-        var keys = schemas.Values.First();
+        var schemaKeys = Directory.EnumerateFiles(Path.Combine(Config.RootDirectory, "test", "Chirograph.Tests", "snapshots"), "OptionarySchemaTests.Should_Write_The_Schema_Of_Each_Client*.verified.txt")
+                                  .SelectMany(z => System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(z))!.AsObject())
+                                  .SelectMany(z => z.Value!["properties"]!.AsObject().Select(p => p.Key))
+                                  .Distinct()
+                                  .Order(StringComparer.Ordinal)
+                                  .ToArray();
+        // every key of the list, whichever //#if block it is in
+        var optionsKeys = ObjectKeyList()
+                         .Matches(ReadFile(OptionsTemplate))
+                         .SelectMany(z => StringLiteral().Matches(z.Groups["list"].Value))
+                         .SelectMany(z => KeyListEntry().Matches(z.Groups["value"].Value))
+                         .SelectMany(z => z.Groups["key"].Captures.Select(c => c.Value))
+                         .Where(z => z != "and")
+                         .Distinct()
+                         .Order(StringComparer.Ordinal)
+                         .ToArray();
 
-        await keys.Should().NotBeEmpty();
-        foreach (var (file, fileKeys) in schemas)
-        {
-            await fileKeys.Should().BeEquivalentTo(keys, CollectionOrdering.Matching).Because($"{file} describes the same section");
-        }
-
-        await TableRows(OptionaryPage, "The keys").Order(StringComparer.Ordinal).ToArray().Should().BeEquivalentTo(keys, CollectionOrdering.Matching).Because($"the keys table of {OptionaryPage}");
+        await schemaKeys.Should().NotBeEmpty();
+        await optionsKeys.Should().BeEquivalentTo(schemaKeys, CollectionOrdering.Matching).Because($"the ObjectKeyList of {OptionsTemplate}");
+        await TableRows(OptionaryPage, "The keys").Order(StringComparer.Ordinal).ToArray().Should().BeEquivalentTo(schemaKeys, CollectionOrdering.Matching).Because($"the keys table of {OptionaryPage}");
     }
 
     private static string ReadFile(string path) => File.ReadAllText(Path.Combine(Config.RootDirectory, path));
@@ -126,6 +130,17 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
         Regex.Match(page, $@"^## {heading}\s*$(?<section>.*?)(?=^## |\z)", RegexOptions.Multiline | RegexOptions.Singleline).Groups["section"].Value;
 
     private static IEnumerable<string> TableRows(string path, string heading) => TableRow().Matches(Section(ReadFile(path), heading)).Select(z => z.Groups["name"].Value);
+
+    // the keys of the object in the options class, string literals in an array, some in //#if blocks: KeyList(new[] { "A", "B (or C)", … })
+    [GeneratedRegex(@"ObjectKeyList\s*=\s*KeyList\(\s*new\[\]\s*\{(?<list>[^}]*)\}")]
+    private static partial Regex ObjectKeyList();
+
+    [GeneratedRegex(@"""(?<value>[^""]*)""")]
+    private static partial Regex StringLiteral();
+
+    // an entry of that list: a key, with its alias if it has one
+    [GeneratedRegex(@"(?<key>[A-Za-z]\w*)(?: \(or (?<key>[A-Za-z]\w*)\))?")]
+    private static partial Regex KeyListEntry();
 
     [GeneratedRegex(@"%\((?:_Chirograph)?OpenApiClient\.(?<name>[A-Za-z]\w*)\)")]
     private static partial Regex MetadataRead();

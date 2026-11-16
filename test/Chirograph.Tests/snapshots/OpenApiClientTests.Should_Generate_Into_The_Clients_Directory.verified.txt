@@ -1,5 +1,7 @@
 ﻿{
   Folder: [
+    RocketsClient.schema.json,
+    RocketsClientOptions.g.cs,
     RocketsClientServiceCollectionExtensions.g.cs,
     generated,
     generated.stamp,

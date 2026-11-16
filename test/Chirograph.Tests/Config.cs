@@ -27,6 +27,8 @@ internal static class Config
         ["ChirographKiotaBundleVersion"] = "Microsoft.Kiota.Bundle",
         ["ChirographRefitVersion"] = "Refit.HttpClientFactory",
         ["ChirographMicrosoftExtensionsHttpVersion"] = "Microsoft.Extensions.Http",
+        ["ChirographDuendeAccessTokenManagementVersion"] = "Duende.AccessTokenManagement",
+        ["ChirographAzureIdentityVersion"] = "Azure.Identity",
     };
 
     /// <summary>
