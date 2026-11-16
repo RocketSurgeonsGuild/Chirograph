@@ -28,6 +28,7 @@ internal static class Config
         ["ChirographRefitVersion"] = "Refit.HttpClientFactory",
         ["ChirographMicrosoftExtensionsHttpVersion"] = "Microsoft.Extensions.Http",
         ["ChirographDuendeAccessTokenManagementVersion"] = "Duende.AccessTokenManagement",
+        ["ChirographAzureIdentityVersion"] = "Azure.Identity",
     };
 
     /// <summary>

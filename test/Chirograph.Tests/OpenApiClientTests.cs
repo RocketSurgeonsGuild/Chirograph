@@ -118,7 +118,8 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     /// <c>IHttpClientBuilder</c>, and the options it reads, <c>RocketsClientOptions</c>, both stamped with the version of Chirograph. The
     /// options carry the generator's delegate, and the registration adds the standard resilience handler only when the project references
     /// Microsoft.Extensions.Http.Resilience, and service discovery only when it references Microsoft.Extensions.ServiceDiscovery. The code
-    /// of <c>ClientCredentials</c> (Duende.AccessTokenManagement) is written only when the item's <c>Authentication</c> metadata declares it.
+    /// of <c>ClientCredentials</c> (Duende.AccessTokenManagement) and of the Azure methods (Azure.Identity) is written only when the item's
+    /// <c>Authentication</c> metadata declares it.
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota, null, null)]
@@ -129,6 +130,8 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     [Arguments(Generator.Refitter, "ServiceDiscovery", null)]
     [Arguments(Generator.Kiota, null, "ClientCredentials")]
     [Arguments(Generator.Refitter, null, "ClientCredentials")]
+    [Arguments(Generator.Kiota, null, "Azure")]
+    [Arguments(Generator.Refitter, null, "Azure")]
     public async Task Should_Write_The_Registration(Generator generator, string? block, string? authentication)
     {
         using var project = new SdkTestProject(targetFramework);
@@ -276,15 +279,18 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     }
 
     /// <summary>
-    /// Evaluation seam: the <c>Authentication</c> metadata of a client adds the package its methods need, Duende.AccessTokenManagement for
-    /// <c>ClientCredentials</c> (written in any case, with spaces around it), in place of Microsoft.Extensions.Http, which it brings. Without
-    /// the metadata, no package is added; with the package referenced by the project, its own reference wins.
+    /// Evaluation seam: the <c>Authentication</c> metadata of a client adds the packages its methods need, Duende.AccessTokenManagement for
+    /// <c>ClientCredentials</c> (written in any case, with spaces around it), in place of Microsoft.Extensions.Http, which it brings, and
+    /// Azure.Identity for <c>Azure</c>, beside it. Without the metadata, no package is added; with the package referenced by the project,
+    /// its own reference wins.
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota, null, false)]
     [Arguments(Generator.Kiota, " clientcredentials ", false)]
     [Arguments(Generator.Refitter, "ClientCredentials", false)]
     [Arguments(Generator.Kiota, "ClientCredentials", true)]
+    [Arguments(Generator.Kiota, "Azure", false)]
+    [Arguments(Generator.Refitter, "ClientCredentials; azure", false)]
     public async Task Should_Add_The_Packages_The_Authentication_Needs(Generator generator, string? authentication, bool referencesDuende)
     {
         using var project = new SdkTestProject(targetFramework);
@@ -301,7 +307,7 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
 
         await project.VerifyEvaluation(
             "app/app.csproj",
-            $"{generator}_{authentication?.Trim().ToLowerInvariant() ?? "none"}{( referencesDuende ? "_Referenced" : "" )}"
+            $"{generator}_{( authentication is null ? "none" : string.Join('_', authentication.ToLowerInvariant().Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)) )}{( referencesDuende ? "_Referenced" : "" )}"
         );
     }
 

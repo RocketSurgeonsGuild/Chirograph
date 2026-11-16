@@ -20,6 +20,7 @@
   },
   ProjectReference: {},
   Properties: {
+    ChirographAzureIdentityVersion: {pin: Azure.Identity},
     ChirographDuendeAccessTokenManagementVersion: {pin: Duende.AccessTokenManagement},
     ChirographGenerateDovetailJoint: true,
     ChirographKiotaBundleVersion: 2.0.0,

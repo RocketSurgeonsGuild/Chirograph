@@ -56,7 +56,7 @@ public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(T
                 "app/app.csproj",
                 project
                    .CreateConsumer("Library")
-                   .OpenApiClient(Generator.Kiota, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = "clientcredentials; Bearer;Kerberos" })
+                   .OpenApiClient(Generator.Kiota, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = "clientcredentials; Bearer;Kerberos; azure" })
                    .OpenApiClient(Generator.Refitter, "rockets.json", "OtherClient", new Dictionary<string, string?> { ["Authentication"] = "ClientCredentials" })
             )
            .AddFile("app/rockets.json", RocketsApi.Document);

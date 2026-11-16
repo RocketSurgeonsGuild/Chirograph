@@ -45,6 +45,8 @@
     <PackageVersion Include="Refit.HttpClientFactory" Version="16.4.0" />
     <!-- Added for a client whose Authentication metadata declares ClientCredentials. Only 4.x: its API differs from 3.x. -->
     <PackageVersion Include="Duende.AccessTokenManagement" Version="4.3.0" />
+    <!-- Added for a client whose Authentication metadata declares Azure. -->
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
   </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="MSBuild.ProjectCreation" Version="20.0.0" />
