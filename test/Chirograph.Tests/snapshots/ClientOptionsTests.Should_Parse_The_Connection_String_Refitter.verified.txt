@@ -13,6 +13,16 @@ Resilience: False
 AllowedHosts: [it's.example]
 DefaultRequestHeaders: []
 Authentication: None,
+  ApiKey=s3c;r3t+/x=y:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has an unrecognised part.
+  When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.
+  The Authentication of RocketsClient is None, and keys of another method are set: ApiKey (ApiKey).,
+  ApiKey=s3c;r3t==:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has an unrecognised part.
+  When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.
+  The Authentication of RocketsClient is None, and keys of another method are set: ApiKey (ApiKey).,
   Authentication=s3cr3t:
 OptionsValidationException:
   ConnectionStrings:RocketsClient (Authentication) is not a method RocketsClient can use: None, ApiKey, Bearer, Basic.,
@@ -42,6 +52,10 @@ OptionsValidationException:
   Endpoint=http://rockets.example/;Password=s3cr3t:
 OptionsValidationException:
   The Authentication of RocketsClient is None, and keys of another method are set: Password (Basic).,
+  Endpoint=http://rockets.example/;Retries=3:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has an unknown key, Retries. Its keys are BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.
+  When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.,
   Endpoint=http://rockets.example/;Timeout=00:00:05;Resilience=true;AllowedHosts=a.example, b.example;Authentication=None:
 BaseAddress: http://rockets.example/
 Timeout: 00:00:05

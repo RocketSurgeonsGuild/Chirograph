@@ -112,6 +112,10 @@ public class ClientOptionsTests(string targetFramework) : LoggerTest<TestRecord>
             "Resilience=s3cr3t",
             "Authentication=s3cr3t",
             "Endpoint=s3cr3t",
+            // an unquoted secret with a ; in it: the rest is not named as a key
+            "ApiKey=s3c;r3t==",
+            "ApiKey=s3c;r3t+/x=y",
+            "Endpoint=http://rockets.example/;Retries=3",
         ];
 
         using var project = new SdkTestProject(targetFramework);

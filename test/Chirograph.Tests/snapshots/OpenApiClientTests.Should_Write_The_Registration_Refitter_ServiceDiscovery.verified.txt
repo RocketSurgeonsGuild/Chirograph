@@ -583,6 +583,8 @@ internal sealed class RocketsClientOptionsSetup :
 
             var key = connectionString.Substring(keyStart, i - keyStart).Trim();
             i++;
+            // key== is the rest of a value with a ; in it (base64 padding, say), not a key
+            var keyLike = LooksLikeKey(key) && (i == connectionString.Length || connectionString[i] != '=');
             while (i < connectionString.Length && connectionString[i] != ';' && char.IsWhiteSpace(connectionString[i]))
             {
                 i++;
@@ -615,7 +617,11 @@ internal sealed class RocketsClientOptionsSetup :
 
                 if (!closed)
                 {
-                    options.ConfigurationErrors.Add($"{source} has a quoted value without its closing quote, for {key}.");
+                    options.ConfigurationErrors.Add(
+                        Keys.ContainsKey(key)
+                            ? $"{source} has a quoted value without its closing quote, for {key}."
+                            : $"{source} has a quoted value without its closing quote."
+                    );
                     return;
                 }
 
@@ -626,7 +632,11 @@ internal sealed class RocketsClientOptionsSetup :
 
                 if (i < connectionString.Length && connectionString[i] != ';')
                 {
-                    options.ConfigurationErrors.Add($"{source} has more after the closing quote of the value of {key}.");
+                    options.ConfigurationErrors.Add(
+                        Keys.ContainsKey(key)
+                            ? $"{source} has more after the closing quote of the value of {key}."
+                            : $"{source} has more after the closing quote of a value."
+                    );
                     return;
                 }
 
@@ -651,10 +661,13 @@ internal sealed class RocketsClientOptionsSetup :
 
             if (!Keys.TryGetValue(key, out var name))
             {
+                // only text that reads as a key is named: anything else may be the rest of a secret written with a ; and no quotes
                 options.ConfigurationErrors.Add(
                     string.Equals(key, "DefaultRequestHeaders", global::System.StringComparison.OrdinalIgnoreCase)
                         ? $"{source} has DefaultRequestHeaders, which only {SectionKey} can set."
-                        : $"{source} has an unknown key, {key}. Its keys are {ConnectionStringKeyList}."
+                        : keyLike
+                            ? $"{source} has an unknown key, {key}. Its keys are {ConnectionStringKeyList}."
+                            : $"{source} has an unrecognised part."
                 );
                 unknown = true;
                 continue;
@@ -680,6 +693,27 @@ internal sealed class RocketsClientOptionsSetup :
             );
         }
     }
+
+    // whether the text reads as a key: a letter, then letters, digits and spaces, as a key name is written
+    private static bool LooksLikeKey(string text)
+    {
+        if (text.Length is 0 or > 64 || !IsLetter(text[0]))
+        {
+            return false;
+        }
+
+        foreach (var c in text)
+        {
+            if (!IsLetter(c) && c is not (>= '0' and <= '9') && c != ' ')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsLetter(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z');
 
     // sets the option a key stands for from its text
     private static void Apply(global::Throwaway.Clients.RocketsClientOptions options, string name, string value, string where)

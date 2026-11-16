@@ -149,7 +149,9 @@ It fails on:
   and a certificate that doesn't load with its private key (a wrong password, say).
 
 The messages name the source (`Clients:RocketsClient:Timeout`, `ConnectionStrings:RocketsClient`) and the key, never a value, so they
-are safe to log even when a value is a secret.
+are safe to log even when a value is a secret. In a connection string, an unknown key is named only when it reads as one (letters,
+digits and spaces, not followed by another `=`): an unquoted secret holding a `;`, `Key=ab;cd==` say, is reported as an unrecognised
+part, without its text.
 
 ## Resilience
 
