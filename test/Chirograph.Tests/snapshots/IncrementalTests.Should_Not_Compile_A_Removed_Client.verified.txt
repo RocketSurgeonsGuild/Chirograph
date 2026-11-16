@@ -1,0 +1,13 @@
+﻿{
+  AfterRemoving: [
+    KeptClient/KeptClientServiceCollectionExtensions.g.cs,
+    KeptClient/generated/KeptClient.cs
+  ],
+  Both: [
+    KeptClient/KeptClientServiceCollectionExtensions.g.cs,
+    KeptClient/generated/KeptClient.cs,
+    RemovedClient/RemovedClientServiceCollectionExtensions.g.cs,
+    RemovedClient/generated/RemovedClient.cs
+  ],
+  RemovedClientFolderLeft: true
+}

@@ -41,6 +41,74 @@ public class IncrementalTests(string targetFramework) : LoggerTest<TestRecord>(T
         );
     }
 
+    /// <summary>
+    /// A client is generated again when one of its settings changes: its generator, its namespace, its options or the version of its tool.
+    /// Its <c>Include</c> naming another document of the same content changes nothing: the client is generated from the content.
+    /// </summary>
+    [Test]
+    [Arguments("Generator")]
+    [Arguments("Namespace")]
+    [Arguments("Options")]
+    [Arguments("ToolVersion")]
+    [Arguments("Include")]
+    public async Task Should_Generate_A_Client_Again_Only_When_Its_Settings_Change(string setting)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddProject("lib/lib.csproj", project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, "rockets.json"))
+           .AddFile("lib/rockets.json", RocketsApi.Document)
+           .AddFile("lib/copy.json", RocketsApi.Document);
+
+        var first = await project.Build("lib");
+        var (generator, include, metadata, arguments) = setting switch
+        {
+            "Generator" => (Generator.Refitter, "rockets.json", null, ""),
+            "Namespace" => (Generator.Kiota, "rockets.json", new Dictionary<string, string?> { ["Namespace"] = "Throwaway.Other" }, ""),
+            "Options" => (Generator.Kiota, "rockets.json", new Dictionary<string, string?> { ["Options"] = "--backing-store" }, ""),
+            "ToolVersion" => (Generator.Kiota, "rockets.json", null, "-p:ChirographKiotaVersion=1.37.0"),
+            "Include" => (Generator.Kiota, "copy.json", null, ""),
+            _ => throw new ArgumentOutOfRangeException(nameof(setting), setting, null),
+        };
+        project.AddProject("lib/lib.csproj", project.CreateConsumer("Library").OpenApiClient(generator, include, metadata: metadata));
+        var changed = await project.Build("lib", arguments);
+
+        await project.VerifyResult(new { First = first.GeneratedClients(), Changed = changed.GeneratedClients() }, setting);
+    }
+
+    /// <summary>
+    /// A client removed from the project is no longer compiled. Its folder is left in <c>obj</c>, as it was.
+    /// </summary>
+    [Test]
+    public async Task Should_Not_Compile_A_Removed_Client()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddProject(
+                "lib/lib.csproj",
+                project
+                   .CreateConsumer("Library")
+                   .OpenApiClient(Generator.Refitter, "rockets.json", "KeptClient", new Dictionary<string, string?> { ["Namespace"] = "Throwaway.Kept" })
+                   .OpenApiClient(Generator.Refitter, "rockets.json", "RemovedClient", new Dictionary<string, string?> { ["Namespace"] = "Throwaway.Removed" })
+            )
+           .AddFile("lib/rockets.json", RocketsApi.Document);
+
+        var both = await project.Build("lib");
+        project.AddProject(
+            "lib/lib.csproj",
+            project.CreateConsumer("Library").OpenApiClient(Generator.Refitter, "rockets.json", "KeptClient", new Dictionary<string, string?> { ["Namespace"] = "Throwaway.Kept" })
+        );
+        var afterRemoving = await project.Build("lib");
+
+        await project.VerifyResult(
+            new
+            {
+                Both = both.CompiledClientFiles(),
+                AfterRemoving = afterRemoving.CompiledClientFiles(),
+                RemovedClientFolderLeft = Directory.Exists(Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RemovedClient")),
+            }
+        );
+    }
+
     /// <summary><c>dotnet clean</c> removes the generated code, so the next build generates the client again instead of failing to compile.</summary>
     [Test]
     public async Task Should_Generate_A_Client_Again_After_A_Clean()
