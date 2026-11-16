@@ -13,13 +13,14 @@ named `RocketsClient` it is:
 public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services);
 ```
 
-It is in the client's namespace, in a class named `RocketsClientServiceCollectionExtensions`. It is public, so an application can
-register a client that a library it references generated.
+It is in the client's namespace, in a `partial` class named `RocketsClientServiceCollectionExtensions`. It is public, so an
+application can register a client that a library it references generated. The project of the client must implement one hook of that
+class, or it fails to compile with `CS8795`: see [Authentication](#authentication).
 
 ## What it registers
 
 - **Kiota:** a named `HttpClient`, `RocketsClient`, and the typed client `RocketsClient`, built on Kiota's `HttpClientRequestAdapter`
-  with anonymous authentication.
+  with the authentication provider from the container (see [Authentication](#authentication)).
 - **Refitter:** `IRocketsClient`, through Refit's `AddRefitGeneratedClient`. Refit's source generator writes the implementation at
   build time, so there is no reflection.
 
@@ -83,14 +84,66 @@ builder.Services
     .AddStandardResilienceHandler();
 ```
 
-Chirograph configures no authentication or handlers itself, and adds resilience only when `Resilience` asks for it.
+Chirograph adds no handlers itself, and adds resilience only when `Resilience` asks for it.
+
+## Authentication
+
+When the client is created, the registration takes its authentication from the container, under the key of the client's name first:
+
+- **Kiota:** an `IAuthenticationProvider` keyed `"RocketsClient"`, else an unkeyed one, else `AnonymousAuthenticationProvider`. An
+  `IParseNodeFactory` and an `ISerializationWriterFactory` are looked up the same way, and Kiota's defaults are used without one.
+- **Refitter:** `RefitSettings` keyed `"RocketsClient"`, else unkeyed ones, else none (Refit's defaults).
+
+A provider keyed with another client's name is not this client's. The application registers them, so a client that a library generated
+gets its authentication from the application that uses it:
+
+```csharp
+// Kiota: a bearer token for RocketsClient only
+builder.Services.AddKeyedSingleton<IAuthenticationProvider>(
+    "RocketsClient",
+    (services, _) => new BaseBearerTokenAuthenticationProvider(services.GetRequiredService<IAccessTokenProvider>()));
+
+// Refitter: settings for IRocketsClient only
+builder.Services.AddKeyedSingleton(
+    "RocketsClient",
+    (services, _) => new RefitSettings
+    {
+        AuthorizationHeaderValueGetter = (request, cancellationToken) =>
+            services.GetRequiredService<ITokenSource>().GetTokenAsync(cancellationToken),
+    });
+
+builder.Services.AddRocketsClient();
+```
+
+Refit's `AuthorizationHeaderValueGetter` fills an `Authorization` header that the operation declares (`[Headers("Authorization: Bearer")]`).
+
+### The hook
+
+The project of the client decides what the client uses at last, in a partial method of the registration's class that it must implement
+(the build fails with `CS8795` without one). It gets what the container gave; returning it as is keeps that:
+
+```csharp
+namespace MyApp.Rockets;
+
+public static partial class RocketsClientServiceCollectionExtensions
+{
+    // Kiota
+    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter) => adapter;
+
+    // Refitter
+    private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
+}
+```
+
+Return something else to change it: another adapter (say with an authentication provider of the library's own), or settings with a
+serializer or a handler set.
 
 ## Without the registration
 
 A generated client is an ordinary class or interface. Create one from an `HttpClient`, for example against a test server:
 
 ```csharp
-var kiota = new RocketsClient(new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient));
+var kiota = new RocketsClient(new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient));   // or a provider of your own
 var refit = RestService.For<IRocketsClient>(httpClient);
 ```
 

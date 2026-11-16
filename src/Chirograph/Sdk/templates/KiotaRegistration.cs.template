@@ -10,7 +10,7 @@ namespace __Namespace__;
 ///     <c>Clients:__ClientName__</c>. Without a BaseAddress the client uses the first server of its OpenAPI document.
 /// </summary>
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
-public static class __ClientName__ServiceCollectionExtensions
+public static partial class __ClientName__ServiceCollectionExtensions
 {
     /// <summary>The configuration section of the client: its BaseAddress, Timeout, DefaultRequestHeaders and Resilience.</summary>
     public const string SectionKey = "Clients:__ClientName__";
@@ -67,12 +67,19 @@ public static class __ClientName__ServiceCollectionExtensions
         );
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.AddTypedClient<global::__Namespace__.__ClientName__>(
             builder,
-            static (global::System.Net.Http.HttpClient httpClient, global::System.IServiceProvider _) => new global::__Namespace__.__ClientName__(
-                new global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
-                    new global::Microsoft.Kiota.Abstractions.Authentication.AnonymousAuthenticationProvider(),
-                    httpClient: httpClient
-                )
-            )
+            static (global::System.Net.Http.HttpClient httpClient, global::System.IServiceProvider services) =>
+            {
+                // the authentication provider comes from the container: keyed with the name of the client, else unkeyed, else anonymous;
+                // the project's CreateRequestAdapter then decides the adapter the client uses
+                var adapter = new global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
+                    Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                    ?? new global::Microsoft.Kiota.Abstractions.Authentication.AnonymousAuthenticationProvider(),
+                    Resolve<global::Microsoft.Kiota.Abstractions.Serialization.IParseNodeFactory>(services),
+                    Resolve<global::Microsoft.Kiota.Abstractions.Serialization.ISerializationWriterFactory>(services),
+                    httpClient
+                );
+                return new global::__Namespace__.__ClientName__(CreateRequestAdapter(services, adapter));
+            }
         );
         //#if Resilience
         // The project references Microsoft.Extensions.Http.Resilience: the standard resilience handler is added, and taken out again,
@@ -95,4 +102,23 @@ public static class __ClientName__ServiceCollectionExtensions
         //#endif
         return builder;
     }
+
+    /// <summary>
+    ///     The request adapter of <see cref="__ClientName__" />. The project of the client implements it (CS8795 otherwise), in a
+    ///     <c>partial class __ClientName__ServiceCollectionExtensions</c> in the same namespace: return <paramref name="adapter" /> to
+    ///     use the authentication provider from the container, or change or replace it.
+    /// </summary>
+    /// <param name="services">The services of the application.</param>
+    /// <param name="adapter">The adapter built over the client's <c>HttpClient</c> with the authentication provider from the container.</param>
+    /// <returns>The adapter the client uses.</returns>
+    private static partial global::Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(global::System.IServiceProvider services, global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter);
+
+    /// <summary>
+    ///     Resolves <typeparamref name="T" /> registered with the key <c>"__ClientName__"</c>, else unkeyed, else <c>null</c>.
+    /// </summary>
+    private static T? Resolve<T>(global::System.IServiceProvider services) where T : class =>
+        (services is global::Microsoft.Extensions.DependencyInjection.IKeyedServiceProvider keyed
+            ? (T?)keyed.GetKeyedService(typeof(T), "__ClientName__")
+            : null)
+        ?? (T?)services.GetService(typeof(T));
 }

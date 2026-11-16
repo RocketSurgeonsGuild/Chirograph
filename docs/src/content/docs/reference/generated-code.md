@@ -33,7 +33,7 @@ Kiota's registration:
 namespace MyApp.Rockets;
 
 [GeneratedCode("Chirograph", "1.0.0")]
-public static class RocketsClientServiceCollectionExtensions
+public static partial class RocketsClientServiceCollectionExtensions
 {
     public const string SectionKey = "Clients:RocketsClient";
     public const string BaseAddressKey = SectionKey + ":BaseAddress";
@@ -56,10 +56,21 @@ public static class RocketsClientServiceCollectionExtensions
                 if (header.Value is { } value)
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
         });
-        builder.AddTypedClient<RocketsClient>(httpClient => new RocketsClient(
-            new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient)));
+        builder.AddTypedClient<RocketsClient>((httpClient, services) =>
+        {
+            // keyed with "RocketsClient", else unkeyed, else none (anonymous for the authentication provider)
+            var adapter = new HttpClientRequestAdapter(
+                Resolve<IAuthenticationProvider>(services) ?? new AnonymousAuthenticationProvider(),
+                Resolve<IParseNodeFactory>(services),
+                Resolve<ISerializationWriterFactory>(services),
+                httpClient);
+            return new RocketsClient(CreateRequestAdapter(services, adapter));
+        });
         return builder;
     }
+
+    // the project of the client implements it: see Authentication on the Registration page
+    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter);
 }
 ```
 
@@ -83,13 +94,17 @@ See [Configuration](../../concepts/registration/#configuration) for what each ke
 Refitter's is the same, except that it registers the Refit interface instead of a named client:
 
 ```csharp
-var builder = services.AddRefitGeneratedClient<IRocketsClient>();
+var builder = services.AddRefitGeneratedClient<IRocketsClient>(
+    static provider => CreateRefitSettings(provider, Resolve<RefitSettings>(provider)));
+
+// the project of the client implements it
+private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings);
 ```
 
 The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the
 project's usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file.
 
-The class name, the method name, the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between
+The class name, the method name, the hook (`CreateRequestAdapter` or `CreateRefitSettings`), the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between
 releases.
 
 ## The Dovetail joint
