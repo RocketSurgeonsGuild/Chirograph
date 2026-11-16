@@ -14,3 +14,6 @@ tags:
     dovetail:
         label: Dovetail
         description: Registering clients through Dovetail joints.
+    optionary:
+        label: Optionary
+        description: The schema of each client's configuration section, through Optionary.

@@ -133,5 +133,6 @@ so when you pack again, either use a new version or delete `~/.nuget/packages/ch
 - [From a server project](from-a-server-project/): an ASP.NET Core project in the same build.
 - [From a URL](from-a-url/): a document downloaded on build, with a cache you can commit.
 - [With Dovetail](with-dovetail/): the client registered by a joint.
+- [With Optionary](with-optionary/): `appsettings.json` IntelliSense and validation for each client's section.
 - Coming from somewhere else: [`OpenApiReference`](migrating-from-openapireference/) or
   [LaunchPad's preview](migrating-from-launchpad/).

@@ -8,6 +8,8 @@
     Sdk/Packages.props,
     Sdk/Sdk.props,
     Sdk/Sdk.targets,
+    Sdk/schemas/kiota.schema.json,
+    Sdk/schemas/refitter.schema.json,
     Sdk/templates/KiotaRegistration.cs.template,
     Sdk/templates/OpenApiClientJoint.cs.template,
     Sdk/templates/RefitterRegistration.cs.template,

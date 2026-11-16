@@ -1,0 +1,18 @@
+﻿{
+  Clients:KiotaClient: {
+    ClientName: KiotaClient,
+    ClientNameIsValid: True,
+    File: {packages}/chirograph/{chirograph-version}/Sdk/schemas/kiota.schema.json,
+    Generator: Kiota,
+    Kind: File,
+    Namespace: Throwaway.Clients
+  },
+  Clients:RefitterClient: {
+    ClientName: RefitterClient,
+    ClientNameIsValid: True,
+    File: {packages}/chirograph/{chirograph-version}/Sdk/schemas/refitter.schema.json,
+    Generator: Refitter,
+    Kind: File,
+    Namespace: Throwaway.Clients
+  }
+}
