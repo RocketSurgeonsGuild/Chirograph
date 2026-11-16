@@ -260,92 +260,88 @@ internal sealed class __ClientName__OptionsSetup :
     private const string DefaultBaseAddress = "https+http://__ClientName__";
     //#endif
 
-    // the keys a value can be given for, in the object and in a connection string, each with the name it stands for (an alias's key)
-    private static readonly global::System.Collections.Generic.Dictionary<string, string> Keys =
-        new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase)
-        {
-            ["BaseAddress"] = "BaseAddress",
-            ["Endpoint"] = "BaseAddress",
-            ["Timeout"] = "Timeout",
-            ["Resilience"] = "Resilience",
-            ["AllowedHosts"] = "AllowedHosts",
-            ["Authentication"] = "Authentication",
-            ["ApiKey"] = "ApiKey",
-            ["Key"] = "ApiKey",
-            ["ApiKeyHeader"] = "ApiKeyHeader",
-            ["ApiKeyQuery"] = "ApiKeyQuery",
-            ["Token"] = "Token",
-            ["Username"] = "Username",
-            ["Password"] = "Password",
-            ["CertificatePath"] = "CertificatePath",
-            ["CertificatePassword"] = "CertificatePassword",
-            ["CertificateKeyPath"] = "CertificateKeyPath",
-            ["CertificateThumbprint"] = "CertificateThumbprint",
-            ["CertificateStore"] = "CertificateStore",
-            //#if ClientCredentials|Azure
-            ["ClientId"] = "ClientId",
-            ["ClientSecret"] = "ClientSecret",
-            ["Scope"] = "Scope",
-            //#endif
-            //#if ClientCredentials
-            ["TokenEndpoint"] = "TokenEndpoint",
-            ["Authority"] = "Authority",
-            ["Resource"] = "Resource",
-            ["ClientCredentialStyle"] = "ClientCredentialStyle",
-            //#endif
-            //#if Azure
-            ["TenantId"] = "TenantId",
-            //#endif
-        };
-
-    // the methods, by the name configuration gives them
-    private static readonly global::System.Collections.Generic.KeyValuePair<string, global::__Namespace__.__ClientName__Authentication>[] Methods =
-    [
-        new("None", global::__Namespace__.__ClientName__Authentication.None),
-        new("ApiKey", global::__Namespace__.__ClientName__Authentication.ApiKey),
-        new("Bearer", global::__Namespace__.__ClientName__Authentication.Bearer),
-        new("Basic", global::__Namespace__.__ClientName__Authentication.Basic),
+    // the name a key stands for (an alias's key), whatever its case: every key of Clients:__ClientName__, and null for a key the client
+    // doesn't read. A connection string takes them all but ConnectionString and DefaultRequestHeaders.
+    private static string? KeyName(string key) => key.ToUpperInvariant() switch
+    {
+        "CONNECTIONSTRING" => "ConnectionString",
+        "BASEADDRESS" or "ENDPOINT" => "BaseAddress",
+        "TIMEOUT" => "Timeout",
+        "RESILIENCE" => "Resilience",
+        "DEFAULTREQUESTHEADERS" => "DefaultRequestHeaders",
+        "ALLOWEDHOSTS" => "AllowedHosts",
+        "AUTHENTICATION" => "Authentication",
+        "APIKEY" or "KEY" => "ApiKey",
+        "APIKEYHEADER" => "ApiKeyHeader",
+        "APIKEYQUERY" => "ApiKeyQuery",
+        "TOKEN" => "Token",
+        "USERNAME" => "Username",
+        "PASSWORD" => "Password",
+        "CERTIFICATEPATH" => "CertificatePath",
+        "CERTIFICATEPASSWORD" => "CertificatePassword",
+        "CERTIFICATEKEYPATH" => "CertificateKeyPath",
+        "CERTIFICATETHUMBPRINT" => "CertificateThumbprint",
+        "CERTIFICATESTORE" => "CertificateStore",
+        //#if ClientCredentials|Azure
+        "CLIENTID" => "ClientId",
+        "CLIENTSECRET" => "ClientSecret",
+        "SCOPE" => "Scope",
+        //#endif
         //#if ClientCredentials
-        new("ClientCredentials", global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-        new("PrivateKeyJwt", global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
+        "TOKENENDPOINT" => "TokenEndpoint",
+        "AUTHORITY" => "Authority",
+        "RESOURCE" => "Resource",
+        "CLIENTCREDENTIALSTYLE" => "ClientCredentialStyle",
         //#endif
         //#if Azure
-        new("AzureDefault", global::__Namespace__.__ClientName__Authentication.AzureDefault),
-        new("AzureManagedIdentity", global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity),
-        new("AzureWorkloadIdentity", global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
-        new("AzureServicePrincipal", global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
+        "TENANTID" => "TenantId",
         //#endif
-    ];
+        _ => null,
+    };
 
-    // every method the OpenApiClient item must declare, by the value of its Authentication metadata: one it didn't declare names it
-    private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
-    [
-        new("ClientCredentials", "ClientCredentials"),
-        new("PrivateKeyJwt", "ClientCredentials"),
-        new("AzureDefault", "Azure"),
-        new("AzureManagedIdentity", "Azure"),
-        new("AzureWorkloadIdentity", "Azure"),
-        new("AzureServicePrincipal", "Azure"),
-    ];
+    // the method a name in configuration stands for, whatever its case; null for a name this client has no method of
+    private static global::__Namespace__.__ClientName__Authentication? MethodNamed(string name) => name.ToUpperInvariant() switch
+    {
+        "NONE" => global::__Namespace__.__ClientName__Authentication.None,
+        "APIKEY" => global::__Namespace__.__ClientName__Authentication.ApiKey,
+        "BEARER" => global::__Namespace__.__ClientName__Authentication.Bearer,
+        "BASIC" => global::__Namespace__.__ClientName__Authentication.Basic,
+        //#if ClientCredentials
+        "CLIENTCREDENTIALS" => global::__Namespace__.__ClientName__Authentication.ClientCredentials,
+        "PRIVATEKEYJWT" => global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt,
+        //#endif
+        //#if Azure
+        "AZUREDEFAULT" => global::__Namespace__.__ClientName__Authentication.AzureDefault,
+        "AZUREMANAGEDIDENTITY" => global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity,
+        "AZUREWORKLOADIDENTITY" => global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity,
+        "AZURESERVICEPRINCIPAL" => global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal,
+        //#endif
+        _ => null,
+    };
 
-    // the keys, as the messages list them: under Clients:__ClientName__, and in a connection string
-    private static readonly string ObjectKeyList = KeyList(
-        new[]
-        {
-            "ConnectionString", "BaseAddress (or Endpoint)", "Timeout", "Resilience", "DefaultRequestHeaders", "AllowedHosts", "Authentication",
-            "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
-            "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
-            //#if ClientCredentials|Azure
-            "ClientId", "ClientSecret", "Scope",
-            //#endif
-            //#if ClientCredentials
-            "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
-            //#endif
-            //#if Azure
-            "TenantId",
-            //#endif
-        }
-    );
+    // a method the OpenApiClient item must declare, by its name: the method, and the value of the Authentication metadata it needs
+    private static (string Method, string Metadata)? DeclarationOf(string name) => name.ToUpperInvariant() switch
+    {
+        "CLIENTCREDENTIALS" => ("ClientCredentials", "ClientCredentials"),
+        "PRIVATEKEYJWT" => ("PrivateKeyJwt", "ClientCredentials"),
+        "AZUREDEFAULT" => ("AzureDefault", "Azure"),
+        "AZUREMANAGEDIDENTITY" => ("AzureManagedIdentity", "Azure"),
+        "AZUREWORKLOADIDENTITY" => ("AzureWorkloadIdentity", "Azure"),
+        "AZURESERVICEPRINCIPAL" => ("AzureServicePrincipal", "Azure"),
+        _ => null,
+    };
+
+    // the methods, as the messages list them
+    private const string AuthenticationList = "None, ApiKey, Bearer, Basic"
+        //#if ClientCredentials
+        + ", ClientCredentials, PrivateKeyJwt"
+        //#endif
+        //#if Azure
+        + ", AzureDefault, AzureManagedIdentity, AzureWorkloadIdentity, AzureServicePrincipal"
+        //#endif
+        ;
+
+    // the keys of a connection string, as the messages list them
     private static readonly string ConnectionStringKeyList = KeyList(
         new[]
         {
@@ -363,7 +359,6 @@ internal sealed class __ClientName__OptionsSetup :
             //#endif
         }
     );
-    private static readonly string AuthenticationList = string.Join(", ", global::System.Linq.Enumerable.Select(Methods, static z => z.Key));
 
     // a, b and c
     private static string KeyList(string[] keys) => string.Join(", ", keys, 0, keys.Length - 1) + " and " + keys[keys.Length - 1];
@@ -386,15 +381,22 @@ internal sealed class __ClientName__OptionsSetup :
     /// </summary>
     internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
     {
-        if (IsRegistered(
-                services,
-                typeof(global::Microsoft.Extensions.Options.IValidateOptions<global::__Namespace__.__ClientName__Options>),
-                typeof(global::__Namespace__.__ClientName__OptionsSetup)
-            ))
+        var count = services.Count;
+        global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddEnumerable(
+            services,
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IValidateOptions<global::__Namespace__.__ClientName__Options>, global::__Namespace__.__ClientName__OptionsSetup>()
+        );
+        if (services.Count == count)
         {
+            // registered already: the configuration must not be inserted again
             return;
         }
 
+        global::Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddEnumerable(
+            services,
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IOptionsChangeTokenSource<global::__Namespace__.__ClientName__Options>, global::__Namespace__.__ClientName__OptionsSetup>()
+        );
+        // ahead of every other configuration, which TryAddEnumerable (it appends) can't do
         services.Insert(
             0,
             global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IConfigureOptions<global::__Namespace__.__ClientName__Options>, global::__Namespace__.__ClientName__OptionsSetup>()
@@ -402,12 +404,6 @@ internal sealed class __ClientName__OptionsSetup :
         services.Insert(
             0,
             global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IPostConfigureOptions<global::__Namespace__.__ClientName__Options>, global::__Namespace__.__ClientName__OptionsSetup>()
-        );
-        services.Add(
-            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IValidateOptions<global::__Namespace__.__ClientName__Options>, global::__Namespace__.__ClientName__OptionsSetup>()
-        );
-        services.Add(
-            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IOptionsChangeTokenSource<global::__Namespace__.__ClientName__Options>, global::__Namespace__.__ClientName__OptionsSetup>()
         );
         global::Microsoft.Extensions.DependencyInjection.OptionsBuilderExtensions.ValidateOnStart(
             global::Microsoft.Extensions.DependencyInjection.OptionsServiceCollectionExtensions.AddOptions<global::__Namespace__.__ClientName__Options>(services)
@@ -457,16 +453,17 @@ internal sealed class __ClientName__OptionsSetup :
             options.ConfigurationErrors.Add($"{SectionKey} is a value, and must be an object of keys. A connection string goes in {ConnectionStringKey}.");
         }
 
-        var seen = new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase);
         foreach (var child in section.GetChildren())
         {
             var where = $"{SectionKey}:{child.Key}";
-            if (string.Equals(child.Key, "ConnectionString", global::System.StringComparison.OrdinalIgnoreCase))
+            // a key the client doesn't read is ignored, and of a key and its alias the later one wins
+            var name = KeyName(child.Key);
+            if (name is null or "ConnectionString")
             {
                 continue;
             }
 
-            if (string.Equals(child.Key, "DefaultRequestHeaders", global::System.StringComparison.OrdinalIgnoreCase))
+            if (name == "DefaultRequestHeaders")
             {
                 if (child.Value is { Length: > 0 })
                 {
@@ -488,7 +485,7 @@ internal sealed class __ClientName__OptionsSetup :
                 continue;
             }
 
-            if (string.Equals(child.Key, "AllowedHosts", global::System.StringComparison.OrdinalIgnoreCase))
+            if (name == "AllowedHosts")
             {
                 if (child.Value is { Length: > 0 })
                 {
@@ -506,26 +503,26 @@ internal sealed class __ClientName__OptionsSetup :
                 continue;
             }
 
-            if (!Keys.TryGetValue(child.Key, out var name))
-            {
-                options.ConfigurationErrors.Add($"{SectionKey} has an unknown key, {child.Key}. Its keys are {ObjectKeyList}.");
-                continue;
-            }
-
-            if (seen.TryGetValue(name, out var other))
-            {
-                options.ConfigurationErrors.Add($"{SectionKey} sets {name} twice, as {other} and as {child.Key}.");
-                continue;
-            }
-
-            seen[name] = child.Key;
             if (child.Value is null)
             {
-                options.ConfigurationErrors.Add($"{where} is an object, and must be a value.");
+                LogIgnoredObject(where);
                 continue;
             }
 
             Apply(options, name, child.Value, where);
+        }
+    }
+
+    // a key that must be a value but holds an object: it is ignored, with a warning when the application logs
+    private void LogIgnoredObject(string where)
+    {
+        if (_services.GetService(typeof(global::Microsoft.Extensions.Logging.ILoggerFactory)) is global::Microsoft.Extensions.Logging.ILoggerFactory loggerFactory)
+        {
+            global::Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(
+                loggerFactory.CreateLogger("__Namespace__.__ClientName__Options"),
+                "{Key} is an object, and must be a value. It is ignored.",
+                where
+            );
         }
     }
 
@@ -676,81 +673,10 @@ internal sealed class __ClientName__OptionsSetup :
             : global::Microsoft.Extensions.Options.ValidateOptionsResult.Fail(failures);
     }
 
-    // the keys each method needs, and that no other method's keys are set
+    // the keys each method needs: the keys of another method are ignored
     private static void ValidateAuthentication(global::__Namespace__.__ClientName__Options options, global::System.Collections.Generic.List<string> failures)
     {
         var method = options.Authentication;
-        // each method's keys, and whether they are set: a key set for a method other than the one chosen is an error
-        var keys = new (string Key, bool IsSet, global::__Namespace__.__ClientName__Authentication Method)[]
-        {
-            ("ApiKey", options.ApiKey is not null, global::__Namespace__.__ClientName__Authentication.ApiKey),
-            ("ApiKeyHeader", options.ApiKeyHeader is not null, global::__Namespace__.__ClientName__Authentication.ApiKey),
-            ("ApiKeyQuery", options.ApiKeyQuery is not null, global::__Namespace__.__ClientName__Authentication.ApiKey),
-            ("Token", options.Token is not null, global::__Namespace__.__ClientName__Authentication.Bearer),
-            ("TokenProvider", options.TokenProvider is not null, global::__Namespace__.__ClientName__Authentication.Bearer),
-            ("Username", options.Username is not null, global::__Namespace__.__ClientName__Authentication.Basic),
-            ("Password", options.Password is not null, global::__Namespace__.__ClientName__Authentication.Basic),
-            //#if ClientCredentials
-            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("ClientSecret", options.ClientSecret is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("TokenEndpoint", options.TokenEndpoint is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("Authority", options.Authority is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("Resource", options.Resource is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("ClientCredentialStyle", options.ClientCredentialStyle != global::__Namespace__.__ClientName__CredentialStyle.Header, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
-            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
-            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
-            ("TokenEndpoint", options.TokenEndpoint is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
-            ("Authority", options.Authority is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
-            ("Resource", options.Resource is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
-            //#endif
-            //#if Azure
-            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureDefault),
-            ("TenantId", options.TenantId is not null, global::__Namespace__.__ClientName__Authentication.AzureDefault),
-            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureDefault),
-            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity),
-            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity),
-            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
-            ("TenantId", options.TenantId is not null, global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
-            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
-            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
-            ("TenantId", options.TenantId is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
-            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
-            ("ClientSecret", options.ClientSecret is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
-            //#endif
-        };
-        // a key two methods share is listed once, with both
-        var others = new global::System.Collections.Generic.List<string>();
-        var seen = new global::System.Collections.Generic.HashSet<string>(global::System.StringComparer.Ordinal);
-        foreach (var key in keys)
-        {
-            if (!key.IsSet || !seen.Add(key.Key))
-            {
-                continue;
-            }
-
-            var owners = new global::System.Collections.Generic.List<string>();
-            var allowed = false;
-            foreach (var owner in keys)
-            {
-                if (owner.Key == key.Key)
-                {
-                    owners.Add(owner.Method.ToString());
-                    allowed |= owner.Method == method;
-                }
-            }
-
-            if (!allowed)
-            {
-                others.Add($"{key.Key} ({string.Join(", ", owners)})");
-            }
-        }
-
-        if (others.Count > 0)
-        {
-            failures.Add($"The Authentication of __ClientName__ is {method}, and keys of another method are set: {string.Join(", ", others)}.");
-        }
-
         switch (method)
         {
             case global::__Namespace__.__ClientName__Authentication.None:
@@ -887,11 +813,7 @@ internal sealed class __ClientName__OptionsSetup :
 
                 if (!closed)
                 {
-                    options.ConfigurationErrors.Add(
-                        Keys.ContainsKey(key)
-                            ? $"{source} has a quoted value without its closing quote, for {key}."
-                            : $"{source} has a quoted value without its closing quote."
-                    );
+                    options.ConfigurationErrors.Add($"{source} has a quoted value without its closing quote, for {key}.");
                     return;
                 }
 
@@ -903,7 +825,7 @@ internal sealed class __ClientName__OptionsSetup :
                 if (i < connectionString.Length && connectionString[i] != ';')
                 {
                     options.ConfigurationErrors.Add(
-                        Keys.ContainsKey(key)
+                        KeyName(key) is not null
                             ? $"{source} has more after the closing quote of the value of {key}."
                             : $"{source} has more after the closing quote of a value."
                     );
@@ -929,11 +851,12 @@ internal sealed class __ClientName__OptionsSetup :
                 continue;
             }
 
-            if (!Keys.TryGetValue(key, out var name))
+            var name = KeyName(key);
+            if (name is null or "ConnectionString" or "DefaultRequestHeaders")
             {
                 // only text that reads as a key is named: anything else may be the rest of a secret written with a ; and no quotes
                 options.ConfigurationErrors.Add(
-                    string.Equals(key, "DefaultRequestHeaders", global::System.StringComparison.OrdinalIgnoreCase)
+                    name == "DefaultRequestHeaders"
                         ? $"{source} has DefaultRequestHeaders, which only {SectionKey} can set."
                         : keyLike
                             ? $"{source} has an unknown key, {key}. Its keys are {ConnectionStringKeyList}."
@@ -1027,27 +950,21 @@ internal sealed class __ClientName__OptionsSetup :
 
                 break;
             case "Authentication":
-                foreach (var method in Methods)
+                if (MethodNamed(value) is { } method)
                 {
-                    if (string.Equals(value, method.Key, global::System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        options.Authentication = method.Value;
-                        return;
-                    }
+                    options.Authentication = method;
+                }
+                else if (DeclarationOf(value) is { } declaration)
+                {
+                    options.ConfigurationErrors.Add(
+                        $"{where} is {declaration.Method}, which the OpenApiClient item of __ClientName__ doesn't declare: add {declaration.Metadata} to its Authentication metadata."
+                    );
+                }
+                else
+                {
+                    options.ConfigurationErrors.Add($"{where} is not a method __ClientName__ can use: {AuthenticationList}.");
                 }
 
-                foreach (var declared in DeclaredMethods)
-                {
-                    if (string.Equals(value, declared.Key, global::System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        options.ConfigurationErrors.Add(
-                            $"{where} is {declared.Key}, which the OpenApiClient item of __ClientName__ doesn't declare: add {declared.Value} to its Authentication metadata."
-                        );
-                        return;
-                    }
-                }
-
-                options.ConfigurationErrors.Add($"{where} is not a method __ClientName__ can use: {AuthenticationList}.");
                 break;
             // an empty value leaves a key unset
             case "ApiKey":

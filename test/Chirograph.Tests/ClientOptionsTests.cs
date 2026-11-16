@@ -129,8 +129,8 @@ public class ClientOptionsTests(string targetFramework) : LoggerTest<TestRecord>
     }
 
     /// <summary>
-    /// The keys under <c>Clients:RocketsClient</c> are checked as strictly: an unknown key, a value that doesn't parse, and a relative
-    /// <c>BaseAddress</c> are failures that never repeat the value.
+    /// The values under <c>Clients:RocketsClient</c> are checked: a value that doesn't parse and a relative <c>BaseAddress</c> are failures
+    /// that never repeat the value. An unknown key is ignored, and of an alias and its key the later one wins.
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota)]

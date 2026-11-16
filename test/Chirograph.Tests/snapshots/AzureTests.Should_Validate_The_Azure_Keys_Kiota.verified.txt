@@ -6,8 +6,8 @@ OptionsValidationException:
 OptionsValidationException:
   The Authentication of RocketsClient is AzureDefault, which needs Scope.,
   AzureManagedIdentity with a TenantId:
-OptionsValidationException:
-  The Authentication of RocketsClient is AzureManagedIdentity, and keys of another method are set: TenantId (AzureDefault, AzureWorkloadIdentity, AzureServicePrincipal).,
+credential: a token for api://rockets/.default
+RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (Authorization=Bearer azure-token-1),
   AzureServicePrincipal with a certificate that doesn't exist:
 OptionsValidationException:
   The CertificatePath of RocketsClient is not a file that exists.,
@@ -20,9 +20,7 @@ OptionsValidationException:
   The Authentication of RocketsClient is AzureServicePrincipal, which needs TenantId and ClientId.
   The Authentication of RocketsClient is AzureServicePrincipal, which takes ClientSecret or a certificate (CertificatePath or CertificateThumbprint), one of them.,
   AzureWorkloadIdentity with a ClientSecret:
-OptionsValidationException:
-  The Authentication of RocketsClient is AzureWorkloadIdentity, and keys of another method are set: ClientSecret (AzureServicePrincipal).,
-  Bearer with the keys of Azure:
-OptionsValidationException:
-  The Authentication of RocketsClient is Bearer, and keys of another method are set: Scope (AzureDefault, AzureManagedIdentity, AzureWorkloadIdentity, AzureServicePrincipal), TenantId (AzureDefault, AzureWorkloadIdentity, AzureServicePrincipal).
+credential: a token for api://rockets/.default
+RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (Authorization=Bearer azure-token-1),
+  Bearer with the keys of Azure: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (Authorization=Bearer s3cr3t)
 }

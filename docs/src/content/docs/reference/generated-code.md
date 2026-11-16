@@ -37,10 +37,8 @@ namespace MyApp.Rockets;
 [GeneratedCode("Chirograph", "1.0.0")]
 public static class RocketsClientServiceCollectionExtensions
 {
-    public const string SectionKey = "Clients:RocketsClient";
-    public const string BaseAddressKey = SectionKey + ":BaseAddress";
-    public const string ResilienceKey = SectionKey + ":Resilience";
-    public const string ConnectionStringKey = SectionKey + ":ConnectionString";
+    internal const string SectionKey = "Clients:RocketsClient";
+    internal const string ConnectionStringKey = SectionKey + ":ConnectionString";
 
     public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services, Action<RocketsClientOptions>? configure = null)
     {
@@ -124,8 +122,8 @@ var builder = services.AddRefitGeneratedClient<IRocketsClient>(static provider =
 The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the
 project's usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file.
 
-The class name, the method name and its parameters, the `SectionKey`, `BaseAddressKey`, `ResilienceKey` and `ConnectionStringKey`
-constants and the return type are public API. The body can change between releases.
+The class name, the method name and its parameters and the return type are public API. The `SectionKey` and
+`ConnectionStringKey` constants are internal, for the project's own code. The body can change between releases.
 
 ## The options
 

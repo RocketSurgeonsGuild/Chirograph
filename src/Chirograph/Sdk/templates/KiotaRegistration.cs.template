@@ -14,22 +14,13 @@ namespace __Namespace__;
 public static class __ClientName__ServiceCollectionExtensions
 {
     /// <summary>The configuration section of the client, whose keys fill <see cref="__ClientName__Options" />.</summary>
-    public const string SectionKey = "Clients:__ClientName__";
-
-    /// <summary>The configuration key of the base address of the client.</summary>
-    public const string BaseAddressKey = SectionKey + ":BaseAddress";
-
-    /// <summary>
-    ///     The configuration key that adds the standard resilience handler to the client when it is <c>true</c>. It is read only when the
-    ///     project references Microsoft.Extensions.Http.Resilience.
-    /// </summary>
-    public const string ResilienceKey = SectionKey + ":Resilience";
+    internal const string SectionKey = "Clients:__ClientName__";
 
     /// <summary>
     ///     The configuration key of the connection string of the client. When it is missing, the client reads
     ///     <c>ConnectionStrings:__ClientName__</c>; set to an empty value, it keeps the client from reading that one.
     /// </summary>
-    public const string ConnectionStringKey = SectionKey + ":ConnectionString";
+    internal const string ConnectionStringKey = SectionKey + ":ConnectionString";
 
     /// <summary>
     ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, with its options, <see cref="__ClientName__Options" />. Each time
