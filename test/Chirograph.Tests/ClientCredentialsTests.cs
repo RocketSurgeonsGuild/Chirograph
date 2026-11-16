@@ -194,7 +194,7 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
     }
 
     // starts the host (so validation runs), then asks for TEST_CALLS rockets and writes each, or why it couldn't get one
-    private static string Program(Generator generator, bool fusionCache)
+    internal static string Program(Generator generator, bool fusionCache = false)
     {
         var (clientType, getRocket) = generator switch
         {
