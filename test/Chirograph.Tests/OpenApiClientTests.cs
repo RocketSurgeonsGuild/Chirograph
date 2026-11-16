@@ -117,23 +117,28 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     /// Build seam: the registration Chirograph writes for each generator, a public <c>Add&lt;ClientName&gt;()</c> that returns the
     /// <c>IHttpClientBuilder</c>, and the options it reads, <c>RocketsClientOptions</c>, both stamped with the version of Chirograph. The
     /// options carry the generator's delegate, and the registration adds the standard resilience handler only when the project references
-    /// Microsoft.Extensions.Http.Resilience.
+    /// Microsoft.Extensions.Http.Resilience, and service discovery only when it references Microsoft.Extensions.ServiceDiscovery.
     /// </summary>
     [Test]
-    [Arguments(Generator.Kiota, false)]
-    [Arguments(Generator.Refitter, false)]
-    [Arguments(Generator.Kiota, true)]
-    [Arguments(Generator.Refitter, true)]
-    public async Task Should_Write_The_Registration(Generator generator, bool referencesResilience)
+    [Arguments(Generator.Kiota, null)]
+    [Arguments(Generator.Refitter, null)]
+    [Arguments(Generator.Kiota, "Resilience")]
+    [Arguments(Generator.Refitter, "Resilience")]
+    [Arguments(Generator.Kiota, "ServiceDiscovery")]
+    [Arguments(Generator.Refitter, "ServiceDiscovery")]
+    public async Task Should_Write_The_Registration(Generator generator, string? block)
     {
         using var project = new SdkTestProject(targetFramework);
         var lib = project.CreateConsumer("Library").OpenApiClient(generator, "rockets.json");
-        if (referencesResilience)
+        if (block is not null)
         {
-            lib.ItemPackageReference(
-                "Microsoft.Extensions.Http.Resilience",
-                Config.CentralPackageVersion("Microsoft.Extensions.Http.Resilience", targetFramework)
-            );
+            // the package whose reference turns the block on
+            var package = block switch
+            {
+                "Resilience" => "Microsoft.Extensions.Http.Resilience",
+                _ => "Microsoft.Extensions.ServiceDiscovery",
+            };
+            lib.ItemPackageReference(package, Config.CentralPackageVersion(package, targetFramework));
         }
 
         project.AddProject("lib/lib.csproj", lib).AddFile("lib/rockets.json", RocketsApi.Document);
@@ -143,7 +148,7 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         var registration = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientServiceCollectionExtensions.g.cs"));
         var options = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientOptions.g.cs"));
 
-        await project.VerifyResult(new { Registration = registration, Options = options }, referencesResilience ? $"{generator}_Resilience" : generator.ToString());
+        await project.VerifyResult(new { Registration = registration, Options = options }, block is null ? generator.ToString() : $"{generator}_{block}");
     }
 
     /// <summary>

@@ -32,7 +32,11 @@ public enum __ClientName__Authentication
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
 public sealed class __ClientName__Options
 {
-    /// <summary>The base address of the client, an absolute <c>http</c> or <c>https</c> URI (key <c>BaseAddress</c>, alias <c>Endpoint</c>).</summary>
+    /// <summary>
+    ///     The base address of the client, an absolute <c>http</c> or <c>https</c> URI (key <c>BaseAddress</c>, alias <c>Endpoint</c>). When the
+    ///     project references Microsoft.Extensions.ServiceDiscovery, it may be a service-discovery address such as <c>https+http://rockets</c>,
+    ///     and it is <c>https+http://__ClientName__</c> when not set.
+    /// </summary>
     public string? BaseAddress { get; set; }
 
     /// <summary>The timeout of the client's <c>HttpClient</c> (key <c>Timeout</c>, a <c>TimeSpan</c> in the invariant culture).</summary>
@@ -143,6 +147,11 @@ internal sealed class __ClientName__OptionsSetup :
     private const string SectionKey = global::__Namespace__.__ClientName__ServiceCollectionExtensions.SectionKey;
     private const string ConnectionStringKey = global::__Namespace__.__ClientName__ServiceCollectionExtensions.ConnectionStringKey;
     private const string FallbackConnectionStringKey = "ConnectionStrings:__ClientName__";
+    //#if ServiceDiscovery
+
+    // the address of a client without a BaseAddress: service discovery resolves it from Services:__ClientName__ (or the platform)
+    private const string DefaultBaseAddress = "https+http://__ClientName__";
+    //#endif
 
     // the keys a value can be given for, in the object and in a connection string, each with the name it stands for (an alias's key)
     private static readonly global::System.Collections.Generic.Dictionary<string, string> Keys =
@@ -322,11 +331,29 @@ internal sealed class __ClientName__OptionsSetup :
 
     /// <summary>
     ///     Applies the connection string over everything else: <c>Clients:__ClientName__:ConnectionString</c> when that key exists (an
-    ///     empty value meaning none), else <c>ConnectionStrings:__ClientName__</c>. The two are never merged.
+    ///     empty value meaning none), else <c>ConnectionStrings:__ClientName__</c>. The two are never merged. With service discovery, a
+    ///     client still without a BaseAddress then gets <c>https+http://__ClientName__</c>.
     /// </summary>
     public void PostConfigure(string? name, global::__Namespace__.__ClientName__Options options)
     {
-        if ((name ?? global::Microsoft.Extensions.Options.Options.DefaultName) != global::Microsoft.Extensions.Options.Options.DefaultName || _configuration is null)
+        if ((name ?? global::Microsoft.Extensions.Options.Options.DefaultName) != global::Microsoft.Extensions.Options.Options.DefaultName)
+        {
+            return;
+        }
+
+        ApplyConnectionString(options);
+        //#if ServiceDiscovery
+        // the project references Microsoft.Extensions.ServiceDiscovery: a client without a BaseAddress calls the service of its name
+        if (options.BaseAddress is not { Length: > 0 })
+        {
+            options.BaseAddress = DefaultBaseAddress;
+        }
+        //#endif
+    }
+
+    private void ApplyConnectionString(global::__Namespace__.__ClientName__Options options)
+    {
+        if (_configuration is null)
         {
             return;
         }
@@ -345,6 +372,30 @@ internal sealed class __ClientName__OptionsSetup :
         }
     }
 
+    // an absolute http or https URI; with service discovery, its scheme may be a +-list of them too, such as https+http
+    private static bool IsBaseAddress(string baseAddress)
+    {
+        if (!global::System.Uri.TryCreate(baseAddress, global::System.UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        //#if ServiceDiscovery
+        foreach (var scheme in uri.Scheme.Split('+'))
+        {
+            if (scheme != global::System.Uri.UriSchemeHttp && scheme != global::System.Uri.UriSchemeHttps)
+            {
+                return false;
+            }
+        }
+
+        return true;
+        //#endif
+        //#if NoServiceDiscovery
+        return uri.Scheme == global::System.Uri.UriSchemeHttp || uri.Scheme == global::System.Uri.UriSchemeHttps;
+        //#endif
+    }
+
     /// <summary>Checks the options, whichever source set them.</summary>
     public global::Microsoft.Extensions.Options.ValidateOptionsResult Validate(string? name, global::__Namespace__.__ClientName__Options options)
     {
@@ -354,11 +405,16 @@ internal sealed class __ClientName__OptionsSetup :
         }
 
         var failures = new global::System.Collections.Generic.List<string>(options.ConfigurationErrors);
-        if (options.BaseAddress is { Length: > 0 } baseAddress
-         && !(global::System.Uri.TryCreate(baseAddress, global::System.UriKind.Absolute, out var uri)
-           && (uri.Scheme == global::System.Uri.UriSchemeHttp || uri.Scheme == global::System.Uri.UriSchemeHttps)))
+        if (options.BaseAddress is { Length: > 0 } baseAddress && !IsBaseAddress(baseAddress))
         {
-            failures.Add("The BaseAddress of __ClientName__ is not an absolute http or https URI.");
+            //#if ServiceDiscovery
+            failures.Add("The BaseAddress of __ClientName__ is not an absolute http or https URI, nor a service-discovery address such as https+http://__ClientName__.");
+            //#endif
+            //#if NoServiceDiscovery
+            failures.Add(
+                "The BaseAddress of __ClientName__ is not an absolute http or https URI. A service-discovery address, such as https+http://__ClientName__, needs the project to reference Microsoft.Extensions.ServiceDiscovery."
+            );
+            //#endif
         }
 
         if (options.Timeout is { } timeout

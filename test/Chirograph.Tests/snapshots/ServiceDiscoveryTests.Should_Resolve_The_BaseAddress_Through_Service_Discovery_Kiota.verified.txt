@@ -1,0 +1,11 @@
+﻿{
+  OtherRocketRequests: 1,
+  Results: {
+    ApiKey: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (X-Api-Key=abc123),
+    ApiKey, default address: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (X-Api-Key=abc123),
+    ApiKey, redirect to another host: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9,
+    Connection string: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9,
+    Default address: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9,
+    Logical address: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9
+  }
+}

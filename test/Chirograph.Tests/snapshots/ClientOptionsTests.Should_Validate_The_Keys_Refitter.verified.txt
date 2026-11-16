@@ -23,7 +23,7 @@ OptionsValidationException:
   The Timeout of RocketsClient must be positive and at most 24.20:31:23.647, or infinite (-00:00:00.001).,
   Relative BaseAddress:
 OptionsValidationException:
-  The BaseAddress of RocketsClient is not an absolute http or https URI.,
+  The BaseAddress of RocketsClient is not an absolute http or https URI. A service-discovery address, such as https+http://RocketsClient, needs the project to reference Microsoft.Extensions.ServiceDiscovery.,
   Resilience:
 OptionsValidationException:
   Clients:RocketsClient:Resilience is not true or false.,

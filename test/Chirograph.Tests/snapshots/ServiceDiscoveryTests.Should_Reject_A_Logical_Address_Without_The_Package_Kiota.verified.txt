@@ -1,0 +1,9 @@
+﻿{
+  Connection string:
+OptionsValidationException:
+  The BaseAddress of RocketsClient is not an absolute http or https URI. A service-discovery address, such as https+http://RocketsClient, needs the project to reference Microsoft.Extensions.ServiceDiscovery.,
+  Logical address:
+OptionsValidationException:
+  The BaseAddress of RocketsClient is not an absolute http or https URI. A service-discovery address, such as https+http://RocketsClient, needs the project to reference Microsoft.Extensions.ServiceDiscovery.,
+  No address: System.NotSupportedException: The 'file' scheme is not supported.
+}

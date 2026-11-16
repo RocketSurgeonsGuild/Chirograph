@@ -118,9 +118,35 @@ public static class __ClientName__ServiceCollectionExtensions
             builder,
             static (global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder handlers) => global::__Namespace__.__ClientName__AuthenticationHandler.Configure(handlers)
         );
+        //#if ServiceDiscovery
+        // The project references Microsoft.Extensions.ServiceDiscovery: its handler resolves a service-discovery address, such as the
+        // default https+http://__ClientName__, after the authentication handler has checked the host. When no endpoint provider is
+        // registered yet, the configuration (Services:<name>) and pass-through providers are, as AddServiceDiscovery() on the services does.
+        if (!HasServiceEndpointProvider(services))
+        {
+            global::Microsoft.Extensions.DependencyInjection.ServiceDiscoveryServiceCollectionExtensions.AddServiceDiscovery(services);
+        }
+
+        global::Microsoft.Extensions.DependencyInjection.ServiceDiscoveryHttpClientBuilderExtensions.AddServiceDiscovery(builder);
+        //#endif
         return builder;
     }
 
+    //#if ServiceDiscovery
+    private static bool HasServiceEndpointProvider(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(global::Microsoft.Extensions.ServiceDiscovery.IServiceEndpointProviderFactory))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    //#endif
     /// <summary>The options of the client as they are now: <c>IOptionsMonitor</c> fills them again when configuration reloads.</summary>
     private static global::__Namespace__.__ClientName__Options Options(global::System.IServiceProvider services) =>
         global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions

@@ -140,14 +140,14 @@
       Condition="'$(ChirographRefitVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) == 'true'"
     />
     <!--
-        Not with a Refitter client, nor beside Microsoft.Extensions.Http.Resilience: Refit.HttpClientFactory and the resilience package
-        bring Microsoft.Extensions.Http themselves, at a version that can be newer than the one packed here (NU1605, a downgrade, on
+        Not with a Refitter client, nor beside Microsoft.Extensions.Http.Resilience or Microsoft.Extensions.ServiceDiscovery:
+        Refit.HttpClientFactory and those packages bring Microsoft.Extensions.Http themselves, at a version that can be newer than the one packed here (NU1605, a downgrade, on
         net11.0).
     -->
     <_ChirographImplicitPackageReference
       Include="Microsoft.Extensions.Http"
       Version="$(ChirographMicrosoftExtensionsHttpVersion)"
-      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Http.Resilience')) != 'true'"
+      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Http.Resilience')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.ServiceDiscovery')) != 'true'"
     />
   </ItemGroup>
 
@@ -416,15 +416,21 @@
           - Kiota, Refitter: the client's generator.
           - Resilience: the standard resilience handler, when the resolved references of the project include
             Microsoft.Extensions.Http.Resilience. Chirograph doesn't add it.
+          - ServiceDiscovery: service discovery (and the default address https+http://<ClientName>), when the resolved references of the
+            project include Microsoft.Extensions.ServiceDiscovery; NoServiceDiscovery otherwise. Chirograph doesn't add it.
         _ChirographOpenApiTemplateBlocks lists the project's blocks (with |), and the generator is added for each client.
     -->
     <ItemGroup>
       <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
       <_ChirographResilienceReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.Http.Resilience'" />
+      <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
+      <_ChirographServiceDiscoveryReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.ServiceDiscovery'" />
     </ItemGroup>
     <PropertyGroup>
       <_ChirographOpenApiTemplateBlocks />
       <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographResilienceReference)' != ''">$(_ChirographOpenApiTemplateBlocks)|Resilience</_ChirographOpenApiTemplateBlocks>
+      <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographServiceDiscoveryReference)' != ''">$(_ChirographOpenApiTemplateBlocks)|ServiceDiscovery</_ChirographOpenApiTemplateBlocks>
+      <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographServiceDiscoveryReference)' == ''">$(_ChirographOpenApiTemplateBlocks)|NoServiceDiscovery</_ChirographOpenApiTemplateBlocks>
       <!-- {0} is the client's blocks: a block not among them is cut out, then the markers of the blocks kept are -->
       <_ChirographOpenApiTemplateCut>(?s)[ \t]*//#if (?!(?:{0})\r?\n)[A-Za-z]+\r?\n.*?//#endif\r?\n</_ChirographOpenApiTemplateCut>
       <_ChirographOpenApiTemplateMarkers>[ \t]*//#(if [A-Za-z]+|endif)\r?\n</_ChirographOpenApiTemplateMarkers>
@@ -443,6 +449,7 @@
         <Text>$([System.Text.RegularExpressions.Regex]::Replace($([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('%(Template)')), $([System.String]::Format('$(_ChirographOpenApiTemplateCut)', '%(Generator)$(_ChirographOpenApiTemplateBlocks)')), '')), '$(_ChirographOpenApiTemplateMarkers)', '').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))</Text>
       </_ChirographOpenApiClientRegistration>
       <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
+      <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
     </ItemGroup>
     <WriteLinesToFile
       File="%(_ChirographOpenApiClientRegistration.Identity)"
