@@ -33,16 +33,23 @@ merges them, as Optionary does for any section.
 
 The registration reads the whole section (see [Registration](../../concepts/registration/)). The schema describes:
 
-| Key                     | Type                    | Meaning                                                                                                                                              |
-| ----------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ConnectionString`      | string                  | The client's connection string. It wins over the other keys, and set (even empty), `ConnectionStrings:<ClientName>` is not read.                     |
-| `BaseAddress`           | absolute URI            | The `HttpClient.BaseAddress`. A Refitter client needs one, here or in a connection string; a Kiota client falls back to its document's first server. |
-| `Endpoint`              | absolute URI            | An alias of `BaseAddress`. Set one or the other, not both.                                                                                           |
-| `Timeout`               | TimeSpan, `hh:mm:ss`    | The `HttpClient.Timeout`, written as `IConfiguration` binds a `TimeSpan`, such as `00:00:30`.                                                        |
-| `DefaultRequestHeaders` | object of string values | Headers sent with every request, each name with its value.                                                                                           |
-| `Resilience`            | boolean                 | `true` adds the standard resilience handler. Only takes effect when the project references `Microsoft.Extensions.Http.Resilience`.                   |
-| `AllowedHosts`          | array of strings        | More hosts than the `BaseAddress` host that may receive the client's credentials.                                                                    |
-| `Authentication`        | `None`                  | How the client authenticates. `None`, the default, takes the authentication from the container.                                                      |
+| Key                     | Type                                | Meaning                                                                                                                                              |
+| ----------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConnectionString`      | string                              | The client's connection string. It wins over the other keys, and set (even empty), `ConnectionStrings:<ClientName>` is not read.                     |
+| `BaseAddress`           | absolute URI                        | The `HttpClient.BaseAddress`. A Refitter client needs one, here or in a connection string; a Kiota client falls back to its document's first server. |
+| `Endpoint`              | absolute URI                        | An alias of `BaseAddress`. Set one or the other, not both.                                                                                           |
+| `Timeout`               | TimeSpan, `hh:mm:ss`                | The `HttpClient.Timeout`, written as `IConfiguration` binds a `TimeSpan`, such as `00:00:30`.                                                        |
+| `DefaultRequestHeaders` | object of string values             | Headers sent with every request, each name with its value.                                                                                           |
+| `Resilience`            | boolean                             | `true` adds the standard resilience handler. Only takes effect when the project references `Microsoft.Extensions.Http.Resilience`.                   |
+| `AllowedHosts`          | array of strings                    | More hosts than the `BaseAddress` host that may receive the client's credentials: a host alone allows each of its ports, `host:port` that port.      |
+| `Authentication`        | `None`, `ApiKey`, `Bearer`, `Basic` | How the client authenticates. `None`, the default, takes the authentication from the container.                                                      |
+| `ApiKey`                | string                              | The key of `ApiKey`.                                                                                                                                 |
+| `Key`                   | string                              | An alias of `ApiKey`. Set one or the other, not both.                                                                                                |
+| `ApiKeyHeader`          | string                              | The header `ApiKey` sends the key in, `X-Api-Key` by default.                                                                                        |
+| `ApiKeyQuery`           | string                              | The query parameter `ApiKey` sends the key in, instead of a header.                                                                                  |
+| `Token`                 | string                              | The token of `Bearer`.                                                                                                                               |
+| `Username`              | string                              | The user name of `Basic`.                                                                                                                            |
+| `Password`              | string                              | The password of `Basic`.                                                                                                                             |
 
 ```json
 {

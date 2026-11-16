@@ -60,15 +60,20 @@ public static class RocketsClientServiceCollectionExtensions
         });
         builder.AddTypedClient<RocketsClient>((httpClient, services) =>
         {
-            // keyed with "RocketsClient", else unkeyed, else none (anonymous for the authentication provider)
+            // keyed with "RocketsClient", else unkeyed, else none (anonymous for the authentication provider, and with an
+            // Authentication configured, whose handler sets the credentials)
+            var options = Options(services);
             var adapter = new HttpClientRequestAdapter(
-                Resolve<IAuthenticationProvider>(services) ?? new AnonymousAuthenticationProvider(),
+                (options.Authentication == RocketsClientAuthentication.None ? Resolve<IAuthenticationProvider>(services) : null)
+                    ?? new AnonymousAuthenticationProvider(),
                 Resolve<IParseNodeFactory>(services),
                 Resolve<ISerializationWriterFactory>(services),
                 httpClient);
-            var configureRequestAdapter = Options(services).ConfigureRequestAdapter;
+            var configureRequestAdapter = options.ConfigureRequestAdapter;
             return new RocketsClient(configureRequestAdapter is null ? adapter : configureRequestAdapter(services, adapter));
         });
+        // when Authentication isn't None, the handler that adds the credentials, after the handlers added so far
+        builder.ConfigureHttpMessageHandlerBuilder(handlers => RocketsClientAuthenticationHandler.Configure(handlers));
         return builder;
     }
 
@@ -78,8 +83,8 @@ public static class RocketsClientServiceCollectionExtensions
 }
 ```
 
-When the project references Microsoft.Extensions.Http.Resilience, the build writes this before `return builder;` too, and leaves it
-out otherwise:
+When the project references Microsoft.Extensions.Http.Resilience, the build writes this before the authentication handler too, and
+leaves it out otherwise:
 
 ```csharp
 builder.AddStandardResilienceHandler();
@@ -115,13 +120,17 @@ constants and the return type are public API. The body can change between releas
 
 `RocketsClientOptions.g.cs` holds the client's options and what fills them:
 
-- `RocketsClientOptions`, public: `BaseAddress`, `Timeout`, `DefaultRequestHeaders`, `Resilience`, `AllowedHosts` and
-  `Authentication`, plus `ConfigureRequestAdapter` (Kiota) or `ConfigureRefitSettings` (Refitter).
-- `RocketsClientAuthentication`, public: the methods the client can be configured with (`None` so far).
+- `RocketsClientOptions`, public: `BaseAddress`, `Timeout`, `DefaultRequestHeaders`, `Resilience`, `AllowedHosts`,
+  `Authentication` and the keys of its methods (`ApiKey`, `ApiKeyHeader`, `ApiKeyQuery`, `Token`, `TokenProvider`, `Username`,
+  `Password`), plus `ConfigureRequestAdapter` (Kiota) or `ConfigureRefitSettings` (Refitter).
+- `RocketsClientAuthentication`, public: the methods the client can be configured with, `None`, `ApiKey`, `Bearer` and `Basic`.
 - `RocketsClientOptionsSetup`, internal: it fills the options from the keys under `Clients:RocketsClient` (an
   `IConfigureOptions`) and from the connection string (an `IPostConfigureOptions`), validates them (an `IValidateOptions`), and
   reloads them with the configuration (an `IOptionsChangeTokenSource`). It parses the connection string itself, without
   `DbConnectionStringBuilder` or the configuration binder, so nothing in it needs reflection.
+- `RocketsClientAuthenticationHandler`, internal: the `DelegatingHandler` that adds the configured credentials to the requests for the
+  allowed hosts, and follows redirects in place of the primary handler (see
+  [Configured authentication](../../concepts/registration/#configured-authentication)).
 
 The two public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
 the sources and [Validation](../../concepts/registration/#validation) for what fails.
