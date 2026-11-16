@@ -1,0 +1,7 @@
+﻿{
+  Diagnostics: [],
+  Schemas: [
+    KiotaClient/KiotaClient.schema.json,
+    RefitterClient/RefitterClient.schema.json
+  ]
+}
