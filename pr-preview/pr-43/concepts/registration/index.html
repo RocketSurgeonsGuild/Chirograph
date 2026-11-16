@@ -81,7 +81,9 @@ from configuration, without the reflection binder, so it is safe for trimming an
 <p>The options are filled from three sources, from lowest to highest:</p>
 <ol>
 <li>The keys under <code dir="auto">Clients:RocketsClient</code>.</li>
-<li>Code: the <code dir="auto">configure</code> argument of <code dir="auto">AddRocketsClient()</code>, and any <code dir="auto">services.Configure&#x3C;RocketsClientOptions>(…)</code>, wherever it is called.</li>
+<li>Code: the <code dir="auto">configure</code> argument of <code dir="auto">AddRocketsClient()</code>, and any <code dir="auto">services.Configure&#x3C;RocketsClientOptions>(…)</code>, wherever it is called,
+in the order they are registered: a <code dir="auto">Configure</code> registered before <code dir="auto">AddRocketsClient()</code> runs before the <code dir="auto">configure</code> argument, one
+registered after runs after it.</li>
 <li>The client’s <a href="#the-connection-string">connection string</a>, applied as a post-configuration, so it wins over everything else.</li>
 </ol>
 <p>Code that must win over the connection string uses <code dir="auto">services.PostConfigure&#x3C;RocketsClientOptions>(…)</code>.</p>
@@ -221,6 +223,7 @@ problem. With a bare <code dir="auto">ServiceCollection</code>, the same excepti
 <li>a value that doesn’t parse (<code dir="auto">Timeout</code>, <code dir="auto">Resilience</code>, <code dir="auto">Authentication</code>), or a malformed connection string;</li>
 <li>a <code dir="auto">BaseAddress</code> that isn’t an absolute <code dir="auto">http</code> or <code dir="auto">https</code> URI (or, with <a href="#service-discovery">service discovery</a>, a service-discovery
 address), or a <code dir="auto">Timeout</code> that isn’t positive;</li>
+<li>with service discovery, no service-discovery provider registered by the application;</li>
 <li>an <code dir="auto">Authentication</code> without the keys it needs, with the keys of another method (<code dir="auto">None</code> included), or with no host to send the
 credentials to (neither <code dir="auto">BaseAddress</code> nor <code dir="auto">AllowedHosts</code>);</li>
 <li>a <a href="#client-certificate-mtls">client certificate</a> given by both a path and a thumbprint, a <code dir="auto">CertificatePassword</code> or
@@ -228,7 +231,9 @@ credentials to (neither <code dir="auto">BaseAddress</code> nor <code dir="auto"
 and a certificate that doesn’t load with its private key (a wrong password, say).</li>
 </ul>
 <p>The messages name the source (<code dir="auto">Clients:RocketsClient:Timeout</code>, <code dir="auto">ConnectionStrings:RocketsClient</code>) and the key, never a value, so they
-are safe to log even when a value is a secret.</p>
+are safe to log even when a value is a secret. In a connection string, an unknown key is named only when it reads as one (letters,
+digits and spaces, not followed by another <code dir="auto">=</code>): an unquoted secret holding a <code dir="auto">;</code>, <code dir="auto">Key=ab;cd==</code> say, is reported as an unrecognised
+part, without its text.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="resilience">Resilience</h2><a class="sl-anchor-link" href="#resilience"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Resilience”</span></a></div>
 <p>Chirograph adds no resilience package. When the project references
 <a href="https://www.nuget.org/packages/Microsoft.Extensions.Http.Resilience">Microsoft.Extensions.Http.Resilience</a> (directly or through
@@ -244,15 +249,17 @@ another package or project such as an Aspire service-defaults project), the buil
 service-discovery code into the registration:</p>
 <ul>
 <li>it calls <code dir="auto">AddServiceDiscovery()</code> on the client’s builder, after the authentication handler;</li>
-<li>when no endpoint provider is registered yet, it also calls <code dir="auto">AddServiceDiscovery()</code> on the services, which adds the configuration
-provider (<code dir="auto">Services:&#x3C;name></code>) and the pass-through provider; register your own providers before <code dir="auto">AddRocketsClient()</code> to use them
-instead;</li>
+<li>it registers no provider: the application calls <code dir="auto">AddServiceDiscovery()</code> on the services (an Aspire service-defaults project does),
+which adds the configuration provider (<code dir="auto">Services:&#x3C;name></code>) and the pass-through provider, or registers its own after
+<code dir="auto">AddServiceDiscoveryCore()</code>. Without any provider, <a href="#validation">validation</a> fails at startup and says so, whatever the
+<code dir="auto">BaseAddress</code>: the service-discovery handler resolves an <code dir="auto">http</code> address too;</li>
 <li><code dir="auto">BaseAddress</code> may be a <a href="https://learn.microsoft.com/dotnet/core/extensions/service-discovery">service-discovery address</a>, such as
 <code dir="auto">https+http://rockets</code>;</li>
 <li>a client without a <code dir="auto">BaseAddress</code> calls <code dir="auto">https+http://&#x3C;ClientName></code>, so its endpoints come from <code dir="auto">Services:&#x3C;ClientName></code>, or from the
 platform.</li>
 </ul>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"Services"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"RocketsClient"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"https"</span><span style="--0:#D6DEEB;--1:#403F53">: [</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">https://10.0.0.5:8443/</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">] } }</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{    &#x22;Services&#x22;: { &#x22;RocketsClient&#x22;: { &#x22;https&#x22;: [&#x22;https://10.0.0.5:8443/&#x22;] } }}"><div></div></button></div></figure></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="csharp"><code><div class="ec-line"><div class="code"><span style="--0:#B2CCD6;--1:#3B61B0">builder</span><span style="--0:#C792EA;--1:#8844AE">.</span><span style="--0:#FAF39F;--1:#111111">Services</span><span style="--0:#C792EA;--1:#8844AE">.</span><span style="--0:#82AAFF;--1:#3B61B0">AddServiceDiscovery</span><span style="--0:#D6DEEB;--1:#403F53">();</span></div></div><div class="ec-line"><div class="code"><span style="--0:#B2CCD6;--1:#3B61B0">builder</span><span style="--0:#C792EA;--1:#8844AE">.</span><span style="--0:#FAF39F;--1:#111111">Services</span><span style="--0:#C792EA;--1:#8844AE">.</span><span style="--0:#82AAFF;--1:#3B61B0">AddRocketsClient</span><span style="--0:#D6DEEB;--1:#403F53">();</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="builder.Services.AddServiceDiscovery();builder.Services.AddRocketsClient();"><div></div></button></div></figure></div>
 <p>Without the package, a client without a <code dir="auto">BaseAddress</code> behaves as before, and a service-discovery address fails validation.</p>
 <p>The authentication handler runs before the service-discovery handler, so the <a href="#which-hosts-get-the-credentials">host check</a> compares
 the logical host, <code dir="auto">rockets</code> in <code dir="auto">https+http://rockets</code>, not the endpoint it resolves to.</p>
@@ -313,7 +320,8 @@ without them.</p>
 as many as that allowed), so each hop is checked the same way: a redirect to another host goes without the credentials, whichever
 header or query parameter carries them.</p>
 <p>With <a href="#service-discovery">service discovery</a>, the host is the logical one, and the endpoint it resolves to gets the credentials as well.
-A redirect to another host still goes without them.</p>
+A relative redirect resolves against the logical address, so it is resolved again and keeps the credentials. A redirect to another host
+still goes without them. A redirected request never carries the <code dir="auto">Host</code> header of the first one.</p>
 <p>A client with an <code dir="auto">Authentication</code> needs a host to send the credentials to: a <code dir="auto">BaseAddress</code>, or <code dir="auto">AllowedHosts</code>. With service discovery,
 the default <code dir="auto">https+http://&#x3C;ClientName></code> is one.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="client-credentials">Client credentials</h3><a class="sl-anchor-link" href="#client-credentials"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Client credentials”</span></a></div>
@@ -404,7 +412,8 @@ certificate is given, and that it loads with its private key. A <code dir="auto"
 <p>The assertion comes from an <code dir="auto">IClientAssertionService</code>, registered keyed with the client’s name (<code dir="auto">"RocketsClient"</code>). Duende asks the
 unkeyed <code dir="auto">IClientAssertionService</code> for the assertion of each of its clients; the registration makes that one hand each client to the
 service keyed with its name, and any other to the service registered before it (Duende’s, which makes none, or the application’s).
-An <code dir="auto">IClientAssertionService</code> of the application’s own registered after <code dir="auto">AddRocketsClient()</code> replaces that one: register it before.</p>
+An <code dir="auto">IClientAssertionService</code> of the application’s own registered after <code dir="auto">AddRocketsClient()</code> would replace that one, so no assertion
+would be made: <a href="#validation">validation</a> fails at startup and says to register it before, where it is kept for the other clients.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="azure">Azure</h3><a class="sl-anchor-link" href="#azure"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Azure”</span></a></div>
 <p>The Azure methods get a Microsoft Entra ID token from an <a href="https://learn.microsoft.com/dotnet/api/overview/azure/identity-readme">Azure.Identity</a>
 credential and send it as <code dir="auto">Authorization: Bearer &#x3C;token></code>. The <code dir="auto">OpenApiClient</code> item declares them with <code dir="auto">Azure</code>, which adds a reference
