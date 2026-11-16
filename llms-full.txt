@@ -110,7 +110,7 @@ Chirograph is the MSBuild layer for the two generators .NET teams already choose
 * one item per client;
 * three sources, including a sibling server project and a URL with a committable cache;
 * incremental, offline-capable, telemetry-free builds;
-* an `IHttpClientFactory` registration, and with it a Dovetail joint ([planned](../../guides/with-dovetail/)).
+* an `IHttpClientFactory` registration, and with it a Dovetail joint ([with Dovetail](../../guides/with-dovetail/)).
 
 ## `OpenApiReference` and `dotnet openapi`
 
@@ -837,7 +837,7 @@ Properties and the target hook lose the `LaunchPad` prefix for `Chirograph`. Dia
 
 [Section titled “What changed”](#what-changed)
 
-* **Registration.** The preview generated a joint for each client, which needed Dovetail. Chirograph generates a public `Add<ClientName>()` extension on `IServiceCollection` instead, which works without Dovetail. Until Chirograph declares the joints itself, call it from a joint of your own: see [With Dovetail](../with-dovetail/).
+* **Registration.** The preview generated a joint for each client, which needed Dovetail. Chirograph generates a public `Add<ClientName>()` extension on `IServiceCollection` instead, which works without Dovetail, and with a recent Dovetail declares the joint that calls it: see [With Dovetail](../with-dovetail/).
 * **`Microsoft.Extensions.Http`** is added for Kiota clients only, and not at all in a project that also has a Refitter client. `Refit.HttpClientFactory` brings its own, and the packed version could be older than that one (NU1605, a downgrade). The preview added it for both.
 * **Telemetry.** The preview set environment variables Kiota doesn’t read. Chirograph sets `KIOTA_CLI_TELEMETRY_OPTOUT`, `KIOTA_OFFLINE_ENABLED` and `DOTNET_CLI_TELEMETRY_OPTOUT`, so Kiota’s telemetry and update check are really off.
 * **`GeneratedCode`.** The registration is stamped with Chirograph’s version, not a fixed `1.0.0`.
@@ -923,51 +923,70 @@ See [Generators](../../concepts/generators/) for the differences.
 
 # With Dovetail
 
-> Register Chirograph's clients from a Dovetail joint today, and how Chirograph will declare the joint for you through DovetailTemplate.
+> Chirograph declares a Dovetail joint for every client through DovetailTemplate, so a host built with ConfigureDovetail() resolves it with no registration call.
 
 [Dovetail](https://rocketsurgeonsguild.github.io/Dovetail/) registers services through joints: classes the host finds at build time and runs when `ConfigureDovetail()` builds it. Chirograph never references Dovetail. Every client gets a plain [`Add<ClientName>()` registration](../../concepts/registration/), and a joint is one more caller of it.
 
-## Today: a joint of your own
+## The joint Chirograph declares
 
-[Section titled “Today: a joint of your own”](#today-a-joint-of-your-own)
+[Section titled “The joint Chirograph declares”](#the-joint-chirograph-declares)
 
-Call the registration from a service joint. Configure the client further on the builder it returns:
+Note
+
+This needs **Dovetail 0.6.0** or later: the first release in which `DovetailTemplate` replaces every metadata value as a token ([Dovetail#413](https://github.com/RocketSurgeonsGuild/Dovetail/issues/413)). With an older Dovetail, Chirograph declares nothing, the build still succeeds, and you register the client [yourself](#a-joint-of-your-own).
+
+Dovetail has an extension point for packages that ship C#: a [`DovetailTemplate`](https://rocketsurgeonsguild.github.io/Dovetail/reference/dovetail-template/) item, which Dovetail expands into a file only in projects that run its source generator. Chirograph declares one per client. For the client `RocketsClient` in `MyApp.Rockets` it is:
+
+```xml
+<DovetailTemplate Include="Chirograph.RocketsClient"
+                  File="…/Sdk/templates/OpenApiClientJoint.cs.template"
+                  ClientName="RocketsClient"
+                  Namespace="MyApp.Rockets"
+                  ChirographVersion="…" />
+```
+
+Dovetail writes it as `obj/…/DovetailTemplate.Chirograph.RocketsClient.g.cs`, with each `__Name__` token replaced by the metadata of the same name:
+
+```csharp
+namespace MyApp.Rockets;
+
+
+[DovetailExport]
+internal sealed class RocketsClientJoint : IServiceJoint
+{
+    public void Register(IDovetailContext context, IServiceCollection services) =>
+        global::MyApp.Rockets.RocketsClientServiceCollectionExtensions.AddRocketsClient(services);
+}
+```
+
+So the client resolves from a host built with `ConfigureDovetail()`, with no registration call of your own:
+
+```csharp
+using var host = await Host.CreateApplicationBuilder(args).ConfigureDovetail();
+var client = host.Services.GetRequiredService<RocketsClient>();
+```
+
+* The items are declared only when the Dovetail in the build sets `DovetailTemplateMetadataTokens`, the capability property that release added. An older Dovetail never gets a template it can’t expand.
+* The `Include` is prefixed with `Chirograph.`, so it can’t clash with another package’s template for a type of the same name.
+* Dovetail writes the joint only into a project that runs its source generator. A library that generates a client and references Dovetail exports the joint to every application that references it, as any exported joint is.
+* `ChirographGenerateDovetailJoint=false` turns the joints off for the project. See [Properties](../../reference/properties/).
+
+## A joint of your own
+
+[Section titled “A joint of your own”](#a-joint-of-your-own)
+
+Turn the generated joints off and write your own when you want to configure the client further, on the builder the registration returns, or when your Dovetail is older than the release above:
 
 ```csharp
 [DovetailExport]
-public sealed class RocketsClientJoint : IServiceJoint
+public sealed class RocketsClientSetup : IServiceJoint
 {
     public void Register(IDovetailContext context, IServiceCollection services) =>
         services.AddRocketsClient().AddStandardResilienceHandler();
 }
 ```
 
-`AddStandardResilienceHandler()` comes from `Microsoft.Extensions.Http.Resilience`, as an example of chaining on the `IHttpClientBuilder`. A joint in a library is exported to every application that references the library, as any exported joint is, so a library can generate a client and register it for its consumers.
-
-## Coming: joints Chirograph declares
-
-[Section titled “Coming: joints Chirograph declares”](#coming-joints-chirograph-declares)
-
-Note
-
-This is planned for after 1.0.0-beta.1 ([Chirograph#11](https://github.com/RocketSurgeonsGuild/Chirograph/issues/11)). It needs a Dovetail release in which `DovetailTemplate` substitutes every metadata value ([Dovetail#413](https://github.com/RocketSurgeonsGuild/Dovetail/issues/413)). Nothing below works yet.
-
-Dovetail has an extension point for packages that ship C#: a [`DovetailTemplate`](https://rocketsurgeonsguild.github.io/Dovetail/reference/dovetail-template/) item, which Dovetail expands into a file only in projects that run its source generator. Chirograph will declare one template per client:
-
-```xml
-<DovetailTemplate Include="RocketsClient"
-                  File="…/templates/OpenApiClientJoint.cs.template"
-                  OutputPrefix="Chirograph"
-                  ClientName="RocketsClient"
-                  Namespace="MyApp.Rockets" />
-```
-
-Dovetail then writes an internal `[DovetailExport] RocketsClientJoint : IServiceJoint` that calls `AddRocketsClient(services)`, so the client resolves from a host built with `ConfigureDovetail()` with no registration call of your own.
-
-* The templates are declared only when the Dovetail in the build can expand them, so an older Dovetail gets nothing and the build still succeeds.
-* `ChirographGenerateDovetailJoint=false` will turn them off, for a project that keeps its own joint.
-
-Once it ships, delete a joint like the one above that does nothing but call `Add<ClientName>()`, or turn the generated ones off.
+`AddStandardResilienceHandler()` comes from `Microsoft.Extensions.Http.Resilience`, as an example of chaining on the `IHttpClientBuilder`. Don’t name your joint `<ClientName>Joint` in the client’s namespace while the generated joints are on: that is the name of the generated one.
 
 # Reference
 
@@ -1142,6 +1161,12 @@ The real files spell every type with `global::` and call the extension methods a
 
 The class name, the method name, the `BaseAddressKey` constant and the return type are public API. The body can change between releases.
 
+## The Dovetail joint
+
+[Section titled “The Dovetail joint”](#the-dovetail-joint)
+
+With a Dovetail that can expand it, Dovetail (not Chirograph) also writes a joint for each client, outside the client’s folder: `obj/<configuration>/<framework>/DovetailTemplate.Chirograph.RocketsClient.g.cs`. It is an internal `[DovetailExport]` class, `RocketsClientJoint`, in the client’s namespace, whose `Register` calls `AddRocketsClient(services)`. Its name is all of it that is API. See [With Dovetail](../../guides/with-dovetail/).
+
 # OpenApiClient
 
 > The OpenApiClient MSBuild item declares one client. Every metadata value it reads, whether it is required, its default and what it changes.
@@ -1196,6 +1221,7 @@ Set a property in the project file, a `Directory.Build.props`, or on the command
 | Property                                   | Default                             | Meaning                                                                                                                                                                            |
 | ------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ChirographUpdateOpenApiDocumentCache`     | `true`                              | The default of every client’s `UpdateDocumentCache`: whether a URL is downloaded again when its document is cached. See [Document cache](../../concepts/document-cache/#updating). |
+| `ChirographGenerateDovetailJoint`          | `true`                              | Whether each client gets a Dovetail joint, with a Dovetail that can write it. See [With Dovetail](../../guides/with-dovetail/).                                                    |
 | `ChirographOpenApiClientsDirectory`        | `$(IntermediateOutputPath)openapi/` | The folder each client’s folder goes in, relative to the project.                                                                                                                  |
 | `ChirographKiotaVersion`                   | the packed version                  | The version of the `Microsoft.OpenApi.Kiota` tool.                                                                                                                                 |
 | `ChirographRefitterVersion`                | the packed version                  | The version of the `Refitter` tool.                                                                                                                                                |

@@ -42,8 +42,8 @@ and replace is mechanical.
 ## What changed
 
 - **Registration.** The preview generated a joint for each client, which needed Dovetail. Chirograph generates a public
-  `Add<ClientName>()` extension on `IServiceCollection` instead, which works without Dovetail. Until Chirograph declares the joints
-  itself, call it from a joint of your own: see [With Dovetail](../with-dovetail/).
+  `Add<ClientName>()` extension on `IServiceCollection` instead, which works without Dovetail, and with a recent Dovetail declares
+  the joint that calls it: see [With Dovetail](../with-dovetail/).
 - **`Microsoft.Extensions.Http`** is added for Kiota clients only, and not at all in a project that also has a Refitter client.
   `Refit.HttpClientFactory` brings its own, and the packed version could be older than that one (NU1605, a downgrade). The preview
   added it for both.
