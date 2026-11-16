@@ -179,6 +179,7 @@ internal sealed class RocketsClientOptionsSetup :
     private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
     [
         new("ClientCredentials", "ClientCredentials"),
+        new("PrivateKeyJwt", "ClientCredentials"),
     ];
 
     // the keys, as the messages list them: under Clients:RocketsClient, and in a connection string
