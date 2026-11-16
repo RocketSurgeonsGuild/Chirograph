@@ -42,7 +42,9 @@ from configuration, without the reflection binder, so it is safe for trimming an
 The options are filled from three sources, from lowest to highest:
 
 1. The keys under `Clients:RocketsClient`.
-2. Code: the `configure` argument of `AddRocketsClient()`, and any `services.Configure<RocketsClientOptions>(…)`, wherever it is called.
+2. Code: the `configure` argument of `AddRocketsClient()`, and any `services.Configure<RocketsClientOptions>(…)`, wherever it is called,
+   in the order they are registered: a `Configure` registered before `AddRocketsClient()` runs before the `configure` argument, one
+   registered after runs after it.
 3. The client's [connection string](#the-connection-string), applied as a post-configuration, so it wins over everything else.
 
 Code that must win over the connection string uses `services.PostConfigure<RocketsClientOptions>(…)`.

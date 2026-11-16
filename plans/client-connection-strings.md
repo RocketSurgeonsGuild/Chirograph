@@ -292,12 +292,16 @@ build into `obj/` and declared with `OptionarySchemaFragment` as today:
 - The schema allows the object keys and `ConnectionString`.
 - `Authentication` is an enum of the methods that client allows: `None`, `ApiKey`, `Bearer` and `Basic` always, plus those its item
   declares.
-- An `if`/`then` per method requires its keys and forbids the other methods' keys.
+- An `if`/`then` per method requires its keys and forbids the other methods' keys. Secret keys are never required (agreed
+  deviation): a secret belongs in user secrets, a vault or the environment, which the schema of `appsettings.json` doesn't see, so
+  requiring it would flag a correct file. Validation at startup still requires them.
 - Secret keys (`ApiKey`, `Token`, `Password`, `ClientSecret`, `CertificatePassword`) say in their description to keep them out of
   `appsettings.json`, for example in user secrets or a vault.
 - `ConnectionString` stays a plain string: JSON Schema cannot check its contents.
 - `ConnectionStrings:<ClientName>` is not declared, because Optionary schemas describe sections the app owns.
-- `BaseAddress` is required for Refitter, as today, unless the project references the service-discovery package. With that package, the default address applies.
+- `BaseAddress` is not required, for Refitter either (agreed deviation from "required for Refitter, as today"): a connection string
+  can supply it, and with the service-discovery package the default address applies. A Refitter client without one fails when it is
+  called, as before.
 
 The drift test changes from "both static files have the same keys" to "the generated schema's keys match the options class and the
 docs".
@@ -345,6 +349,16 @@ All of these follow #30, so none of them has been released yet. They are listed 
 - With `Authentication` configured, a keyed `IAuthenticationProvider` for that client is no longer used.
 - A key that #30 ignored (anything unknown under `Clients:<ClientName>`) now fails validation.
 - The static `kiota.schema.json` and `refitter.schema.json` are no longer packed.
+- With `Authentication` set, redirects are followed by the authentication handler, not the primary handler: it turns the primary
+  handler's `AllowAutoRedirect` off and follows as many as that allowed, dropping the credentials on the way to another host and
+  never copying the `Host` header.
+- Beside `Microsoft.Extensions.ServiceDiscovery`, the implicit `Microsoft.Extensions.Http` reference is dropped (it would downgrade
+  the version service discovery brings, NU1605).
+- A bare string at `Clients:<ClientName>` (not an object) is an error: a connection string goes in `ConnectionString` or
+  `ConnectionStrings:<ClientName>`.
+- With `Microsoft.Extensions.ServiceDiscovery` referenced, the application registers service discovery itself
+  (`services.AddServiceDiscovery()`, or its own providers after `AddServiceDiscoveryCore()`); validation fails at startup without a
+  provider.
 
 ---
 
