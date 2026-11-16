@@ -81,6 +81,10 @@
       <_ChirographOpenApiClientMethod Include="Bearer" />
       <_ChirographOpenApiClientMethod Include="Basic" Requires="Username" />
       <_ChirographOpenApiClientMethod Include="ClientCredentials" Feature="ClientCredentials" Requires="ClientId;TokenEndpoint|Authority" />
+      <_ChirographOpenApiClientMethod Include="AzureDefault" Feature="Azure" Requires="Scope" />
+      <_ChirographOpenApiClientMethod Include="AzureManagedIdentity" Feature="Azure" Requires="Scope" />
+      <_ChirographOpenApiClientMethod Include="AzureWorkloadIdentity" Feature="Azure" Requires="Scope" />
+      <_ChirographOpenApiClientMethod Include="AzureServicePrincipal" Feature="Azure" Requires="Scope;TenantId;ClientId" />
 
       <_ChirographOpenApiClientKey Remove="@(_ChirographOpenApiClientKey)" />
       <_ChirographOpenApiClientKey Include="ConnectionString">
@@ -159,14 +163,14 @@
         <Schema>"type": "string", "pattern": "^[A-Za-z]+/[^/]+$"</Schema>
         <Description>The store CertificateThumbprint is in, as &lt;location&gt;/&lt;name&gt;: CurrentUser/My (the default) or LocalMachine/My, say.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="ClientId" Methods="ClientCredentials">
-        <Description>The client id of ClientCredentials.</Description>
+      <_ChirographOpenApiClientKey Include="ClientId" Methods="ClientCredentials;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Description>The client id of ClientCredentials, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="ClientSecret" Methods="ClientCredentials" Secret="true">
-        <Description>The client secret of ClientCredentials.</Description>
+      <_ChirographOpenApiClientKey Include="ClientSecret" Methods="ClientCredentials;AzureServicePrincipal" Secret="true">
+        <Description>The client secret of ClientCredentials or AzureServicePrincipal. AzureServicePrincipal takes it or the certificate keys, not both.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="Scope" Methods="ClientCredentials">
-        <Description>The scopes ClientCredentials asks a token for, space-separated.</Description>
+      <_ChirographOpenApiClientKey Include="Scope" Methods="ClientCredentials;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Description>The scopes a token is asked for, space-separated: optional for ClientCredentials, needed by an Azure method (api://rockets/.default, say).</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="TokenEndpoint" Methods="ClientCredentials">
         <Schema>"type": "string", "format": "uri"</Schema>
@@ -182,6 +186,10 @@
       <_ChirographOpenApiClientKey Include="ClientCredentialStyle" Methods="ClientCredentials">
         <Schema>"type": "string", "enum": ["Header", "Body"]</Schema>
         <Description>How ClientCredentials sends the client id and secret: in the Authorization header (Header, the default), or in the body of the token request (Body).</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="TenantId" Methods="AzureDefault;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Schema>"type": "string", "pattern": "^[A-Za-z0-9.-]+$"</Schema>
+        <Description>The tenant of an Azure method, its id or a domain: needed by AzureServicePrincipal, optional for AzureDefault and AzureWorkloadIdentity.</Description>
       </_ChirographOpenApiClientKey>
     </ItemGroup>
 

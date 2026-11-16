@@ -41,12 +41,14 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
     /// Build seam: each client's schema is written into its folder in <c>obj</c>, with or without Optionary: the keys of the section,
     /// <c>Authentication</c> as an enum of the methods the client allows, and a rule per method that requires its keys and forbids the
     /// keys of the other methods. The result is each client's schema, by client. A method the item's <c>Authentication</c> metadata
-    /// declares (<c>ClientCredentials</c>, written in any case) adds its value and its keys; without it, they are not there.
+    /// declares (<c>ClientCredentials</c>, written in any case, or <c>Azure</c> and its four methods) adds its values and its keys; without
+    /// it, they are not there.
     /// </summary>
     [Test]
-    [Arguments(null)]
-    [Arguments(" clientcredentials ")]
-    public async Task Should_Write_The_Schema_Of_Each_Client(string? authentication)
+    [Arguments(null, null)]
+    [Arguments(" clientcredentials ", "ClientCredentials")]
+    [Arguments("Azure", "Azure")]
+    public async Task Should_Write_The_Schema_Of_Each_Client(string? authentication, string? variant)
     {
         using var project = new SdkTestProject(targetFramework);
         AddClientsApp(project, optionaryVersion: null, authentication: authentication);
@@ -64,7 +66,7 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
 
         await project.VerifyResult(
             clients.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }),
-            authentication is null ? null : "ClientCredentials"
+            variant
         );
     }
 
