@@ -372,9 +372,17 @@ internal sealed class __ClientName__OptionsSetup :
     private const char SingleQuote = (char)39;
 
     private readonly global::Microsoft.Extensions.Configuration.IConfiguration? _configuration;
+    //#if ServiceDiscovery
+    private readonly global::System.IServiceProvider _services;
+    //#endif
 
-    public __ClientName__OptionsSetup(global::System.IServiceProvider services) =>
+    public __ClientName__OptionsSetup(global::System.IServiceProvider services)
+    {
         _configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)services.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
+        //#if ServiceDiscovery
+        _services = services;
+        //#endif
+    }
 
     /// <summary>
     ///     Registers the options once: the keys and the connection string ahead of every other configuration of them (so the keys come
@@ -571,6 +579,17 @@ internal sealed class __ClientName__OptionsSetup :
         //#endif
     }
 
+    //#if ServiceDiscovery
+    // whether the application registered a service-discovery provider (AddServiceDiscovery() registers the configuration and pass-through ones)
+    private bool HasServiceEndpointProvider()
+    {
+        var serviceType = typeof(global::Microsoft.Extensions.ServiceDiscovery.IServiceEndpointProviderFactory);
+        return _services.GetService(typeof(global::Microsoft.Extensions.DependencyInjection.IServiceProviderIsService)) is global::Microsoft.Extensions.DependencyInjection.IServiceProviderIsService isService
+            ? isService.IsService(serviceType)
+            : _services.GetService(serviceType) is not null;
+    }
+
+    //#endif
     /// <summary>Checks the options, whichever source set them.</summary>
     public global::Microsoft.Extensions.Options.ValidateOptionsResult Validate(string? name, global::__Namespace__.__ClientName__Options options)
     {
@@ -592,6 +611,17 @@ internal sealed class __ClientName__OptionsSetup :
             //#endif
         }
 
+        //#if ServiceDiscovery
+        // the registration adds service discovery's handler, not its providers, and the handler resolves every address, an http one
+        // too: without a provider of the application's, no request would go out
+        if (!HasServiceEndpointProvider())
+        {
+            failures.Add(
+                "__ClientName__ resolves its BaseAddress through service discovery (the project references Microsoft.Extensions.ServiceDiscovery), and no service-discovery provider is registered: call AddServiceDiscovery() on the services (or register a provider of your own after AddServiceDiscoveryCore())."
+            );
+        }
+
+        //#endif
         if (options.Timeout is { } timeout
          && timeout != global::System.Threading.Timeout.InfiniteTimeSpan
          && (timeout <= global::System.TimeSpan.Zero || timeout.TotalMilliseconds > int.MaxValue))

@@ -142,6 +142,7 @@ It fails on:
 - a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
 - a `BaseAddress` that isn't an absolute `http` or `https` URI (or, with [service discovery](#service-discovery), a service-discovery
   address), or a `Timeout` that isn't positive;
+- with service discovery, no service-discovery provider registered by the application;
 - an `Authentication` without the keys it needs, with the keys of another method (`None` included), or with no host to send the
   credentials to (neither `BaseAddress` nor `AllowedHosts`);
 - a [client certificate](#client-certificate-mtls) given by both a path and a thumbprint, a `CertificatePassword` or
@@ -172,9 +173,10 @@ another package or project such as an Aspire service-defaults project), the buil
 service-discovery code into the registration:
 
 - it calls `AddServiceDiscovery()` on the client's builder, after the authentication handler;
-- when no endpoint provider is registered yet, it also calls `AddServiceDiscovery()` on the services, which adds the configuration
-  provider (`Services:<name>`) and the pass-through provider; register your own providers before `AddRocketsClient()` to use them
-  instead;
+- it registers no provider: the application calls `AddServiceDiscovery()` on the services (an Aspire service-defaults project does),
+  which adds the configuration provider (`Services:<name>`) and the pass-through provider, or registers its own after
+  `AddServiceDiscoveryCore()`. Without any provider, [validation](#validation) fails at startup and says so, whatever the
+  `BaseAddress`: the service-discovery handler resolves an `http` address too;
 - `BaseAddress` may be a [service-discovery address](https://learn.microsoft.com/dotnet/core/extensions/service-discovery), such as
   `https+http://rockets`;
 - a client without a `BaseAddress` calls `https+http://<ClientName>`, so its endpoints come from `Services:<ClientName>`, or from the
@@ -184,6 +186,11 @@ service-discovery code into the registration:
 {
     "Services": { "RocketsClient": { "https": ["https://10.0.0.5:8443/"] } }
 }
+```
+
+```csharp
+builder.Services.AddServiceDiscovery();
+builder.Services.AddRocketsClient();
 ```
 
 Without the package, a client without a `BaseAddress` behaves as before, and a service-discovery address fails validation.

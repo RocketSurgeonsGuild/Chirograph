@@ -213,9 +213,13 @@ internal sealed class RocketsClientOptionsSetup :
     private const char SingleQuote = (char)39;
 
     private readonly global::Microsoft.Extensions.Configuration.IConfiguration? _configuration;
+    private readonly global::System.IServiceProvider _services;
 
-    public RocketsClientOptionsSetup(global::System.IServiceProvider services) =>
+    public RocketsClientOptionsSetup(global::System.IServiceProvider services)
+    {
         _configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)services.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
+        _services = services;
+    }
 
     /// <summary>
     ///     Registers the options once: the keys and the connection string ahead of every other configuration of them (so the keys come
@@ -405,6 +409,15 @@ internal sealed class RocketsClientOptionsSetup :
         return true;
     }
 
+    // whether the application registered a service-discovery provider (AddServiceDiscovery() registers the configuration and pass-through ones)
+    private bool HasServiceEndpointProvider()
+    {
+        var serviceType = typeof(global::Microsoft.Extensions.ServiceDiscovery.IServiceEndpointProviderFactory);
+        return _services.GetService(typeof(global::Microsoft.Extensions.DependencyInjection.IServiceProviderIsService)) is global::Microsoft.Extensions.DependencyInjection.IServiceProviderIsService isService
+            ? isService.IsService(serviceType)
+            : _services.GetService(serviceType) is not null;
+    }
+
     /// <summary>Checks the options, whichever source set them.</summary>
     public global::Microsoft.Extensions.Options.ValidateOptionsResult Validate(string? name, global::Throwaway.Clients.RocketsClientOptions options)
     {
@@ -417,6 +430,15 @@ internal sealed class RocketsClientOptionsSetup :
         if (options.BaseAddress is { Length: > 0 } baseAddress && !IsBaseAddress(baseAddress))
         {
             failures.Add("The BaseAddress of RocketsClient is not an absolute http or https URI, nor a service-discovery address such as https+http://RocketsClient.");
+        }
+
+        // the registration adds service discovery's handler, not its providers, and the handler resolves every address, an http one
+        // too: without a provider of the application's, no request would go out
+        if (!HasServiceEndpointProvider())
+        {
+            failures.Add(
+                "RocketsClient resolves its BaseAddress through service discovery (the project references Microsoft.Extensions.ServiceDiscovery), and no service-discovery provider is registered: call AddServiceDiscovery() on the services (or register a provider of your own after AddServiceDiscoveryCore())."
+            );
         }
 
         if (options.Timeout is { } timeout
@@ -1375,28 +1397,10 @@ public static class RocketsClientServiceCollectionExtensions
             static (global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder handlers) => global::Throwaway.Clients.RocketsClientAuthenticationHandler.Configure(handlers)
         );
         // The project references Microsoft.Extensions.ServiceDiscovery: its handler resolves a service-discovery address, such as the
-        // default https+http://RocketsClient, after the authentication handler has checked the host. When no endpoint provider is
-        // registered yet, the configuration (Services:<name>) and pass-through providers are, as AddServiceDiscovery() on the services does.
-        if (!HasServiceEndpointProvider(services))
-        {
-            global::Microsoft.Extensions.DependencyInjection.ServiceDiscoveryServiceCollectionExtensions.AddServiceDiscovery(services);
-        }
-
+        // default https+http://RocketsClient, after the authentication handler has checked the host. The providers are the application's
+        // to register (AddServiceDiscovery() on the services): the options validation fails at startup without any.
         global::Microsoft.Extensions.DependencyInjection.ServiceDiscoveryHttpClientBuilderExtensions.AddServiceDiscovery(builder);
         return builder;
-    }
-
-    private static bool HasServiceEndpointProvider(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
-    {
-        foreach (var descriptor in services)
-        {
-            if (descriptor.ServiceType == typeof(global::Microsoft.Extensions.ServiceDiscovery.IServiceEndpointProviderFactory))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>The options of the client as they are now: <c>IOptionsMonitor</c> fills them again when configuration reloads.</summary>

@@ -7,7 +7,7 @@ namespace Chirograph.Tests;
 
 /// <summary>
 /// Build seam: when the project references Microsoft.Extensions.ServiceDiscovery, <c>Add&lt;ClientName&gt;()</c> adds service discovery
-/// to the client, its <c>BaseAddress</c> may be a service-discovery address such as <c>https+http://rockets</c>, and a client without one
+/// to the client (the application registers its providers, with <c>AddServiceDiscovery()</c>), its <c>BaseAddress</c> may be a service-discovery address such as <c>https+http://rockets</c>, and a client without one
 /// calls <c>https+http://&lt;ClientName&gt;</c>. Each test builds one throwaway application, then runs it once per scenario with its
 /// configuration in environment variables (the endpoints under <c>Services</c>), and records the rocket it got, or why it couldn't.
 /// </summary>
@@ -82,6 +82,35 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
     }
 
     /// <summary>
+    /// The registration leaves the providers to the application: without any provider registered, the options fail validation at
+    /// startup and say to call <c>AddServiceDiscovery()</c>, whatever the address, since service discovery's handler resolves an http
+    /// address too.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota)]
+    [Arguments(Generator.Refitter)]
+    public async Task Should_Ask_For_Service_Discovery_When_No_Provider_Is_Registered(Generator generator)
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        var results = await RunScenarios(
+            project,
+            generator,
+            referencesServiceDiscovery: true,
+            new()
+            {
+                ["Logical address"] = Keys(("BaseAddress", "https+http://rockets"), Services("rockets", api), NoServiceDiscovery),
+                ["Default address"] = Keys(Services("RocketsClient", api), NoServiceDiscovery),
+                ["Connection string"] = Keys(Services("rockets", api), ("ConnectionStrings__RocketsClient", "Endpoint=https+http://rockets"), NoServiceDiscovery),
+                ["Http address"] = Keys(("BaseAddress", api.BaseAddress.ToString()), NoServiceDiscovery),
+                ["Registered"] = Keys(Services("RocketsClient", api)),
+            }
+        );
+
+        await project.VerifyResult(results, generator.ToString());
+    }
+
+    /// <summary>
     /// Without the package, a logical address fails validation, and a client without a <c>BaseAddress</c> behaves as before: Kiota calls
     /// the first server of its document, Refit fails when called.
     /// </summary>
@@ -147,6 +176,9 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
 
     private const string ServiceDiscoveryPackage = "Microsoft.Extensions.ServiceDiscovery";
 
+    // the application doesn't call AddServiceDiscovery()
+    private static readonly (string Key, string Value) NoServiceDiscovery = ("NO_SERVICE_DISCOVERY", "true");
+
     // the endpoint of a service, under Services:<name>:http
     private static (string Key, string Value) Services(string name, RocketsApi api) => ($"Services__{name}__http__0", api.BaseAddress.ToString());
 
@@ -155,7 +187,9 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
         [with(
             keys.Select(
                 z => KeyValuePair.Create(
-                    z.Key.StartsWith("Services__", StringComparison.Ordinal) || z.Key.StartsWith("ConnectionStrings__", StringComparison.Ordinal)
+                    z.Key.StartsWith("Services__", StringComparison.Ordinal)
+                 || z.Key.StartsWith("ConnectionStrings__", StringComparison.Ordinal)
+                 || z.Key == NoServiceDiscovery.Key
                         ? z.Key
                         : $"Clients__RocketsClient__{z.Key}",
                     z.Value
@@ -178,7 +212,7 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
             app.ItemPackageReference(ServiceDiscoveryPackage, Config.CentralPackageVersion(ServiceDiscoveryPackage, targetFramework));
         }
 
-        project.AddProject("app/app.csproj", app).AddFile("app/rockets.json", RocketsApi.Document).AddFile("app/Program.cs", Program(generator));
+        project.AddProject("app/app.csproj", app).AddFile("app/rockets.json", RocketsApi.Document).AddFile("app/Program.cs", Program(generator, referencesServiceDiscovery));
         await project.Build("app");
 
         var results = new Dictionary<string, string>();
@@ -192,10 +226,18 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
         return results;
     }
 
-    // asks for a rocket and writes it, or why it couldn't (the validation failures, say)
-    private static string Program(Generator generator) =>
+    // asks for a rocket and writes it, or why it couldn't (the validation failures, say); with the package, it registers the
+    // service-discovery providers unless NO_SERVICE_DISCOVERY is set
+    private static string Program(Generator generator, bool referencesServiceDiscovery) =>
         RocketsApp
            .Program(generator)
+           .Replace(
+                "builder.Services.AddRocketsClient();",
+                referencesServiceDiscovery
+                    ? "if (Environment.GetEnvironmentVariable(\"NO_SERVICE_DISCOVERY\") is null)\n{\n    builder.Services.AddServiceDiscovery();\n}\n\nbuilder.Services.AddRocketsClient();"
+                    : "builder.Services.AddRocketsClient();",
+                StringComparison.Ordinal
+            )
            .Replace("var client =", "try\n{\n    var client =", StringComparison.Ordinal)
            .TrimEnd()
       + """
