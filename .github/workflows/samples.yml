@@ -1,7 +1,8 @@
 name: samples
 
-# Packs src/** at 0.0.0-sample into artifacts/nuget-sample and builds sample/ChirographSample against that feed, as an external
-# consumer would, on Linux, Windows and macOS. Chirograph.slnx doesn't list the sample: it is its own solution on local packages.
+# Packs src/** at 0.0.0-sample into artifacts/nuget-sample, builds sample/ChirographSample against that feed, as an external
+# consumer would, and runs its apps against a running Rockets.Api (mise run sample:run), on Linux, Windows and macOS.
+# Chirograph.slnx doesn't list the sample: it is its own solution on local packages.
 
 on:
     push:
@@ -121,17 +122,12 @@ jobs:
                       echo "DOTNET_ROOT=$DOTNET_ROOT" >> "$GITHUB_ENV"
                   fi
                   "$DOTNET_ROOT/dotnet" --version
-            # What `mise run sample:pack` runs. It is called directly with the dotnet mise installed (it exports DOTNET_ROOT): on
-            # Windows the runner's own SDKs come first on PATH, and `mise run` would also run the repo's npm deps step, which fails
-            # on Windows.
-            - name: 📦 Pack src/** at 0.0.0-sample
-              working-directory: sample/ChirographSample
-              run: '"$DOTNET_ROOT/dotnet" msbuild build/pack.proj -bl:../../artifacts/logs/sample-pack.binlog'
-            - name: ⚙️ Build sample/ChirographSample
-              run: '"$DOTNET_ROOT/dotnet" build sample/ChirographSample/ChirographSample.slnx -bl:artifacts/logs/sample-build.binlog'
-            # Resolves both generated clients from the container and prints their types; it calls no server.
-            - name: ▶️ Run Rockets.Console
-              run: '"$DOTNET_ROOT/dotnet" run --no-build --project sample/ChirographSample/Rockets.Console/Rockets.Console.csproj'
+            # Packs src/** at 0.0.0-sample, builds the sample, starts Rockets.Api on port 5179, runs Rockets.Console and Rockets.Dovetail
+            # against it and fails when either exits non-zero or prints something other than sample/ChirographSample/expected/<App>.txt.
+            # --no-deps skips the npm deps step (it fails on Windows runners and the sample doesn't need it), and --skip-tools keeps mise
+            # from installing the tools the sample doesn't use. The script runs dotnet from DOTNET_ROOT, the one mise installed.
+            - name: ▶️ Run the sample against Rockets.Api
+              run: mise run --no-deps --skip-tools sample:run
             - name: 🏺 Publish logs
               if: always()
               uses: actions/upload-artifact@v7

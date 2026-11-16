@@ -2,5 +2,7 @@
   <Project Path="Rockets.Api/Rockets.Api.csproj" />
   <Project Path="Rockets.Client.Kiota/Rockets.Client.Kiota.csproj" />
   <Project Path="Rockets.Client.Refitter/Rockets.Client.Refitter.csproj" />
+  <Project Path="Rockets.Client.Url/Rockets.Client.Url.csproj" />
   <Project Path="Rockets.Console/Rockets.Console.csproj" />
+  <Project Path="Rockets.Dovetail/Rockets.Dovetail.csproj" />
 </Solution>

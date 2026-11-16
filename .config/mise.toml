@@ -32,6 +32,7 @@ docs = { run = "npm run dev --workspace docs", description = "Start the Astro/St
 "docs:preview" = { run = "npm run preview --workspace docs", description = "Preview built Starlight site" }
 "docs:build" = { run = "npm run build --workspace docs", description = "Build the Starlight site" }
 "sample:pack" = { run = "dotnet msbuild build/pack.proj", dir = "{{config_root}}/sample/ChirographSample", description = "Pack src/** locally at 0.0.0-sample for sample/ChirographSample" }
+"sample:run" = { run = "dotnet run build/run-sample.cs", dir = "{{config_root}}/sample/ChirographSample", description = "Pack if needed, build sample/ChirographSample, start Rockets.Api and check what each app prints against sample/ChirographSample/expected" }
 
 [settings]
 experimental = true

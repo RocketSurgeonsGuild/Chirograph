@@ -12,6 +12,9 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Rockets.Dovetail: 0.6.0 is the first Dovetail that writes Chirograph's joints (DovetailTemplateMetadataTokens) -->
+    <PackageVersion Include="Joinery.Dovetail" Version="0.6.0" />
+    <PackageVersion Include="Joinery.Dovetail.Hosting" Version="0.6.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
     <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.15" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
