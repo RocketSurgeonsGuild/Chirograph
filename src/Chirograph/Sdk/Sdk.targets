@@ -1,9 +1,12 @@
 <Project>
   <!--
-      Imported at the end of the project, so the files below see the project's own items. Chirograph.OpenApiClients.targets declares
-      what each OpenApiClient item needs and the targets that generate the clients. Chirograph.ImplicitPackageReferences.targets comes
-      last: it expands the _ChirographImplicitPackageReference items every file before it declares.
+      Imported at the end of the project, so the files below see the project's own items. Chirograph.Tasks.targets registers the SDK's
+      compiled tasks for the files after it. Chirograph.OpenApiClients.targets declares what each OpenApiClient item needs and the
+      targets that generate the clients. Chirograph.ImplicitPackageReferences.targets comes last: it expands the
+      _ChirographImplicitPackageReference items every file before it declares.
   -->
+  <Import Project="$(MSBuildThisFileDirectory)Chirograph.Tasks.targets" />
+
   <Import Project="$(MSBuildThisFileDirectory)Chirograph.OpenApiClients.targets" />
 
   <!-- The schema of each client's Clients:<ClientName> section, for Optionary. -->

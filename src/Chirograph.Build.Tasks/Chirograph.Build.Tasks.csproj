@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+      The MSBuild tasks the Chirograph SDK runs (Sdk/Chirograph.Tasks.targets registers them). They ship inside the Chirograph package,
+      in Sdk/tasks/netstandard2.0 (see Chirograph.csproj), rather than as a package of their own, and need nothing but MSBuild:
+      netstandard2.0 loads in the MSBuild of the .NET SDK and in Visual Studio's.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Chirograph.Build.Tasks</RootNamespace>
+    <!-- Nothing to compare: the assembly is an implementation detail of the SDK, not an API. -->
+    <EnablePackageValidation>false</EnablePackageValidation>
+  </PropertyGroup>
+  <!-- Compile-only references: whatever MSBuild runs the tasks provides these assemblies, so none are copied or packed. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" ExcludeAssets="runtime" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- netstandard2.0 has no NotNullAttribute. -->
+    <Using Remove="System.Diagnostics.CodeAnalysis.NotNullAttribute" />
+  </ItemGroup>
+</Project>

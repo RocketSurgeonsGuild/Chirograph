@@ -1,18 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-      The Chirograph MSBuild SDK: a project applies it next to its own SDK with <Sdk Name="Chirograph" />. It ships MSBuild files only
-      (Sdk/**) and no assembly. The target framework only gives pack something to evaluate.
+      The Chirograph MSBuild SDK: a project applies it next to its own SDK with <Sdk Name="Chirograph" />. It ships MSBuild files (Sdk/**)
+      and the assembly of its MSBuild tasks (Sdk/tasks/netstandard2.0, from Chirograph.Build.Tasks), and no library: there is no lib/
+      folder. The target framework only gives pack something to evaluate.
   -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <!-- NU5128: there is no lib/ folder to match the dependency groups, because the package has no build output. -->
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- NU5128: there is no lib/ folder to match the dependency groups, because the package has no library. -->
+    <!-- NU5100: the tasks' assembly is loaded by the SDK's targets, never referenced, so it is not in lib/ on purpose. -->
+    <NoWarn>$(NoWarn);NU5128;NU5100</NoWarn>
     <PackageType>MSBuildSdk</PackageType>
     <NoBuildOutput>true</NoBuildOutput>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <IncludeSymbols>false</IncludeSymbols>
     <ImplicitUsings>disable</ImplicitUsings>
-    <!-- Nothing to compare: package validation looks at assemblies, and there are none. -->
+    <!-- Nothing to compare: package validation looks at the assemblies of lib/, and there are none. -->
     <EnablePackageValidation>false</EnablePackageValidation>
     <PackageDescription>MSBuild SDK that generates typed HTTP clients from OpenAPI documents at build time, with Kiota or Refitter, and registers them with IHttpClientFactory.</PackageDescription>
     <PackageTags>$(PackageTags);msbuild-sdk;msbuild;kiota;refitter;refit;httpclient;rest-client;codegen</PackageTags>
@@ -22,5 +24,18 @@
     <None Include="Sdk/**" Pack="true" PackagePath="Sdk/" />
     <Using Remove="**" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Built first, for its assembly below. Not a reference: nothing compiles against it and the package doesn't depend on it. -->
+    <ProjectReference Include="../Chirograph.Build.Tasks/Chirograph.Build.Tasks.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+  <!-- Packs the tasks' assembly where Sdk/Chirograph.Tasks.targets loads it from. -->
+  <Target Name="_ChirographPackTasks" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="../Chirograph.Build.Tasks/Chirograph.Build.Tasks.csproj" Targets="GetTargetPath" RemoveProperties="TargetFramework">
+      <Output TaskParameter="TargetOutputs" ItemName="_ChirographTasksAssembly" />
+    </MSBuild>
+    <ItemGroup>
+      <None Include="@(_ChirographTasksAssembly)" Pack="true" PackagePath="Sdk/tasks/netstandard2.0" Visible="false" />
+    </ItemGroup>
+  </Target>
   <Import Project="Chirograph.Pack.targets" />
 </Project>

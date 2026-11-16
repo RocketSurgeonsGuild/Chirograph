@@ -393,9 +393,11 @@ Chirograph/
 ├── Skillfile  apm.yml  apm.lock.yaml  biome.json  package.json  package-lock.json
 ```
 
-There is no `Directory.Packages.MSBuildTasks.props` and no `*.Build.Tasks` project. The PR uses built-in MSBuild tasks only
-(`DownloadFile`, `GetFileHash`, `Exec`, `WriteLinesToFile`), so Chirograph ships no compiled code. If a task is ever needed, adopt
-Dovetail's `Joinery.Dovetail.Build.Tasks` pattern then.
+The PR used built-in MSBuild tasks only (`DownloadFile`, `GetFileHash`, `Exec`, `WriteLinesToFile`). Writing a client's registration
+from its template and the schema of its configuration section outgrew property functions, so they moved into
+`src/Chirograph.Build.Tasks`, after Dovetail's pattern: a netstandard2.0 assembly that compiles against MSBuild only, is not a package
+of its own, and ships inside `Chirograph` at `Sdk/tasks/netstandard2.0`, where `Sdk/Chirograph.Tasks.targets` registers its tasks.
+Everything else still uses MSBuild's own tasks.
 
 ---
 

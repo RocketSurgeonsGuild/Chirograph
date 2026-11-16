@@ -9,9 +9,11 @@ document, generator, registration, joint) mean what [GLOSSARY.md](GLOSSARY.md) s
 
 ### I. An MSBuild SDK, and nothing else
 
-Chirograph ships one package, `Chirograph`, of package type `MSBuildSdk`: props, targets and templates under `Sdk/`. It ships no
-compiled code, no runtime library and no source generator. The generators run as processes during the build, fetched with
-`PackageDownload`. If a compiled MSBuild task is ever needed, adopt Dovetail's `Joinery.Dovetail.Build.Tasks` pattern then, not before.
+Chirograph ships one package, `Chirograph`, of package type `MSBuildSdk`: props, targets and templates under `Sdk/`, and the
+assembly of its MSBuild tasks, `Chirograph.Build.Tasks`, under `Sdk/tasks/netstandard2.0`. It ships no runtime library and no source
+generator. The generators run as processes during the build, fetched with `PackageDownload`. The tasks follow Dovetail's pattern: one
+netstandard2.0 assembly that compiles against MSBuild only and is never a package of its own. Logic goes into a task when MSBuild's
+own tasks and property functions express it badly; the targets keep the data, the checks and the diagnostics.
 
 ### II. Behaviour is pinned by end-to-end tests
 
@@ -78,4 +80,4 @@ This constitution supersedes all other practices in this repository. `AGENTS.md`
 (`apm compile`): amend this file, then recompile, never the generated files. Pull requests pass `hk check`, `mise run build` and the
 tests. Complexity must be justified.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-15
+**Version**: 1.1.0 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-16

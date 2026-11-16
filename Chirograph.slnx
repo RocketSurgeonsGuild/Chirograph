@@ -50,6 +50,7 @@
     <File Path="src/.editorconfig" />
     <File Path="src/Directory.Build.props" />
     <File Path="src/Directory.Build.targets" />
+    <Project Path="src/Chirograph.Build.Tasks/Chirograph.Build.Tasks.csproj" />
     <Project Path="src/Chirograph/Chirograph.csproj" />
   </Folder>
   <Folder Name="/test/">

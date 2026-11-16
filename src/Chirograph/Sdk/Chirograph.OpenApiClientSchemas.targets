@@ -51,8 +51,8 @@
   </Target>
 
   <!--
-      Writes the schema of one client, batched on the schema files. It is built from the methods and the keys below: a later method or
-      key is one more item, and the rules follow from them.
+      Writes the schema of one client, batched on the schema files, with the WriteOpenApiClientSchema task. It is built from the methods
+      and the keys below: a later method or key is one more item, and the rules follow from them.
 
       _ChirographOpenApiClientMethod, the values of Authentication:
         - Feature: the value of the client's Authentication metadata (a ;-list) that allows the method; none when the method is always
@@ -194,118 +194,31 @@
       </_ChirographOpenApiClientKey>
     </ItemGroup>
 
-    <PropertyGroup>
-      <_ChirographOpenApiClientSchemaClientName>%(_ChirographOpenApiClientSchemaFile.ClientName)</_ChirographOpenApiClientSchemaClientName>
-      <_ChirographOpenApiClientSchemaGenerator>%(_ChirographOpenApiClientSchemaFile.Generator)</_ChirographOpenApiClientSchemaGenerator>
-      <!-- the values of Authentication, without spaces and in lowercase: ;clientcredentials; -->
-      <_ChirographOpenApiClientSchemaFeatures>;$([System.Text.RegularExpressions.Regex]::Replace('%(_ChirographOpenApiClientSchemaFile.Authentication)', '\s+', '').ToLowerInvariant());</_ChirographOpenApiClientSchemaFeatures>
-    </PropertyGroup>
     <ItemGroup>
       <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
       <_ChirographServiceDiscoveryReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.ServiceDiscovery'" />
     </ItemGroup>
+    <!-- whether the project references Microsoft.Extensions.ServiceDiscovery, as the registration's ServiceDiscovery block says -->
     <PropertyGroup>
-      <!-- whether the project references Microsoft.Extensions.ServiceDiscovery, as the registration's ServiceDiscovery block says -->
       <_ChirographOpenApiClientSchemaServiceDiscovery>false</_ChirographOpenApiClientSchemaServiceDiscovery>
       <_ChirographOpenApiClientSchemaServiceDiscovery Condition="'@(_ChirographServiceDiscoveryReference)' != ''">true</_ChirographOpenApiClientSchemaServiceDiscovery>
     </PropertyGroup>
 
-    <ItemGroup>
-      <!-- the client's methods, and the keys of its generator, in order (filtered by Remove, since a batched Include would regroup them) -->
-      <_ChirographOpenApiClientSchemaMethod Remove="@(_ChirographOpenApiClientSchemaMethod)" />
-      <_ChirographOpenApiClientSchemaMethod Include="@(_ChirographOpenApiClientMethod)" />
-      <_ChirographOpenApiClientSchemaMethod
-        Remove="@(_ChirographOpenApiClientSchemaMethod)"
-        Condition="'%(_ChirographOpenApiClientSchemaMethod.Feature)' != '' and !$(_ChirographOpenApiClientSchemaFeatures.Contains($([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethod.Feature);').ToLowerInvariant())))"
-      />
-      <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaKey)" />
-      <_ChirographOpenApiClientSchemaKey Include="@(_ChirographOpenApiClientKey)" />
-      <_ChirographOpenApiClientSchemaKey
-        Remove="@(_ChirographOpenApiClientSchemaKey)"
-        Condition="'%(_ChirographOpenApiClientSchemaKey.Generator)' != '' and '%(_ChirographOpenApiClientSchemaKey.Generator)' != '$(_ChirographOpenApiClientSchemaGenerator)'"
-      />
-      <_ChirographOpenApiClientSchemaKey
-        Remove="@(_ChirographOpenApiClientSchemaKey)"
-        Condition="'%(_ChirographOpenApiClientSchemaKey.ServiceDiscovery)' != '' and '%(_ChirographOpenApiClientSchemaKey.ServiceDiscovery)' != '$(_ChirographOpenApiClientSchemaServiceDiscovery)'"
-      />
-
-      <!-- the keys of methods: each with each of the client's methods (a cross product), and whether the method uses it -->
-      <_ChirographOpenApiClientSchemaMethodKey Remove="@(_ChirographOpenApiClientSchemaMethodKey)" />
-      <_ChirographOpenApiClientSchemaMethodKey Include="@(_ChirographOpenApiClientSchemaMethod)" Condition="'%(_ChirographOpenApiClientSchemaKey.Methods)' != ''">
-        <Key>%(_ChirographOpenApiClientSchemaKey.Identity)</Key>
-        <KeyMethods>%(_ChirographOpenApiClientSchemaKey.Methods)</KeyMethods>
-      </_ChirographOpenApiClientSchemaMethodKey>
-      <_ChirographOpenApiClientSchemaMethodKey>
-        <Uses>$([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethodKey.KeyMethods);').Contains(';%(_ChirographOpenApiClientSchemaMethodKey.Identity);'))</Uses>
-      </_ChirographOpenApiClientSchemaMethodKey>
-
-      <!-- a key that none of the client's methods uses goes -->
-      <_ChirographOpenApiClientSchemaUsedKey Remove="@(_ChirographOpenApiClientSchemaUsedKey)" />
-      <_ChirographOpenApiClientSchemaUsedKey Include="@(_ChirographOpenApiClientSchemaMethodKey->WithMetadataValue('Uses', 'True')->'%(Key)'->Distinct())" />
-      <_ChirographOpenApiClientSchemaUnusedKey Remove="@(_ChirographOpenApiClientSchemaUnusedKey)" />
-      <_ChirographOpenApiClientSchemaUnusedKey Include="@(_ChirographOpenApiClientSchemaMethodKey->'%(Key)'->Distinct())" Exclude="@(_ChirographOpenApiClientSchemaUsedKey)" />
-      <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaUnusedKey)" />
-      <_ChirographOpenApiClientSchemaMethodKey Remove="@(_ChirographOpenApiClientSchemaMethodKey)" />
-      <_ChirographOpenApiClientSchemaMethodKey Include="@(_ChirographOpenApiClientSchemaMethod)" Condition="'%(_ChirographOpenApiClientSchemaKey.Methods)' != ''">
-        <Key>%(_ChirographOpenApiClientSchemaKey.Identity)</Key>
-        <KeyMethods>%(_ChirographOpenApiClientSchemaKey.Methods)</KeyMethods>
-      </_ChirographOpenApiClientSchemaMethodKey>
-      <_ChirographOpenApiClientSchemaMethodKey>
-        <Uses>$([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethodKey.KeyMethods);').Contains(';%(_ChirographOpenApiClientSchemaMethodKey.Identity);'))</Uses>
-      </_ChirographOpenApiClientSchemaMethodKey>
-
-      <!-- each key, as a property of the schema -->
-      <_ChirographOpenApiClientSchemaKey>
-        <Schema Condition="'%(_ChirographOpenApiClientSchemaKey.Schema)' == ''">"type": "string"</Schema>
-        <Description Condition="'%(_ChirographOpenApiClientSchemaKey.Secret)' == 'true'">%(_ChirographOpenApiClientSchemaKey.Description) It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say.</Description>
-      </_ChirographOpenApiClientSchemaKey>
-
-      <!--
-          Each method, as the then of its if: the keys it requires, and the keys of the other methods, which it forbids. A;B|C becomes
-          "allOf": [{ "required": ["A"] }, { "anyOf": [{ "required": ["B"] }, { "required": ["C"] }] }].
-      -->
-      <_ChirographOpenApiClientSchemaRule Remove="@(_ChirographOpenApiClientSchemaRule)" />
-      <_ChirographOpenApiClientSchemaRule
-        Include="%(_ChirographOpenApiClientSchemaMethodKey.Identity)"
-        Requires="%(_ChirographOpenApiClientSchemaMethodKey.Requires)"
-        Forbids="@(_ChirographOpenApiClientSchemaMethodKey->WithMetadataValue('Uses', 'False')->'&quot;%(Key)&quot;: false', ', ')"
-      />
-      <_ChirographOpenApiClientSchemaRule>
-        <Then>"properties": { %(_ChirographOpenApiClientSchemaRule.Forbids) }</Then>
-        <Then Condition="'%(_ChirographOpenApiClientSchemaRule.Requires)' != ''">"allOf": [$([System.Text.RegularExpressions.Regex]::Replace($([System.Text.RegularExpressions.Regex]::Replace('%(_ChirographOpenApiClientSchemaRule.Requires)', '[^;]+', '{ "required": ["$0"] }')), '[{] "required": [[]"([^"]*[|][^"]*)"[]] [}]', '{ "anyOf": [{ "required": ["$1"] }] }').Replace('|', '"] }, { "required": ["').Replace(';', ', '))], "properties": { %(_ChirographOpenApiClientSchemaRule.Forbids) }</Then>
-      </_ChirographOpenApiClientSchemaRule>
-    </ItemGroup>
-
-    <PropertyGroup>
-      <_ChirographOpenApiClientSchemaMethods>@(_ChirographOpenApiClientSchemaMethod->'&quot;%(Identity)&quot;', ', ')</_ChirographOpenApiClientSchemaMethods>
-      <_ChirographOpenApiClientSchema>{
-  "type": "object",
-  "description": "__ClientName__, a $(_ChirographOpenApiClientSchemaGenerator) client Chirograph generates: its Add__ClientName__() registration reads this section to configure the client's HttpClient.",
-  "properties": {
-    @(_ChirographOpenApiClientSchemaKey->'&quot;%(Identity)&quot;: { %(Schema), &quot;description&quot;: &quot;%(Description)&quot; }', ',%0A    ')
-  },
-  "allOf": [
-    @(_ChirographOpenApiClientSchemaRule->'{ &quot;if&quot;: { &quot;properties&quot;: { &quot;Authentication&quot;: { &quot;const&quot;: &quot;%(Identity)&quot; } }, &quot;required&quot;: [&quot;Authentication&quot;] }, &quot;then&quot;: { %(Then) } }', ',%0A    ')
-  ]
-}</_ChirographOpenApiClientSchema>
-    </PropertyGroup>
-
-    <WriteLinesToFile
-      File="%(_ChirographOpenApiClientSchemaFile.Identity)"
-      Lines="$(_ChirographOpenApiClientSchema.Replace('__Methods__', '$(_ChirographOpenApiClientSchemaMethods)').Replace('__ClientName__', '$(_ChirographOpenApiClientSchemaClientName)'))"
-      Overwrite="true"
-      WriteOnlyWhenDifferent="true"
+    <!-- WriteOpenApiClientSchema, src/Chirograph.Build.Tasks -->
+    <WriteOpenApiClientSchema
+      OutputFile="%(_ChirographOpenApiClientSchemaFile.Identity)"
+      ClientName="%(_ChirographOpenApiClientSchemaFile.ClientName)"
+      Generator="%(_ChirographOpenApiClientSchemaFile.Generator)"
+      Authentication="%(_ChirographOpenApiClientSchemaFile.Authentication)"
+      ServiceDiscovery="$(_ChirographOpenApiClientSchemaServiceDiscovery)"
+      Methods="@(_ChirographOpenApiClientMethod)"
+      Keys="@(_ChirographOpenApiClientKey)"
     />
 
     <ItemGroup>
       <_ChirographOpenApiClientMethod Remove="@(_ChirographOpenApiClientMethod)" />
       <_ChirographOpenApiClientKey Remove="@(_ChirographOpenApiClientKey)" />
-      <_ChirographOpenApiClientSchemaMethod Remove="@(_ChirographOpenApiClientSchemaMethod)" />
-      <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaKey)" />
-      <_ChirographOpenApiClientSchemaMethodKey Remove="@(_ChirographOpenApiClientSchemaMethodKey)" />
-      <_ChirographOpenApiClientSchemaUsedKey Remove="@(_ChirographOpenApiClientSchemaUsedKey)" />
-      <_ChirographOpenApiClientSchemaUnusedKey Remove="@(_ChirographOpenApiClientSchemaUnusedKey)" />
-      <_ChirographOpenApiClientSchemaRule Remove="@(_ChirographOpenApiClientSchemaRule)" />
+      <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
     </ItemGroup>
   </Target>
 </Project>

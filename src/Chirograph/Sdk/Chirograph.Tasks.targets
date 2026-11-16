@@ -1,0 +1,12 @@
+<Project>
+  <!--
+      The MSBuild tasks of the SDK, compiled from src/Chirograph.Build.Tasks and packed into tasks/netstandard2.0, next to this file. They
+      do what MSBuild's own tasks and property functions express badly: a client's registration and options from a template, and the
+      schema of its configuration section. Imported by Sdk.targets before the files that use them.
+  -->
+  <PropertyGroup>
+    <_ChirographTasksAssembly>$(MSBuildThisFileDirectory)tasks/netstandard2.0/Chirograph.Build.Tasks.dll</_ChirographTasksAssembly>
+  </PropertyGroup>
+  <UsingTask TaskName="Chirograph.Build.Tasks.ExpandOpenApiClientTemplate" AssemblyFile="$(_ChirographTasksAssembly)" />
+  <UsingTask TaskName="Chirograph.Build.Tasks.WriteOpenApiClientSchema" AssemblyFile="$(_ChirographTasksAssembly)" />
+</Project>

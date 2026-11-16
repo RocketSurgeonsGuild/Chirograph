@@ -205,9 +205,6 @@ internal sealed class RocketsClientOptionsSetup :
     // a, b and c
     private static string KeyList(string[] keys) => string.Join(", ", keys, 0, keys.Length - 1) + " and " + keys[keys.Length - 1];
 
-    // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '/''
-    private const char SingleQuote = (char)39;
-
     private readonly global::System.IServiceProvider _services;
     private readonly global::Microsoft.Extensions.Configuration.IConfiguration? _configuration;
 
@@ -602,7 +599,7 @@ internal sealed class RocketsClientOptionsSetup :
             }
 
             string value;
-            if (i < connectionString.Length && (connectionString[i] == SingleQuote || connectionString[i] == '"'))
+            if (i < connectionString.Length && (connectionString[i] == '\'' || connectionString[i] == '"'))
             {
                 var quote = connectionString[i++];
                 var builder = new global::System.Text.StringBuilder();
