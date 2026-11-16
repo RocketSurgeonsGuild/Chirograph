@@ -32,5 +32,5 @@ OptionsValidationException:
   Clients:RocketsClient:Timeout is not a TimeSpan, such as 00:00:30.,
   Unknown key:
 OptionsValidationException:
-  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts and Authentication.
+  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.
 }

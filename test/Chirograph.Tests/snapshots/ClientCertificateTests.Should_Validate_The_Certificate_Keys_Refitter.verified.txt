@@ -1,0 +1,35 @@
+﻿{
+  Key path without a path:
+OptionsValidationException:
+  RocketsClient has a CertificateKeyPath without a CertificatePath.,
+  Malformed store:
+OptionsValidationException:
+  The CertificateStore of RocketsClient is not <location>/<name>, such as CurrentUser/My or LocalMachine/My.,
+  Missing file:
+OptionsValidationException:
+  The CertificatePath of RocketsClient is not a file that exists.,
+  Missing key file:
+OptionsValidationException:
+  The CertificateKeyPath of RocketsClient is not a file that exists.,
+  Not a certificate:
+OptionsValidationException:
+  The CertificatePath of RocketsClient is not a PKCS#12 (.pfx or .p12) or PEM certificate, or its CertificatePassword is wrong.,
+  Password without a path:
+OptionsValidationException:
+  RocketsClient has a CertificatePassword without a CertificatePath.,
+  Path and thumbprint:
+OptionsValidationException:
+  RocketsClient has both a CertificatePath and a CertificateThumbprint: its certificate is a file or in a store, not both.,
+  Path and thumbprint in the connection string:
+OptionsValidationException:
+  RocketsClient has both a CertificatePath and a CertificateThumbprint: its certificate is a file or in a store, not both.,
+  PEM certificate without its key:
+OptionsValidationException:
+  The CertificatePath of RocketsClient is not a PEM certificate with its private key (in the same file, or in CertificateKeyPath), or its CertificatePassword is wrong.,
+  Store without a thumbprint:
+OptionsValidationException:
+  RocketsClient has a CertificateStore without a CertificateThumbprint.,
+  Wrong password:
+OptionsValidationException:
+  The CertificatePath of RocketsClient is not a PKCS#12 (.pfx or .p12) or PEM certificate, or its CertificatePassword is wrong.
+}

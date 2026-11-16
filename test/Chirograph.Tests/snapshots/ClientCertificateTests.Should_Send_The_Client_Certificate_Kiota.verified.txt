@@ -1,0 +1,8 @@
+﻿{
+  Connection string, with Authentication None: SerialNumber: {client-certificate},
+  No certificate: Microsoft.Kiota.Abstractions.ApiException: The server returned an unexpected status code and no error factory is registered for this code: 403,
+  PEM certificate and encrypted key: SerialNumber: {client-certificate},
+  PEM certificate and key: SerialNumber: {client-certificate},
+  PEM file with the certificate and its key: SerialNumber: {client-certificate},
+  PKCS#12 file: SerialNumber: {client-certificate}
+}

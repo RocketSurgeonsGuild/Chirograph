@@ -34,7 +34,9 @@ public static class __ClientName__ServiceCollectionExtensions
     ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, with its options, <see cref="__ClientName__Options" />. Each time
     ///     the client's <c>HttpClient</c> is created, it takes BaseAddress, Timeout and DefaultRequestHeaders from the options, and the
     ///     standard resilience handler is kept when Resilience is <c>true</c> (only when the project references
-    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. The options are validated
+    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
+    ///     handler is made, it presents the client certificate the options give, for mutual TLS; a <c>ConfigurePrimaryHttpMessageHandler</c>
+    ///     that makes a new handler, on the builder this returns, replaces that handler, certificate included. The options are validated
     ///     when the host starts, or when the client is first created without a host.
     /// </summary>
     /// <param name="services">The services to add the client to.</param>
@@ -74,6 +76,13 @@ public static class __ClientName__ServiceCollectionExtensions
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
                 }
             }
+        );
+        // the client certificate (mutual TLS) goes on the primary handler the factory made, each time it is made: a
+        // ConfigurePrimaryHttpMessageHandler that makes a new handler, on the builder this returns, replaces it, certificate included
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigurePrimaryHttpMessageHandler(
+            builder,
+            static (global::System.Net.Http.HttpMessageHandler handler, global::System.IServiceProvider provider) =>
+                global::__Namespace__.__ClientName__Certificate.Present(handler, Options(provider))
         );
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.AddTypedClient<global::__Namespace__.__ClientName__>(
             builder,

@@ -51,6 +51,33 @@ public sealed class RocketsClientOptions
     public global::Throwaway.Clients.RocketsClientAuthentication Authentication { get; set; }
 
     /// <summary>
+    ///     The client certificate, a PKCS#12 (<c>.pfx</c>, <c>.p12</c>) or PEM file (key <c>CertificatePath</c>). It is presented for
+    ///     mutual TLS, whatever the <see cref="Authentication" />, unless the method signs with it. Not with <see cref="CertificateThumbprint" />.
+    /// </summary>
+    public string? CertificatePath { get; set; }
+
+    /// <summary>The password of the PKCS#12 file, or of the encrypted PEM key (key <c>CertificatePassword</c>).</summary>
+    public string? CertificatePassword { get; set; }
+
+    /// <summary>
+    ///     The PEM private key of the certificate, when <see cref="CertificatePath" /> is a PEM certificate without its key (key
+    ///     <c>CertificateKeyPath</c>).
+    /// </summary>
+    public string? CertificateKeyPath { get; set; }
+
+    /// <summary>
+    ///     The thumbprint of a certificate in <see cref="CertificateStore" />, instead of a file (key <c>CertificateThumbprint</c>). Not with
+    ///     <see cref="CertificatePath" />.
+    /// </summary>
+    public string? CertificateThumbprint { get; set; }
+
+    /// <summary>
+    ///     The store <see cref="CertificateThumbprint" /> is in, as <c>&lt;location&gt;/&lt;name&gt;</c> (key <c>CertificateStore</c>):
+    ///     <c>CurrentUser/My</c> (the default) or <c>LocalMachine/My</c>, say.
+    /// </summary>
+    public string? CertificateStore { get; set; }
+
+    /// <summary>
     ///     Changes or replaces the request adapter of the client. It is given the adapter built over the client's <c>HttpClient</c> with the
     ///     authentication provider from the container (keyed <c>"RocketsClient"</c>, else unkeyed, else anonymous). Without it, the client
     ///     uses that adapter.
@@ -86,11 +113,18 @@ internal sealed class RocketsClientOptionsSetup :
             ["Resilience"] = "Resilience",
             ["AllowedHosts"] = "AllowedHosts",
             ["Authentication"] = "Authentication",
+            ["CertificatePath"] = "CertificatePath",
+            ["CertificatePassword"] = "CertificatePassword",
+            ["CertificateKeyPath"] = "CertificateKeyPath",
+            ["CertificateThumbprint"] = "CertificateThumbprint",
+            ["CertificateStore"] = "CertificateStore",
         };
 
     // the keys, as the messages list them: under Clients:RocketsClient, and in a connection string
-    private const string ObjectKeyList = "ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts and Authentication";
-    private const string ConnectionStringKeyList = "BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts and Authentication";
+    private const string ObjectKeyList =
+        "ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
+    private const string ConnectionStringKeyList =
+        "BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
     private const string AuthenticationList = "None";
 
     // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '/''
@@ -294,6 +328,7 @@ internal sealed class RocketsClientOptionsSetup :
         }
 
         ValidateAuthentication(options, failures);
+        global::Throwaway.Clients.RocketsClientCertificate.Validate(options, failures);
         return failures.Count == 0
             ? global::Microsoft.Extensions.Options.ValidateOptionsResult.Success
             : global::Microsoft.Extensions.Options.ValidateOptionsResult.Fail(failures);
@@ -499,8 +534,256 @@ internal sealed class RocketsClientOptionsSetup :
                 }
 
                 break;
+            case "CertificatePath":
+                options.CertificatePath = value;
+                break;
+            case "CertificatePassword":
+                options.CertificatePassword = value;
+                break;
+            case "CertificateKeyPath":
+                options.CertificateKeyPath = value;
+                break;
+            case "CertificateThumbprint":
+                options.CertificateThumbprint = value;
+                break;
+            case "CertificateStore":
+                options.CertificateStore = value;
+                break;
         }
     }
+}
+
+/// <summary>
+///     The certificate of <c>RocketsClient</c>, as the keys <c>CertificatePath</c>, <c>CertificatePassword</c>, <c>CertificateKeyPath</c>,
+///     <c>CertificateThumbprint</c> and <c>CertificateStore</c> give it: loading it, checking those keys, and presenting it for mutual TLS.
+///     A certificate has one role: a method that signs with it (<see cref="IsForSigning" />) loads it with <see cref="Load" />, and it is
+///     then not also presented for mutual TLS. No message repeats a value from configuration.
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "{chirograph-version}")]
+internal static class RocketsClientCertificate
+{
+    private const string DefaultStore = "CurrentUser/My";
+
+    /// <summary>Whether the options give a certificate, by its path or by its thumbprint.</summary>
+    internal static bool IsSet(global::Throwaway.Clients.RocketsClientOptions options) =>
+        options.CertificatePath is { Length: > 0 } || options.CertificateThumbprint is { Length: > 0 };
+
+    /// <summary>
+    ///     Whether the client's <see cref="RocketsClientOptions.Authentication" /> signs with the certificate, which is then not also
+    ///     presented for mutual TLS.
+    /// </summary>
+    internal static bool IsForSigning(global::Throwaway.Clients.RocketsClientOptions options)
+    {
+        switch (options.Authentication)
+        {
+            // a method that signs with the certificate returns true here
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    ///     Sets the certificate on the client's primary handler, for mutual TLS, when the options give one that isn't for signing. It is
+    ///     loaded again each time the handler is made, so a renewed file is read when the handlers rotate.
+    /// </summary>
+    /// <exception cref="global::System.InvalidOperationException">The certificate can't be loaded, or the handler can't present it.</exception>
+    internal static void Present(global::System.Net.Http.HttpMessageHandler handler, global::Throwaway.Clients.RocketsClientOptions options)
+    {
+        if (!IsSet(options) || IsForSigning(options))
+        {
+            return;
+        }
+
+        var certificate = Load(options);
+        switch (handler)
+        {
+            case global::System.Net.Http.SocketsHttpHandler sockets:
+                sockets.SslOptions.ClientCertificates = new global::System.Security.Cryptography.X509Certificates.X509CertificateCollection { certificate };
+                // offered whichever issuers the server asks for
+                sockets.SslOptions.LocalCertificateSelectionCallback = (_, _, _, _, _) => certificate;
+                break;
+            case global::System.Net.Http.HttpClientHandler client:
+                client.ClientCertificateOptions = global::System.Net.Http.ClientCertificateOption.Manual;
+                client.ClientCertificates.Add(certificate);
+                break;
+            default:
+                certificate.Dispose();
+                throw new global::System.InvalidOperationException(
+                    $"The primary handler of RocketsClient is a {handler.GetType().FullName}, which can't present its client certificate: it must be a SocketsHttpHandler or an HttpClientHandler."
+                );
+        }
+    }
+
+    /// <summary>Loads the certificate the options give, with its private key.</summary>
+    /// <exception cref="global::System.InvalidOperationException">The certificate can't be loaded: the message says why, as validation does.</exception>
+    internal static global::System.Security.Cryptography.X509Certificates.X509Certificate2 Load(global::Throwaway.Clients.RocketsClientOptions options) =>
+        TryLoad(options, out var certificate) is { } failure ? throw new global::System.InvalidOperationException(failure) : certificate!;
+
+    /// <summary>
+    ///     Checks the certificate keys: a path or a thumbprint, not both; a password or a key path only with a path; a store only with a
+    ///     thumbprint; and a certificate, with its private key, that loads.
+    /// </summary>
+    internal static void Validate(global::Throwaway.Clients.RocketsClientOptions options, global::System.Collections.Generic.List<string> failures)
+    {
+        var path = options.CertificatePath is { Length: > 0 };
+        var thumbprint = options.CertificateThumbprint is { Length: > 0 };
+        var count = failures.Count;
+        if (path && thumbprint)
+        {
+            failures.Add("RocketsClient has both a CertificatePath and a CertificateThumbprint: its certificate is a file or in a store, not both.");
+        }
+
+        if (!path && options.CertificatePassword is { Length: > 0 })
+        {
+            failures.Add("RocketsClient has a CertificatePassword without a CertificatePath.");
+        }
+
+        if (!path && options.CertificateKeyPath is { Length: > 0 })
+        {
+            failures.Add("RocketsClient has a CertificateKeyPath without a CertificatePath.");
+        }
+
+        if (!thumbprint && options.CertificateStore is { Length: > 0 })
+        {
+            failures.Add("RocketsClient has a CertificateStore without a CertificateThumbprint.");
+        }
+
+        if (failures.Count == count && IsSet(options))
+        {
+            var failure = TryLoad(options, out var certificate);
+            certificate?.Dispose();
+            if (failure is not null)
+            {
+                failures.Add(failure);
+            }
+        }
+    }
+
+    // the reason the certificate can't be loaded, or null and the certificate
+    private static string? TryLoad(
+        global::Throwaway.Clients.RocketsClientOptions options,
+        out global::System.Security.Cryptography.X509Certificates.X509Certificate2? certificate
+    ) =>
+        options.CertificateThumbprint is { Length: > 0 } thumbprint
+            ? FromStore(thumbprint, options.CertificateStore is { Length: > 0 } store ? store : DefaultStore, out certificate)
+            : FromFile(options.CertificatePath ?? "", options.CertificatePassword, options.CertificateKeyPath, out certificate);
+
+    private static string? FromFile(
+        string path,
+        string? password,
+        string? keyPath,
+        out global::System.Security.Cryptography.X509Certificates.X509Certificate2? certificate
+    )
+    {
+        certificate = null;
+        if (!global::System.IO.File.Exists(path))
+        {
+            return "The CertificatePath of RocketsClient is not a file that exists.";
+        }
+
+        if (keyPath is { Length: > 0 } && !global::System.IO.File.Exists(keyPath))
+        {
+            return "The CertificateKeyPath of RocketsClient is not a file that exists.";
+        }
+
+        var pem = false;
+        try
+        {
+            pem = keyPath is { Length: > 0 } || IsPem(path);
+            if (pem)
+            {
+                using var fromPem = password is { Length: > 0 }
+                    ? global::System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromEncryptedPemFile(path, password, keyPath is { Length: > 0 } ? keyPath : null)
+                    : global::System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPemFile(path, keyPath is { Length: > 0 } ? keyPath : null);
+                // a key read from PEM is ephemeral, which not every platform's TLS stack takes: through PKCS#12, it is one they do
+                certificate = LoadPkcs12(fromPem.Export(global::System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12), null);
+            }
+            else
+            {
+                certificate = LoadPkcs12(global::System.IO.File.ReadAllBytes(path), password);
+            }
+        }
+        catch (global::System.Exception e) when (e is global::System.Security.Cryptography.CryptographicException or global::System.ArgumentException)
+        {
+            return pem
+                ? "The CertificatePath of RocketsClient is not a PEM certificate with its private key (in the same file, or in CertificateKeyPath), or its CertificatePassword is wrong."
+                : "The CertificatePath of RocketsClient is not a PKCS#12 (.pfx or .p12) or PEM certificate, or its CertificatePassword is wrong.";
+        }
+        catch (global::System.Exception e) when (e is global::System.IO.IOException or global::System.UnauthorizedAccessException)
+        {
+            return "The CertificatePath or CertificateKeyPath of RocketsClient can't be read.";
+        }
+
+        return HasPrivateKey(ref certificate) ? null : "The certificate of RocketsClient at its CertificatePath has no private key.";
+    }
+
+    private static string? FromStore(
+        string thumbprint,
+        string store,
+        out global::System.Security.Cryptography.X509Certificates.X509Certificate2? certificate
+    )
+    {
+        certificate = null;
+        var parts = store.Split('/');
+        if (parts.Length != 2
+         || parts[1].Length == 0
+         || !global::System.Enum.TryParse<global::System.Security.Cryptography.X509Certificates.StoreLocation>(parts[0], true, out var location)
+         || !global::System.Enum.IsDefined(typeof(global::System.Security.Cryptography.X509Certificates.StoreLocation), location))
+        {
+            return "The CertificateStore of RocketsClient is not <location>/<name>, such as CurrentUser/My or LocalMachine/My.";
+        }
+
+        try
+        {
+            using var x509Store = new global::System.Security.Cryptography.X509Certificates.X509Store(parts[1], location);
+            x509Store.Open(
+                global::System.Security.Cryptography.X509Certificates.OpenFlags.ReadOnly
+              | global::System.Security.Cryptography.X509Certificates.OpenFlags.OpenExistingOnly
+            );
+            var found = x509Store.Certificates.Find(global::System.Security.Cryptography.X509Certificates.X509FindType.FindByThumbprint, thumbprint, false);
+            if (found.Count == 0)
+            {
+                return "The CertificateStore of RocketsClient has no certificate with its CertificateThumbprint.";
+            }
+
+            certificate = found[0];
+        }
+        catch (global::System.Security.Cryptography.CryptographicException)
+        {
+            return "The CertificateStore of RocketsClient can't be opened.";
+        }
+
+        return HasPrivateKey(ref certificate) ? null : "The certificate of RocketsClient in its CertificateStore has no private key.";
+    }
+
+    // whether the certificate has its private key; when it hasn't, it is disposed
+    private static bool HasPrivateKey(ref global::System.Security.Cryptography.X509Certificates.X509Certificate2? certificate)
+    {
+        if (certificate is { HasPrivateKey: true })
+        {
+            return true;
+        }
+
+        certificate?.Dispose();
+        certificate = null;
+        return false;
+    }
+
+    // whether the file is PEM text (a certificate, and maybe its key) rather than PKCS#12
+    private static bool IsPem(string path)
+    {
+        using var reader = new global::System.IO.StreamReader(path);
+        var start = new char[4096];
+        var read = reader.ReadBlock(start, 0, start.Length);
+        return new string(start, 0, read).Contains("-----BEGIN ");
+    }
+
+    private static global::System.Security.Cryptography.X509Certificates.X509Certificate2 LoadPkcs12(byte[] data, string? password) =>
+#if NET9_0_OR_GREATER
+        global::System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12(data, password);
+#else
+        new global::System.Security.Cryptography.X509Certificates.X509Certificate2(data, password);
+#endif
 }
 ,
   Registration:
@@ -540,7 +823,9 @@ public static class RocketsClientServiceCollectionExtensions
     ///     Registers <see cref="RocketsClient" /> with <c>IHttpClientFactory</c>, with its options, <see cref="RocketsClientOptions" />. Each time
     ///     the client's <c>HttpClient</c> is created, it takes BaseAddress, Timeout and DefaultRequestHeaders from the options, and the
     ///     standard resilience handler is kept when Resilience is <c>true</c> (only when the project references
-    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. The options are validated
+    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
+    ///     handler is made, it presents the client certificate the options give, for mutual TLS; a <c>ConfigurePrimaryHttpMessageHandler</c>
+    ///     that makes a new handler, on the builder this returns, replaces that handler, certificate included. The options are validated
     ///     when the host starts, or when the client is first created without a host.
     /// </summary>
     /// <param name="services">The services to add the client to.</param>
@@ -580,6 +865,13 @@ public static class RocketsClientServiceCollectionExtensions
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
                 }
             }
+        );
+        // the client certificate (mutual TLS) goes on the primary handler the factory made, each time it is made: a
+        // ConfigurePrimaryHttpMessageHandler that makes a new handler, on the builder this returns, replaces it, certificate included
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigurePrimaryHttpMessageHandler(
+            builder,
+            static (global::System.Net.Http.HttpMessageHandler handler, global::System.IServiceProvider provider) =>
+                global::Throwaway.Clients.RocketsClientCertificate.Present(handler, Options(provider))
         );
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.AddTypedClient<global::Throwaway.Clients.RocketsClient>(
             builder,
