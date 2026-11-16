@@ -134,3 +134,20 @@ jobs:
               with:
                   name: samples-logs-${{ matrix.os }}
                   path: artifacts/logs/
+
+    # The one check the main ruleset requires: the legs report as their OS names, and are skipped when nothing the sample
+    # builds from changed. Passes when every leg passed or all were skipped; fails when any leg failed or was cancelled.
+    samples:
+        needs:
+            - changes
+            - sample
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+            - name: ✅ Check the sample legs
+              env:
+                  CHANGES: ${{ needs.changes.result }}
+                  SAMPLE: ${{ needs.sample.result }}
+              run: |
+                  echo "changes: $CHANGES, sample: $SAMPLE"
+                  [ "$CHANGES" = success ] && { [ "$SAMPLE" = success ] || [ "$SAMPLE" = skipped ]; }
