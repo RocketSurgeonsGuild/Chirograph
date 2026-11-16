@@ -49,7 +49,7 @@ builder.Services.AddRocketsClient(options => options.Timeout = TimeSpan.FromSeco
 
 ## Configuration
 
-The section's path is a constant on the registration class, `RocketsClientServiceCollectionExtensions.SectionKey`.
+The section's path is an internal constant on the registration class, `RocketsClientServiceCollectionExtensions.SectionKey`.
 
 ```json
 {
@@ -133,17 +133,20 @@ problem. With a bare `ServiceCollection`, the same exception is thrown when the 
 
 It fails on:
 
-- an unknown key under `Clients:RocketsClient`, or in the connection string;
-- a key given twice, or an alias with its key;
+- an unknown key in the connection string, or a key given twice there (an alias with its key too);
 - a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
 - a `BaseAddress` that isn't an absolute `http` or `https` URI (or, with [service discovery](#service-discovery), a service-discovery
   address), or a `Timeout` that isn't positive;
 - with service discovery, no service-discovery provider registered by the application;
-- an `Authentication` without the keys it needs, with the keys of another method (`None` included), or with no host to send the
+- an `Authentication` without the keys it needs (the keys of another method are ignored), or with no host to send the
   credentials to (neither `BaseAddress` nor `AllowedHosts`);
 - a [client certificate](#client-certificate-mtls) given by both a path and a thumbprint, a `CertificatePassword` or
   `CertificateKeyPath` without a `CertificatePath`, a `CertificateStore` without a `CertificateThumbprint`, a file that doesn't exist,
   and a certificate that doesn't load with its private key (a wrong password, say).
+
+Under `Clients:RocketsClient` the keys are lenient, as configuration binding is: a key the client doesn't read is ignored, of a key and
+its alias (`Endpoint` and `BaseAddress`) the later one wins, and a key that must be a value but holds an object is ignored with a
+warning, logged when the application registers an `ILoggerFactory`.
 
 The messages name the source (`Clients:RocketsClient:Timeout`, `ConnectionStrings:RocketsClient`) and the key, never a value, so they
 are safe to log even when a value is a secret. In a connection string, an unknown key is named only when it reads as one (letters,
