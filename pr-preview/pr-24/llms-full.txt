@@ -1,0 +1,1245 @@
+<SYSTEM>This is the full developer documentation for Chirograph</SYSTEM>
+
+# Chirograph
+
+> Typed HTTP clients generated from OpenAPI documents at build time. One MSBuild item, a Kiota or Refitter client, registered with IHttpClientFactory.
+
+A chirograph was a medieval contract written twice on one sheet and cut apart, so each half proved the other. Here the OpenAPI document and the generated client are the two halves: Chirograph keeps them together by generating the client from the document on every build that needs it.
+
+Declare a client with one item. Where its document comes from is inferred from the `Include`:
+
+* A file
+
+  ```xml
+  <Project Sdk="Microsoft.NET.Sdk">
+    <Sdk Name="Chirograph" Version="1.0.0" />
+
+
+    <ItemGroup>
+      <OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" />
+    </ItemGroup>
+  </Project>
+  ```
+
+* A server project
+
+  ```xml
+  <Project Sdk="Microsoft.NET.Sdk">
+    <Sdk Name="Chirograph" Version="1.0.0" />
+
+
+    <ItemGroup>
+      <OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Kiota" ClientName="RocketsClient" />
+    </ItemGroup>
+  </Project>
+  ```
+
+* A URL
+
+  ```xml
+  <Project Sdk="Microsoft.NET.Sdk">
+    <Sdk Name="Chirograph" Version="1.0.0" />
+
+
+    <ItemGroup>
+      <OpenApiClient
+        Include="https://rockets.example.com/openapi/v1.json"
+        Generator="Refitter"
+        ClientName="RocketsClient"
+        DocumentCache="openapi/rockets.json"
+      />
+    </ItemGroup>
+  </Project>
+  ```
+
+Then register it, and give it a base address in `Clients:RocketsClient:BaseAddress`:
+
+```csharp
+builder.Services.AddRocketsClient();
+```
+
+Note
+
+Chirograph has no release on nuget.org yet. [Getting started](guides/) shows how to pack it from a clone until the first beta ships.
+
+Two generators you already use
+
+Kiota, or Refit through Refitter. Chirograph generates no code of its own, so it keeps each generator’s fidelity and follows their releases by changing a version.
+
+Three sources
+
+A file in the project, a server project in the same build, or a URL with a document cache you can commit.
+
+Quiet builds
+
+Tools come from the packages folder, output stays in `obj`, generation is incremental, and the generators’ telemetry is off.
+
+Registered
+
+Every client gets an `Add<ClientName>()` extension that registers it with `IHttpClientFactory` and returns the `IHttpClientBuilder`.
+
+[Getting started](guides/)Add the SDK, declare a client and call it.
+
+[Concepts](concepts/)Sources, generators, registration, the document cache and how generation runs.
+
+[Reference](reference/)Every metadata value, property and diagnostic code.
+
+[Compared with](concepts/compared-with/)OpenApiReference, Refitter.MSBuild, hand-written targets and source generators.
+
+# Concepts
+
+> Sources, generators, registration, the document cache and how generation runs.
+
+A **client** is one `OpenApiClient` item and everything generated for it. It has one **document**, an OpenAPI description, which comes from a **source**: a file, a server project or a URL. A **generator**, Kiota or Refitter, turns the document into code, and a **registration**, `Add<ClientName>()`, puts the client into `IHttpClientFactory` with its **base address** read from configuration.
+
+* [Sources](sources/): how the kind of source is inferred from `Include`.
+* [Generators](generators/): Kiota and Refitter, what each writes, and the packages each adds.
+* [Registration](registration/): the extension method, the configuration key and chaining on `IHttpClientBuilder`.
+* [Document cache](document-cache/): what happens to a URL’s document between builds.
+* [How generation runs](how-generation-runs/): tools, `obj`, incrementality, design-time builds and telemetry.
+* [Compared with](compared-with/): where Chirograph sits among the other ways to get a client.
+
+The [glossary](https://github.com/RocketSurgeonsGuild/Chirograph/blob/main/GLOSSARY.md) defines each of these words once.
+
+# Compared with
+
+> Where Chirograph sits among OpenApiReference, Kiota and Refitter's own build integrations, hand-written targets, and generators that ship their own code generation.
+
+Chirograph is the MSBuild layer for the two generators .NET teams already choose: Kiota, and [Refit](https://github.com/reactiveui/refit) through Refitter. It generates no code of its own, so it inherits each generator’s fidelity and keeps up with their releases by changing a version. What it adds:
+
+* one item per client;
+* three sources, including a sibling server project and a URL with a committable cache;
+* incremental, offline-capable, telemetry-free builds;
+* an `IHttpClientFactory` registration, and with it a Dovetail joint ([with Dovetail](../../guides/with-dovetail/)).
+
+## `OpenApiReference` and `dotnet openapi`
+
+[Section titled “OpenApiReference and dotnet openapi”](#openapireference-and-dotnet-openapi)
+
+`Microsoft.Extensions.ApiDescription.Client` is deprecated as of .NET 10 ([breaking change](https://learn.microsoft.com/en-us/dotnet/core/compatibility/aspnet-core/10/apidescription-client-deprecated), [dotnet/aspnetcore#59208](https://github.com/dotnet/aspnetcore/issues/59208)). Microsoft now points at each generator’s own tooling, and at committing the generated code or running generation in a custom pre-build step. Chirograph is that pre-build step, written once. [Migrating from OpenApiReference](../../guides/migrating-from-openapireference/) maps one item onto the other.
+
+## Kiota with a hand-written target
+
+[Section titled “Kiota with a hand-written target”](#kiota-with-a-hand-written-target)
+
+Kiota dropped its own MSBuild integration for lack of use, and points people at an `Exec` task ([microsoft/kiota#3005](https://github.com/microsoft/kiota/issues/3005)). Blog posts show that target for one server project and one tool manifest ([Meziantou](https://www.meziantou.net/generate-a-kiota-client-at-build-time-from-an-asp-net-core-openapi-file.htm)). Chirograph is that target for any number of clients and all three sources, with the incrementality, design-time behaviour and telemetry settings already worked out, and without a tool manifest.
+
+## Refitter.MSBuild
+
+[Section titled “Refitter.MSBuild”](#refittermsbuild)
+
+[Refitter.MSBuild](https://www.nuget.org/packages/Refitter.MSBuild) runs Refitter from the build. It finds `.refitter` files by scanning the project folder, and runs on every build: its target has no inputs or outputs and no design-time guard. It writes into the project folder by default, has telemetry on by default, and is Refit-only.
+
+Chirograph drives the Refitter CLI instead. It writes the `.refitter` file into `obj` itself, from the item, so each Refitter client gets the same incrementality and design-time rules as a Kiota client.
+
+## Generators with their own code generation
+
+[Section titled “Generators with their own code generation”](#generators-with-their-own-code-generation)
+
+[AutoSDK](https://github.com/tryAGI/AutoSDK) and [OpenApiWeaver](https://dev.to/polymind/openapiweaver-generate-type-safe-c-clients-from-openapi-at-compile-time-with-source-generators-5e79) also offer one item per client, but generate the client with their own code generators. AutoSDK is still before 1.0. OpenApiWeaver’s item, `OpenApiWeaverDocument`, is close to Chirograph’s.
+
+Pick one of them if you want their client. Pick Chirograph if you want Kiota’s or Refit’s.
+
+## Summary
+
+[Section titled “Summary”](#summary)
+
+|                     | Chirograph        | `OpenApiReference` | Hand-written `Exec` | Refitter.MSBuild   |
+| ------------------- | ----------------- | ------------------ | ------------------- | ------------------ |
+| Generators          | Kiota, Refitter   | NSwag by default   | Whatever you call   | Refitter           |
+| Status              | Active            | Deprecated         | Yours to maintain   | Active             |
+| Declared with       | One item          | One item           | A target            | A `.refitter` file |
+| Generated code goes | `obj`             | `obj`              | Your choice         | The project folder |
+| Generates when      | Something changed | —                  | Your choice         | Every build        |
+| Generator telemetry | Off               | —                  | Your choice         | On by default      |
+
+# Document cache
+
+> How a URL source keeps its last download, falls back to it when the URL can't be reached, and how committing it and UpdateDocumentCache decide when an API change reaches the client.
+
+The document cache is the last document a [URL source](../sources/) downloaded. Only URL sources have one: a file is its own document, and a server project writes its document on every build.
+
+## Where it lives
+
+[Section titled “Where it lives”](#where-it-lives)
+
+By default the cache is the client’s copy of the document in `obj`, `obj/<configuration>/<framework>/openapi/<ClientName>/openapi.json`. It survives builds, but not `dotnet clean` or a clean clone.
+
+`DocumentCache` names a file in the project instead, relative to the project. That file can be committed, so every clone and every CI agent starts with a cache.
+
+## What a build does
+
+[Section titled “What a build does”](#what-a-build-does)
+
+For each URL client, a build:
+
+1. Decides whether to download. It downloads unless updating is off (below) and the cache exists.
+2. Downloads the document into the client’s `download/` folder, retrying twice.
+3. If the download succeeded and differs from the cache, **updates** the cache: overwrites it with the download.
+4. If the download failed, uses the cache, with warning [`CHIRO104`](../../reference/diagnostics/#chiro104). With no cache, the build fails with [`CHIRO105`](../../reference/diagnostics/#chiro105).
+5. Generates the client from the cache, through the same copy-when-changed step as every source.
+
+So a download that returns what the cache already holds changes no file and regenerates nothing.
+
+## Updating
+
+[Section titled “Updating”](#updating)
+
+Updating is on by default: every build that reaches the URL takes the API’s latest document. That suits a cache in `obj`, or a committed cache whose diffs you review.
+
+Turn it off to decide when a change reaches the client. With updating off and a cache present, the build doesn’t download at all:
+
+* for every client, with the property `ChirographUpdateOpenApiDocumentCache` set to `false`;
+* for one client, with the metadata `UpdateDocumentCache="false"`, which wins over the property.
+
+To take the changes later, build once with `-p:ChirographUpdateOpenApiDocumentCache=true` (which works for clients that don’t set the metadata), or delete the cache file. A client with updating off and no cache still downloads once, to fill it.
+
+[From a URL](../../guides/from-a-url/) walks through committing the cache and building in CI without network.
+
+# Generators
+
+> Kiota and Refitter compared, what each writes, the command line Chirograph runs, and the packages it adds to the project for each.
+
+A generator is the tool that turns a document into client code. Chirograph runs one of two, chosen per client with `Generator`. Neither is a Roslyn source generator: each is a .NET tool that runs as a process during the build. See [How generation runs](../how-generation-runs/).
+
+|                        | Kiota                                                            | Refitter                                                                                     |
+| ---------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| What it writes         | A client class, `<ClientName>`, with request builders and models | A [Refit](https://github.com/reactiveui/refit) interface, `I<ClientName>`, and its contracts |
+| A call looks like      | `await client.Rockets[id].GetAsync()`                            | `await client.GetRocket(id)`                                                                 |
+| Package added          | `Microsoft.Kiota.Bundle`, and `Microsoft.Extensions.Http`        | `Refit.HttpClientFactory`                                                                    |
+| Without a base address | Uses the first server of the document                            | Needs one                                                                                    |
+| Tool package           | `Microsoft.OpenApi.Kiota`                                        | `Refitter`                                                                                   |
+
+Choose Kiota for a large API, or one whose shape changes often: its request builders follow the paths. Choose Refitter for a smaller API where one method per operation reads better, or when you already use Refit.
+
+## The packages added to the project
+
+[Section titled “The packages added to the project”](#the-packages-added-to-the-project)
+
+The generated code needs a runtime library, which Chirograph adds as an implicit `PackageReference` when at least one client uses the generator:
+
+* **Kiota**: `Microsoft.Kiota.Bundle`, and `Microsoft.Extensions.Http` for the registration. A project that also has a Refitter client doesn’t get `Microsoft.Extensions.Http`: `Refit.HttpClientFactory` brings it, possibly at a newer version than the one Chirograph was packed with, and adding the older one would be a downgrade (NU1605).
+* **Refitter**: `Refit.HttpClientFactory`, which brings Refit, its source generator and `Microsoft.Extensions.Http`.
+
+A package the project references itself wins: its own `PackageReference` and its version are left alone, and Chirograph adds nothing. So reference a package yourself to choose its version, or set the matching [property](../../reference/properties/).
+
+## What Chirograph passes
+
+[Section titled “What Chirograph passes”](#what-chirograph-passes)
+
+Kiota runs as:
+
+```sh
+kiota generate --language CSharp --openapi <document> --class-name <ClientName> --namespace-name <Namespace> \
+  --output <client folder>/generated --clean-output --exclude-backward-compatible --log-level Warning <Options>
+```
+
+Refitter runs with a settings file Chirograph writes, `<ClientName>.refitter`, which sets the document, the namespace, the interface name (`useOpenApiTitle` off) and cancellation tokens on every method:
+
+```sh
+refitter --settings-file <client folder>/<ClientName>.refitter --output <client folder>/generated/<ClientName>.cs \
+  --no-logging --no-banner --simple-output <Options>
+```
+
+`Options` goes last, so you can add to what Chirograph passes. Don’t change the output, the class or interface name or the namespace there: the registration expects them.
+
+## Versions
+
+[Section titled “Versions”](#versions)
+
+Each Chirograph release is packed with a version of each tool and of each package it adds. Set `ChirographKiotaVersion` or `ChirographRefitterVersion` to run another version of a tool; the [properties](../../reference/properties/) list them all. A different tool version generates every client of that generator again.
+
+# How generation runs
+
+> How Chirograph fetches the generators with PackageDownload, generates into obj, stays incremental, behaves in design-time builds and keeps telemetry off.
+
+## The tools come from the packages folder
+
+[Section titled “The tools come from the packages folder”](#the-tools-come-from-the-packages-folder)
+
+Kiota and Refitter are .NET tools. Chirograph declares each one a client uses as a `PackageDownload`, so NuGet restores it with the project’s other packages, and the build runs it from the packages folder with `dotnet exec`. Nothing is installed globally or in a tool manifest, and once the packages are restored, a file or server-project source needs no network.
+
+That is why Chirograph is an MSBuild SDK rather than an ordinary package: NuGet restore never sees a `PackageDownload` or `PackageReference` that a package’s own `build/` targets declare.
+
+The tools run on .NET 10, rolling forward to a newer runtime when .NET 10 isn’t installed, so a build needs the .NET SDK 10.0.100 or later. A tool that isn’t in the packages folder fails the build with [`CHIRO106`](../../reference/diagnostics/#chiro106): restore the project.
+
+## When it runs
+
+[Section titled “When it runs”](#when-it-runs)
+
+The target `ChirographGenerateOpenApiClients` runs after the project’s references are resolved, and before compilation. For a server project source, that means the server has been built. The target is the hook to run something before or after the clients are generated:
+
+```xml
+<Target Name="ListClients" AfterTargets="ChirographGenerateOpenApiClients">
+  <Message Importance="high" Text="Generated: @(OpenApiClient->'%(ClientName)')" />
+</Target>
+```
+
+A project without `OpenApiClient` items doesn’t run it, and gets no packages or downloads.
+
+## Everything stays in `obj`
+
+[Section titled “Everything stays in obj”](#everything-stays-in-obj)
+
+Each client has a folder, `obj/<configuration>/<framework>/openapi/<ClientName>/` by default (`ChirographOpenApiClientsDirectory` moves the parent). The generated code and the registration are added to `Compile` there, and never written into the project. `dotnet clean` removes them. [Generated code](../../reference/generated-code/) lists the folder’s files.
+
+## Incremental
+
+[Section titled “Incremental”](#incremental)
+
+A client is generated again only when something it depends on changed:
+
+1. The document is copied into the client’s folder only when its content differs from the copy there.
+2. The client’s settings (the generator, the tool’s version, `ClientName`, `Namespace` and `Options`) are written to `settings.txt` only when they differ.
+3. The generator runs only when the copy or `settings.txt` is newer than the client’s last generation.
+
+So a build with nothing changed runs no generator, and neither does a server that writes the same document again. A change to one client regenerates only that client.
+
+## Design-time builds
+
+[Section titled “Design-time builds”](#design-time-builds)
+
+An IDE runs design-time builds to learn a project’s compile items. Those never run a generator: they only add the code an earlier build generated, so IntelliSense sees the client without the IDE downloading or generating anything. They check nothing either: a client with a mistake loads without an error and without creating a folder, and the next build reports it. After you change a client, build once to update it.
+
+## No telemetry
+
+[Section titled “No telemetry”](#no-telemetry)
+
+A build is no place to call home. Chirograph runs the tools with:
+
+* `KIOTA_CLI_TELEMETRY_OPTOUT=true`, which turns Kiota’s telemetry off;
+* `KIOTA_OFFLINE_ENABLED=true`, which turns Kiota’s update check off;
+* `DOTNET_CLI_TELEMETRY_OPTOUT=1`;
+* Refitter’s `--no-logging`, which turns its telemetry off.
+
+## Output and failures
+
+[Section titled “Output and failures”](#output-and-failures)
+
+What a tool writes is logged at low importance, and not parsed for warnings (Kiota warns about every document without a server). When a tool exits with an error, the build fails with [`CHIRO107`](../../reference/diagnostics/#chiro107), which includes what the tool wrote. Run the build with `-v:n` to see the tools’ output on success.
+
+# Registration
+
+> The Add<ClientName>() extension every client gets, the Clients:<ClientName>:BaseAddress configuration key, and configuring the client further on IHttpClientBuilder.
+
+Every client gets a registration: a public extension method on `IServiceCollection`, written next to the generated code. For a client named `RocketsClient` it is:
+
+```csharp
+public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services);
+```
+
+It is in the client’s namespace, in a class named `RocketsClientServiceCollectionExtensions`. It is public, so an application can register a client that a library it references generated.
+
+## What it registers
+
+[Section titled “What it registers”](#what-it-registers)
+
+* **Kiota:** a named `HttpClient`, `RocketsClient`, and the typed client `RocketsClient`, built on Kiota’s `HttpClientRequestAdapter` with anonymous authentication.
+* **Refitter:** `IRocketsClient`, through Refit’s `AddRefitGeneratedClient`. Refit’s source generator writes the implementation at build time, so there is no reflection.
+
+Resolve the client from the container, or inject it:
+
+```csharp
+public sealed class LaunchService(RocketsClient rockets) { … }    // Kiota
+public sealed class LaunchService(IRocketsClient rockets) { … }   // Refitter
+```
+
+## The base address
+
+[Section titled “The base address”](#the-base-address)
+
+The registration reads the base address from configuration, at the key `Clients:<ClientName>:BaseAddress`, when the `HttpClient` is created. The key is also a constant on the class, `RocketsClientServiceCollectionExtensions.BaseAddressKey`.
+
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "BaseAddress": "https://rockets.example.com/"
+        }
+    }
+}
+```
+
+The address must be absolute. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called.
+
+## Configuring the client further
+
+[Section titled “Configuring the client further”](#configuring-the-client-further)
+
+The registration returns the `IHttpClientBuilder`, so everything `IHttpClientFactory` offers chains on it: handlers, resilience, lifetimes, and a base address of your own that wins over the configuration.
+
+```csharp
+builder.Services
+    .AddRocketsClient()
+    .AddHttpMessageHandler<BearerTokenHandler>()
+    .AddStandardResilienceHandler();
+```
+
+Chirograph configures no authentication, resilience or handlers itself.
+
+## Without the registration
+
+[Section titled “Without the registration”](#without-the-registration)
+
+A generated client is an ordinary class or interface. Create one from an `HttpClient`, for example against a test server:
+
+```csharp
+var kiota = new RocketsClient(new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient));
+var refit = RestService.For<IRocketsClient>(httpClient);
+```
+
+## With Dovetail
+
+[Section titled “With Dovetail”](#with-dovetail)
+
+A Dovetail joint is one more caller of the registration. See [With Dovetail](../../guides/with-dovetail/).
+
+# Sources
+
+> Where a client's OpenAPI document comes from, a file, a server project or a URL, and how Chirograph infers which from the item's Include.
+
+A source is where a client’s document comes from. You never declare the kind: Chirograph reads it from the item’s `Include`.
+
+| `Include`                                      | Source             | The document is                                                                                  |
+| ---------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| ends in `.csproj`, `.fsproj` or `.vbproj`      | **server project** | the one the project writes when it builds, through `Microsoft.Extensions.ApiDescription.Server`. |
+| starts with `http://` or `https://` (any case) | **URL**            | downloaded on build, into the [document cache](../document-cache/).                              |
+| anything else                                  | **file**           | that file, relative to the project.                                                              |
+
+The rules are checked in that order, so a URL that ends in `.csproj` is still a URL.
+
+## The document’s copy
+
+[Section titled “The document’s copy”](#the-documents-copy)
+
+Whatever the source, Chirograph copies the document into the client’s folder, `obj/<configuration>/<framework>/openapi/<ClientName>/`, and generates from the copy. The copy is only written when its content differs, which is what makes generation incremental: a server that writes the same document on every build, or a download that returns what the cache holds, regenerates nothing.
+
+The copy keeps its source’s extension, which tells the generators JSON from YAML: `.yaml` and `.yml` for a file or URL that ends in them, and `.json` otherwise. A server project’s document is always JSON.
+
+## Choosing a source
+
+[Section titled “Choosing a source”](#choosing-a-source)
+
+* **A file** when the document is owned elsewhere and you take its changes on purpose. The build never needs the network.
+* **A server project** when the API is in the same repository. The client always matches the server you are building.
+* **A URL** when the document is published by a running service. Commit its cache to build offline, and turn updating off to take its changes on purpose.
+
+The guides cover each: [from a file](../../guides/from-a-file/), [from a server project](../../guides/from-a-server-project/) and [from a URL](../../guides/from-a-url/).
+
+# Getting started
+
+> Add the Chirograph SDK to a project, declare a client from an OpenAPI document, register it and call it.
+
+This page takes a console application from nothing to a call through a generated client. The client comes from an OpenAPI file in the project. The [guides](#next-steps) cover the other sources.
+
+You need the .NET SDK 10.0.100 or later: the generators run on .NET 10. The generated code is tested on `net10.0` and `net11.0`. Other target frameworks are not blocked, but they are untested.
+
+## 1. Add the SDK
+
+[Section titled “1. Add the SDK”](#1-add-the-sdk)
+
+Chirograph is an MSBuild SDK. Add it next to your project’s own SDK:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="1.0.0" />
+
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+To pin the version once for a whole repository, put it in `global.json` and leave `Version` out of the project:
+
+```json
+{
+    "msbuild-sdks": {
+        "Chirograph": "1.0.0"
+    }
+}
+```
+
+```xml
+<Sdk Name="Chirograph" />
+```
+
+Note
+
+Chirograph has no release on nuget.org yet. Until the first beta ships, [pack it from a clone](#before-the-first-release) and use that version.
+
+## 2. Declare a client
+
+[Section titled “2. Declare a client”](#2-declare-a-client)
+
+Put the API’s OpenAPI document in the project, for example `openapi/rockets.json`, and add an `OpenApiClient` item:
+
+```xml
+<ItemGroup>
+  <OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
+</ItemGroup>
+```
+
+* `Include` is the [source](../concepts/sources/): a file here. A project path or a URL works the same way.
+* `Generator` is `Kiota` or `Refitter`. See [Generators](../concepts/generators/) to choose.
+* `ClientName` names the client. Kiota’s client class is `RocketsClient`, Refitter’s interface would be `IRocketsClient`, and the registration is `AddRocketsClient()`.
+* `Namespace` is optional. Without it, the code is in the project’s `RootNamespace`.
+
+Build the project. The first build restores the generator, generates the client into `obj` and compiles it. Nothing is written into your project folder.
+
+## 3. Register the client
+
+[Section titled “3. Register the client”](#3-register-the-client)
+
+The build also writes `AddRocketsClient()`, an extension on `IServiceCollection`:
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using MyApp.Rockets;
+
+
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddRocketsClient();
+using var host = builder.Build();
+
+
+var rockets = host.Services.GetRequiredService<RocketsClient>();
+var rocket = await rockets.Rockets[Guid.Parse("6f9619ff-8b86-d011-b42d-00cf4fc964ff")].GetAsync();
+```
+
+`Host.CreateApplicationBuilder` comes from `Microsoft.Extensions.Hosting`, which a console project references itself. A web project already has it.
+
+## 4. Set the base address
+
+[Section titled “4. Set the base address”](#4-set-the-base-address)
+
+The registration reads the client’s base address from `Clients:<ClientName>:BaseAddress`, for example in `appsettings.json`:
+
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "BaseAddress": "https://rockets.example.com/"
+        }
+    }
+}
+```
+
+Any configuration source works, so an environment variable `Clients__RocketsClient__BaseAddress` does too. Without a base address, a Kiota client uses the first server of its document. A Refit client needs one.
+
+## Before the first release
+
+[Section titled “Before the first release”](#before-the-first-release)
+
+Until Chirograph is on nuget.org, pack it from a clone into a local folder and add that folder as a package source.
+
+```sh
+git clone https://github.com/RocketSurgeonsGuild/Chirograph.git
+cd Chirograph
+mise install
+dotnet pack src/Chirograph/Chirograph.csproj -o ~/chirograph-packages -p:Version=1.0.0-local
+```
+
+[mise](https://mise.jdx.dev/) installs the .NET SDK the repository builds with. Without it, use a .NET 11 SDK. Then, next to your solution, add a `nuget.config` with the folder (NuGet does not expand `~`, so give the full path):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <add key="chirograph-local" value="/absolute/path/to/chirograph-packages" />
+  </packageSources>
+</configuration>
+```
+
+Use `Version="1.0.0-local"` in the steps above. NuGet keeps the first package it sees for a version in its global packages folder, so when you pack again, either use a new version or delete `~/.nuget/packages/chirograph/1.0.0-local`.
+
+## Next steps
+
+[Section titled “Next steps”](#next-steps)
+
+* [From a file](from-a-file/): a document kept in the project, JSON or YAML.
+* [From a server project](from-a-server-project/): an ASP.NET Core project in the same build.
+* [From a URL](from-a-url/): a document downloaded on build, with a cache you can commit.
+* [With Dovetail](with-dovetail/): the client registered by a joint.
+* Coming from somewhere else: [`OpenApiReference`](migrating-from-openapireference/) or [LaunchPad’s preview](migrating-from-launchpad/).
+
+# From a file
+
+> Generate a client from an OpenAPI document kept in the project, as JSON or YAML.
+
+A file source is an OpenAPI document that lives with the code. It is the simplest source: the build needs no network once the packages are restored, and a change to the API shows up as a diff of the document.
+
+## Declare the client
+
+[Section titled “Declare the client”](#declare-the-client)
+
+The `Include` is a path relative to the project. A `.json` file is read as JSON, and a `.yaml` or `.yml` file as YAML:
+
+```xml
+<ItemGroup>
+  <OpenApiClient Include="openapi/rockets.yaml" Generator="Refitter" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
+</ItemGroup>
+```
+
+Anything that is not a project (`.csproj`, `.fsproj`, `.vbproj`) or a URL (`http://`, `https://`) is a file. A file that does not exist fails the build with [`CHIRO102`](../../reference/diagnostics/#chiro102).
+
+## Several clients
+
+[Section titled “Several clients”](#several-clients)
+
+Give each client its own `ClientName`, and its own `Namespace` when they share a project, so their generated types don’t collide:
+
+```xml
+<ItemGroup>
+  <OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
+  <OpenApiClient Include="openapi/launches.json" Generator="Refitter" ClientName="LaunchesClient" Namespace="MyApp.Launches" />
+</ItemGroup>
+```
+
+Two clients can share a document, for example to compare the generators. Each one gets its own copy of the document in its own folder in `obj`.
+
+## Updating the document
+
+[Section titled “Updating the document”](#updating-the-document)
+
+Replace the file and build. Chirograph copies the document into `obj` only when its content changed, and the generator only runs again when that copy, or the client’s settings, changed. Saving the file with the same content regenerates nothing. See [How generation runs](../../concepts/how-generation-runs/).
+
+## Passing options to the generator
+
+[Section titled “Passing options to the generator”](#passing-options-to-the-generator)
+
+`Options` is added to the generator’s command line: after `kiota generate …` for Kiota, and after the settings file for Refitter.
+
+```xml
+<OpenApiClient
+  Include="openapi/rockets.json"
+  Generator="Kiota"
+  ClientName="RocketsClient"
+  Options="--include-path /rockets/**"
+/>
+```
+
+A change to `Options` generates the client again. Options that change where the output goes or what the client is called fight with the ones Chirograph passes; see [Generators](../../concepts/generators/) for what those are.
+
+# From a server project
+
+> Generate a client from the OpenAPI document an ASP.NET Core project in the same build writes, including servers with several target frameworks or several documents.
+
+A server project is a project in the same build whose OpenAPI document `Microsoft.Extensions.ApiDescription.Server` writes when it builds. Pointing a client at it keeps the server and the client in step: change an endpoint, build, and the client changes with it.
+
+## Make the server write its document
+
+[Section titled “Make the server write its document”](#make-the-server-write-its-document)
+
+The server references `Microsoft.AspNetCore.OpenApi`, which builds the document, and `Microsoft.Extensions.ApiDescription.Server`, which runs the application at build time and writes every document it registers into the server’s `obj` folder:
+
+```xml
+<!-- Rockets.Api/Rockets.Api.csproj -->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.15" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
+```
+
+Rockets.Api/Program.cs
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddOpenApi();
+
+
+var app = builder.Build();
+app.MapOpenApi();
+app.MapGet("/rockets/{id:guid}", (Guid id) => new Rocket(id, "Falcon")).WithName("GetRocket");
+app.Run();
+
+
+record Rocket(Guid Id, string SerialNumber);
+```
+
+The server does not need Chirograph. It can be a `.csproj`, `.fsproj` or `.vbproj`.
+
+## Point the client at it
+
+[Section titled “Point the client at it”](#point-the-client-at-it)
+
+```xml
+<!-- MyApp/MyApp.csproj -->
+<ItemGroup>
+  <OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Kiota" ClientName="RocketsClient" />
+</ItemGroup>
+```
+
+Chirograph adds the server as a `ProjectReference` that is built before the client project, but whose assembly is not referenced (`ReferenceOutputAssembly="false"`). The client project gets no dependency on ASP.NET Core. Then it asks the server for the documents it wrote and copies the chosen one into the client’s folder in `obj`.
+
+A document the server writes again unchanged, which it does on most builds, regenerates nothing.
+
+## A server with several target frameworks
+
+[Section titled “A server with several target frameworks”](#a-server-with-several-target-frameworks)
+
+A server that targets, say, `net10.0` and `net11.0` is built as a whole, not for the target framework closest to the client’s. Its document comes from the server’s own build, so it doesn’t matter which frameworks the client targets.
+
+## A server with several documents
+
+[Section titled “A server with several documents”](#a-server-with-several-documents)
+
+A server that registers more than one document writes each of them:
+
+```csharp
+builder.Services.AddOpenApi();       // "v1": Rockets.Api.json
+builder.Services.AddOpenApi("v2");   // Rockets.Api_v2.json
+```
+
+Name the one the client is generated from with `DocumentName`:
+
+```xml
+<OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Kiota" ClientName="RocketsV2Client" DocumentName="v2" />
+```
+
+`v1` is ASP.NET Core’s default document. Without `DocumentName`, a server has to write exactly one document; with several, or with a `DocumentName` that matches none, the build fails with [`CHIRO103`](../../reference/diagnostics/#chiro103), which lists the documents it found.
+
+## Things to know
+
+[Section titled “Things to know”](#things-to-know)
+
+* The server runs at build time. Code in its startup that needs a database, secrets or the network can fail there; check `Microsoft.Extensions.ApiDescription.Server`’s documentation for how to tell a build-time run from a real one.
+* The document is always JSON, as `Microsoft.Extensions.ApiDescription.Server` writes it.
+* The client project and the server have to be in the same build: a solution, or a `ProjectReference` chain from what you build.
+
+# From a URL
+
+> Generate a client from an OpenAPI document served over HTTP, keep it in a document cache you can commit, and build without the network.
+
+A URL source downloads the document when the project builds. The last download is kept in a [document cache](../../concepts/document-cache/), so the build still works when the URL can’t be reached.
+
+## Declare the client
+
+[Section titled “Declare the client”](#declare-the-client)
+
+```xml
+<OpenApiClient Include="https://rockets.example.com/openapi/v1.json" Generator="Kiota" ClientName="RocketsClient" />
+```
+
+Any `Include` that starts with `http://` or `https://` is a URL. A URL that ends in `.yaml` or `.yml` is read as YAML, and anything else as JSON.
+
+Every build downloads the document, and the client is generated again only when the download differs from the cache. When the download fails:
+
+* with a cached document, the build goes on with it and warns with [`CHIRO104`](../../reference/diagnostics/#chiro104);
+* without one, the build fails with [`CHIRO105`](../../reference/diagnostics/#chiro105).
+
+## Commit the cache
+
+[Section titled “Commit the cache”](#commit-the-cache)
+
+By default, the cache is the copy of the document in `obj`, so a fresh clone or a clean CI agent has none. Name a file in the project with `DocumentCache` and commit it:
+
+```xml
+<OpenApiClient
+  Include="https://rockets.example.com/openapi/v1.json"
+  Generator="Kiota"
+  ClientName="RocketsClient"
+  DocumentCache="openapi/rockets.json"
+/>
+```
+
+Now a CI agent without access to the URL builds from the committed document, with `CHIRO104`. When the API changes and the URL is reachable, the build overwrites the file, and the change shows up in your diff.
+
+## Pin the document
+
+[Section titled “Pin the document”](#pin-the-document)
+
+Overwriting the cache on every build means a breaking change of the API reaches your client the next time anyone builds. To decide when that happens, stop updating the cache:
+
+```xml
+<PropertyGroup>
+  <ChirographUpdateOpenApiDocumentCache>false</ChirographUpdateOpenApiDocumentCache>
+</PropertyGroup>
+```
+
+With `false`, a client whose cache exists is generated from it without downloading anything. A client without a cache still downloads once to fill it. Then, to take the API’s changes on purpose:
+
+```sh
+dotnet build -p:ChirographUpdateOpenApiDocumentCache=true
+```
+
+and review the diff of the cache.
+
+The `UpdateDocumentCache` metadata sets the same thing for one client. It wins over the property, so a client that sets `UpdateDocumentCache="false"` is not updated by `-p:ChirographUpdateOpenApiDocumentCache=true`: delete its cache file to update it. Setting the property, as above, keeps the command-line switch working for every client.
+
+## CI without network
+
+[Section titled “CI without network”](#ci-without-network)
+
+Commit the cache, and either:
+
+* leave updating on: the build tries the URL, warns with `CHIRO104`, and uses the cache. Treating warnings as errors fails such a build, so add `CHIRO104` to `WarningsNotAsErrors` (or `NoWarn`) when you do that;
+
+* or turn updating off for CI, so the build never tries the URL:
+
+  ```sh
+  dotnet build -p:ChirographUpdateOpenApiDocumentCache=false
+  ```
+
+# Migrating from LaunchPad's preview
+
+> The renames from the OpenAPI clients in LaunchPad's MSBuild SDK preview to Chirograph, with the behaviour that changed.
+
+Chirograph is extracted from the OpenAPI clients of LaunchPad’s MSBuild SDK, which were never released ([LaunchPad#3238](https://github.com/RocketSurgeonsGuild/LaunchPad/pull/3238)). If you tried that preview, this page is the list of what to rename. LaunchPad’s SDK will chain Chirograph rather than carry its own copy, so a LaunchPad application gets Chirograph through LaunchPad.
+
+## What stays the same
+
+[Section titled “What stays the same”](#what-stays-the-same)
+
+* The `OpenApiClient` item and all its metadata: `Generator`, `ClientName`, `Namespace`, `DocumentName`, `DocumentCache`, `UpdateDocumentCache` and `Options`.
+* The three sources, and how they are inferred from `Include`.
+* The configuration key, `Clients:<ClientName>:BaseAddress`.
+* Where the code goes: `obj/<configuration>/<framework>/openapi/<ClientName>/`.
+
+## Renames
+
+[Section titled “Renames”](#renames)
+
+Properties and the target hook lose the `LaunchPad` prefix for `Chirograph`. Diagnostic codes keep their last digits, so the search and replace is mechanical.
+
+| LaunchPad preview                         | Chirograph                                 |
+| ----------------------------------------- | ------------------------------------------ |
+| `LaunchPadUpdateOpenApiDocumentCache`     | `ChirographUpdateOpenApiDocumentCache`     |
+| `LaunchPadOpenApiClientsDirectory`        | `ChirographOpenApiClientsDirectory`        |
+| `LaunchPadKiotaVersion`                   | `ChirographKiotaVersion`                   |
+| `LaunchPadRefitterVersion`                | `ChirographRefitterVersion`                |
+| `LaunchPadKiotaBundleVersion`             | `ChirographKiotaBundleVersion`             |
+| `LaunchPadRefitVersion`                   | `ChirographRefitVersion`                   |
+| `LaunchPadMicrosoftExtensionsHttpVersion` | `ChirographMicrosoftExtensionsHttpVersion` |
+| `LaunchPadGenerateOpenApiClients` target  | `ChirographGenerateOpenApiClients` target  |
+| `LPSDK0100`                               | `CHIRO100`                                 |
+| `LPSDK0101`                               | `CHIRO101`                                 |
+| `LPSDK0102`                               | `CHIRO102`                                 |
+| `LPSDK0103`                               | `CHIRO103`                                 |
+| `LPSDK0104`                               | `CHIRO104`                                 |
+| `LPSDK0105`                               | `CHIRO105`                                 |
+| `LPSDK0106`                               | `CHIRO106`                                 |
+| `LPSDK0107`                               | `CHIRO107`                                 |
+
+`CHIRO107` (the generator failed) existed in the preview as `LPSDK0107`, but wasn’t documented.
+
+## What changed
+
+[Section titled “What changed”](#what-changed)
+
+* **Registration.** The preview generated a joint for each client, which needed Dovetail. Chirograph generates a public `Add<ClientName>()` extension on `IServiceCollection` instead, which works without Dovetail, and with a recent Dovetail declares the joint that calls it: see [With Dovetail](../with-dovetail/).
+* **`Microsoft.Extensions.Http`** is added for Kiota clients only, and not at all in a project that also has a Refitter client. `Refit.HttpClientFactory` brings its own, and the packed version could be older than that one (NU1605, a downgrade). The preview added it for both.
+* **Telemetry.** The preview set environment variables Kiota doesn’t read. Chirograph sets `KIOTA_CLI_TELEMETRY_OPTOUT`, `KIOTA_OFFLINE_ENABLED` and `DOTNET_CLI_TELEMETRY_OPTOUT`, so Kiota’s telemetry and update check are really off.
+* **`GeneratedCode`.** The registration is stamped with Chirograph’s version, not a fixed `1.0.0`.
+* **A server with several target frameworks** is built as a whole and writes its document from its own outer build, rather than from its first target framework, so it works whichever frameworks the client targets.
+* **`dotnet clean`** removes the generated code and the stamp that marks it up to date, so the next build generates it again.
+
+# Migrating from OpenApiReference
+
+> Move a project from Microsoft.Extensions.ApiDescription.Client's OpenApiReference and dotnet openapi, deprecated in .NET 10, to Chirograph's OpenApiClient.
+
+`Microsoft.Extensions.ApiDescription.Client` gave projects the `OpenApiReference` and `OpenApiProjectReference` items, and the `dotnet openapi` command wrote them. Microsoft deprecated it in .NET 10 ([breaking change](https://learn.microsoft.com/en-us/dotnet/core/compatibility/aspnet-core/10/apidescription-client-deprecated)), and now points people at each generator’s own tooling. Chirograph is that tooling for Kiota and Refitter, wired into the build the way `OpenApiReference` was.
+
+## What changes
+
+[Section titled “What changes”](#what-changes)
+
+`OpenApiReference` ran NSwag (`NSwagCSharp`, `NSwagTypeScript`) by default. Chirograph runs Kiota or Refitter, which generate a different client, so the code that calls the client changes too. Pick the generator first:
+
+* **Refitter** writes a [Refit](https://github.com/reactiveui/refit) interface with one method per operation. It is the closer of the two to NSwag’s one-class-per-API client.
+* **Kiota** writes a request-builder client (`client.Rockets[id].GetAsync()`).
+
+See [Generators](../../concepts/generators/) for the differences.
+
+## Item by item
+
+[Section titled “Item by item”](#item-by-item)
+
+| `OpenApiReference`                                      | `OpenApiClient`                                                                |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Include="openapi.json"`                                | `Include="openapi.json"`, unchanged.                                           |
+| `CodeGenerator="NSwagCSharp"`                           | `Generator="Refitter"` or `Generator="Kiota"`. It is required.                 |
+| `ClassName="RocketsClient"`                             | `ClientName="RocketsClient"`. It is required, and also names the registration. |
+| `Namespace="MyApp.Rockets"`                             | `Namespace="MyApp.Rockets"`, unchanged.                                        |
+| `Options="/UseBaseUrl:false"`                           | `Options="…"`, but with the new generator’s command-line options.              |
+| `OutputPath="RocketsClient.cs"`                         | None. The code always goes to `obj`, and is never committed.                   |
+| `SourceUrl="https://…"` (from `dotnet openapi add url`) | `Include="https://…"` with `DocumentCache` set to the old `Include` file.      |
+
+`OpenApiProjectReference Include="../Rockets.Api/Rockets.Api.csproj"` becomes an `OpenApiClient` whose `Include` is that project:
+
+```xml
+<OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Refitter" ClientName="RocketsClient" />
+```
+
+## Step by step
+
+[Section titled “Step by step”](#step-by-step)
+
+1. Remove the `Microsoft.Extensions.ApiDescription.Client` and `NSwag.ApiDescription.Client` package references.
+
+2. Add the Chirograph SDK to the project, as in [Getting started](../).
+
+3. Turn each `OpenApiReference` or `OpenApiProjectReference` into an `OpenApiClient` with the table above.
+
+4. For a URL that `dotnet openapi add url` added, keep the downloaded file and make it the cache:
+
+   ```xml
+   <!-- before -->
+   <OpenApiReference Include="openapi/rockets.json" SourceUrl="https://rockets.example.com/openapi/v1.json" />
+
+
+   <!-- after -->
+   <OpenApiClient
+     Include="https://rockets.example.com/openapi/v1.json"
+     Generator="Refitter"
+     ClientName="RocketsClient"
+     DocumentCache="openapi/rockets.json"
+   />
+   ```
+
+   `dotnet openapi refresh` is no longer needed: the build updates the cache itself, or doesn’t, as [From a URL](../from-a-url/) explains.
+
+5. Replace the client’s construction. Where you created NSwag’s client from an `HttpClient`, register it instead and read its base address from configuration:
+
+   ```csharp
+   builder.Services.AddRocketsClient();
+   ```
+
+   ```json
+   { "Clients": { "RocketsClient": { "BaseAddress": "https://rockets.example.com/" } } }
+   ```
+
+6. Update the call sites to the new client’s methods.
+
+# With Dovetail
+
+> Chirograph declares a Dovetail joint for every client through DovetailTemplate, so a host built with ConfigureDovetail() resolves it with no registration call.
+
+[Dovetail](https://rocketsurgeonsguild.github.io/Dovetail/) registers services through joints: classes the host finds at build time and runs when `ConfigureDovetail()` builds it. Chirograph never references Dovetail. Every client gets a plain [`Add<ClientName>()` registration](../../concepts/registration/), and a joint is one more caller of it.
+
+## The joint Chirograph declares
+
+[Section titled “The joint Chirograph declares”](#the-joint-chirograph-declares)
+
+Note
+
+This needs **Dovetail 0.6.0** or later: the first release in which `DovetailTemplate` replaces every metadata value as a token ([Dovetail#413](https://github.com/RocketSurgeonsGuild/Dovetail/issues/413)). With an older Dovetail, Chirograph declares nothing, the build still succeeds, and you register the client [yourself](#a-joint-of-your-own).
+
+Dovetail has an extension point for packages that ship C#: a [`DovetailTemplate`](https://rocketsurgeonsguild.github.io/Dovetail/reference/dovetail-template/) item, which Dovetail expands into a file only in projects that run its source generator. Chirograph declares one per client. For the client `RocketsClient` in `MyApp.Rockets` it is:
+
+```xml
+<DovetailTemplate Include="Chirograph.RocketsClient"
+                  File="…/Sdk/templates/OpenApiClientJoint.cs.template"
+                  ClientName="RocketsClient"
+                  Namespace="MyApp.Rockets"
+                  ChirographVersion="…" />
+```
+
+Dovetail writes it as `obj/…/DovetailTemplate.Chirograph.RocketsClient.g.cs`, with each `__Name__` token replaced by the metadata of the same name:
+
+```csharp
+namespace MyApp.Rockets;
+
+
+[DovetailExport]
+internal sealed class RocketsClientJoint : IServiceJoint
+{
+    public void Register(IDovetailContext context, IServiceCollection services) =>
+        global::MyApp.Rockets.RocketsClientServiceCollectionExtensions.AddRocketsClient(services);
+}
+```
+
+So the client resolves from a host built with `ConfigureDovetail()`, with no registration call of your own:
+
+```csharp
+using var host = await Host.CreateApplicationBuilder(args).ConfigureDovetail();
+var client = host.Services.GetRequiredService<RocketsClient>();
+```
+
+* The items are declared only when the Dovetail in the build sets `DovetailTemplateMetadataTokens`, the capability property that release added. An older Dovetail never gets a template it can’t expand.
+* The `Include` is prefixed with `Chirograph.`, so it can’t clash with another package’s template for a type of the same name.
+* Dovetail writes the joint only into a project that runs its source generator. A library that generates a client and references Dovetail exports the joint to every application that references it, as any exported joint is.
+* `ChirographGenerateDovetailJoint=false` turns the joints off for the project. See [Properties](../../reference/properties/).
+
+## A joint of your own
+
+[Section titled “A joint of your own”](#a-joint-of-your-own)
+
+Turn the generated joints off and write your own when you want to configure the client further, on the builder the registration returns, or when your Dovetail is older than the release above:
+
+```csharp
+[DovetailExport]
+public sealed class RocketsClientSetup : IServiceJoint
+{
+    public void Register(IDovetailContext context, IServiceCollection services) =>
+        services.AddRocketsClient().AddStandardResilienceHandler();
+}
+```
+
+`AddStandardResilienceHandler()` comes from `Microsoft.Extensions.Http.Resilience`, as an example of chaining on the `IHttpClientBuilder`. Don’t name your joint `<ClientName>Joint` in the client’s namespace while the generated joints are on: that is the name of the generated one.
+
+# Reference
+
+> The OpenApiClient item, the properties and target hook, the diagnostic codes and the generated code.
+
+Everything here is public API under semantic versioning: the item and its metadata, the properties, the target hook, the diagnostic codes and the shape of the generated registration. Names that start with `_Chirograph` are private and can change in any release.
+
+* [`OpenApiClient`](openapiclient/): the item, and every metadata value it reads.
+* [Properties](properties/): the properties that change every client of a project, and the target hook.
+* [Diagnostics](diagnostics/): each error and warning, what causes it and how to fix it. Each code has its own anchor, which the build message links to.
+* [Generated code](generated-code/): the files in each client’s folder, and the registration.
+
+A test in the repository reads the SDK’s targets and fails when these pages list different metadata, properties or codes from the ones the targets read and raise.
+
+# Diagnostics
+
+> Every error and warning Chirograph raises, CHIRO100 to CHIRO108, with the message, the cause and the fix.
+
+Each diagnostic links here from the build output: an IDE shows the code as a link to its heading below. A release of Chirograph links to this page in the docs of that release, and a prerelease to the latest docs. Codes keep their last digits from LaunchPad’s preview (`LPSDK0100` is `CHIRO100`); see [Migrating from LaunchPad’s preview](../../guides/migrating-from-launchpad/).
+
+## Codes
+
+[Section titled “Codes”](#codes)
+
+| Code                    | Severity | Meaning                                                                     |
+| ----------------------- | -------- | --------------------------------------------------------------------------- |
+| [`CHIRO100`](#chiro100) | error    | `Generator` is missing or is not `Kiota` or `Refitter`.                     |
+| [`CHIRO101`](#chiro101) | error    | `ClientName` is missing or is not a C# identifier.                          |
+| [`CHIRO102`](#chiro102) | error    | The document file does not exist.                                           |
+| [`CHIRO103`](#chiro103) | error    | The server project wrote several documents, or none matched `DocumentName`. |
+| [`CHIRO104`](#chiro104) | warning  | The URL could not be reached. The cached document is used.                  |
+| [`CHIRO105`](#chiro105) | error    | The URL could not be reached, and there is no cached document.              |
+| [`CHIRO106`](#chiro106) | error    | The generator tool is not in the packages folders. Restore the project.     |
+| [`CHIRO107`](#chiro107) | error    | The generator exited with an error. Its output is included.                 |
+| [`CHIRO108`](#chiro108) | error    | Two clients have the same `ClientName`.                                     |
+
+## CHIRO100
+
+[Section titled “CHIRO100”](#chiro100)
+
+> The OpenApiClient ‘openapi/rockets.json’ has Generator ‘NSwag’: set it to Kiota or Refitter.
+
+The item’s `Generator` is empty, or names a generator Chirograph doesn’t run. The comparison is case-sensitive. Set it to `Kiota` or `Refitter`; see [Generators](../../concepts/generators/) to choose.
+
+## CHIRO101
+
+[Section titled “CHIRO101”](#chiro101)
+
+> The OpenApiClient ‘openapi/rockets.json’ has ClientName ‘Rockets.Client’: set it to the name of the client, a C# identifier.
+
+`ClientName` is empty, or is not a C# identifier: letters, digits and underscores, not starting with a digit. It names a class, an interface, a method and a configuration key, so it can’t contain dots or dashes. Put the namespace in `Namespace` instead.
+
+## CHIRO102
+
+[Section titled “CHIRO102”](#chiro102)
+
+> The OpenAPI document ‘openapi/rockets.json’ of the OpenApiClient ‘RocketsClient’ does not exist.
+
+A [file source](../../guides/from-a-file/) points at a file that isn’t there. The path is relative to the project, not to the solution or the current folder. An `Include` meant as a URL has to start with `http://` or `https://`.
+
+## CHIRO103
+
+[Section titled “CHIRO103”](#chiro103)
+
+> The project ’../Rockets.Api/Rockets.Api.csproj’ of the OpenApiClient ‘RocketsClient’ wrote the documents ’…/Rockets.Api.json;…/Rockets.Api_v2.json’: set DocumentName to the one the client is generated from.
+
+A [server project](../../guides/from-a-server-project/) wrote more than one document and the client has no `DocumentName`, or none of the documents matches `DocumentName`. The message lists what the server wrote. `<Project>.json` is `v1`, and `<Project>_<name>.json` is `<name>`. When the list is empty, the server wrote no document: check that it references `Microsoft.Extensions.ApiDescription.Server` and calls `AddOpenApi()`.
+
+## CHIRO104
+
+[Section titled “CHIRO104”](#chiro104)
+
+> The OpenAPI document of the OpenApiClient ‘RocketsClient’ could not be downloaded from ‘<https://rockets.example.com/openapi/v1.json>’: the client is generated from the cached copy, ’…/openapi/rockets.json’.
+
+A warning. The [URL](../../guides/from-a-url/) couldn’t be downloaded, so the client is generated from the [document cache](../../concepts/document-cache/). The build succeeds with the last document it saw. Fix the URL or the network, or turn updating off so the build doesn’t try (`ChirographUpdateOpenApiDocumentCache=false`). A build that treats warnings as errors fails on it unless `CHIRO104` is in `WarningsNotAsErrors`.
+
+## CHIRO105
+
+[Section titled “CHIRO105”](#chiro105)
+
+> The OpenAPI document of the OpenApiClient ‘RocketsClient’ could not be downloaded from ‘<https://rockets.example.com/openapi/v1.json>’, and there is no cached copy.
+
+The URL couldn’t be downloaded, and there is nothing to fall back on: a fresh clone or a clean agent with a cache in `obj`. Build once where the URL can be reached, or set `DocumentCache` to a file in the project and commit it.
+
+## CHIRO106
+
+[Section titled “CHIRO106”](#chiro106)
+
+> The Kiota tool the OpenApiClient ‘RocketsClient’ is generated with was not found in the packages folders (…): restore the project.
+
+The generator’s tool package isn’t in any of the packages folders restore uses. Restore the project (`dotnet restore`, or a build without `--no-restore`). After changing `ChirographKiotaVersion` or `ChirographRefitterVersion`, the new version has to be restored too, and has to exist on your package sources.
+
+## CHIRO107
+
+[Section titled “CHIRO107”](#chiro107)
+
+> Kiota could not generate the OpenAPI client RocketsClient (exit code 1): …
+
+The generator ran and failed. The message ends with everything it wrote. The usual causes are a document that isn’t valid OpenAPI, or an `Options` value the generator doesn’t accept. Run the generator by hand on the client’s copy of the document, in `obj/<configuration>/<framework>/openapi/<ClientName>/`, to see the problem outside the build.
+
+## CHIRO108
+
+[Section titled “CHIRO108”](#chiro108)
+
+> The OpenApiClient items ‘openapi/rockets.json, openapi/rockets-v2.json’ have the same ClientName ‘RocketsClient’: give each client a name of its own.
+
+Two `OpenApiClient` items in one project have the same `ClientName`. They would be generated into the same folder, with the same types and the same `Add<ClientName>()`, so the build stops before it generates either. Give each client its own `ClientName`; two clients can still be generated from the same document.
+
+# Generated code
+
+> The files Chirograph writes for each client in obj, which of them are compiled, and the shape of the generated Add<ClientName>() registration.
+
+For a client `RocketsClient` in namespace `MyApp.Rockets`, everything is in `obj/<configuration>/<framework>/openapi/RocketsClient/` (the parent folder is `ChirographOpenApiClientsDirectory`). Nothing is written into the project, and nothing there is meant to be committed.
+
+## The folder
+
+[Section titled “The folder”](#the-folder)
+
+| File                                            | What it is                                                                                                                                                                               | Compiled |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `generated/**`                                  | The generator’s output. Kiota: the `RocketsClient` class, its request builders and models, and `kiota-lock.json`. Refitter: `RocketsClient.cs`, with `IRocketsClient` and its contracts. | `*.cs`   |
+| `RocketsClientServiceCollectionExtensions.g.cs` | The [registration](#the-registration).                                                                                                                                                   | yes      |
+| `openapi.json`, `openapi.yaml` or `openapi.yml` | The client’s copy of its document, written only when the content changes.                                                                                                                | no       |
+| `settings.txt`                                  | The generator, its version, `ClientName`, `Namespace` and `Options`, written only when they change.                                                                                      | no       |
+| `generated.stamp`                               | Touched after each generation. The generator runs again when the document’s copy or `settings.txt` is newer.                                                                             | no       |
+| `RocketsClient.refitter`                        | Refitter only: the settings file Refitter runs with.                                                                                                                                     | no       |
+| `download/`                                     | URL only: the last download, before it is compared with the cache.                                                                                                                       | no       |
+
+Every file here is added to `FileWrites`, so `dotnet clean` removes them all, `generated.stamp` included, and the next build generates the client again. A `DocumentCache` in the project is not in this folder, and a clean leaves it alone.
+
+## The registration
+
+[Section titled “The registration”](#the-registration)
+
+Kiota’s registration:
+
+```csharp
+namespace MyApp.Rockets;
+
+
+[GeneratedCode("Chirograph", "1.0.0")]
+public static class RocketsClientServiceCollectionExtensions
+{
+    public const string BaseAddressKey = "Clients:RocketsClient:BaseAddress";
+
+
+    public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services)
+    {
+        var builder = services.AddHttpClient("RocketsClient");
+        builder.ConfigureHttpClient((provider, httpClient) =>
+        {
+            var configuration = provider.GetService<IConfiguration>();
+            if (configuration?[BaseAddressKey] is { Length: > 0 } baseAddress)
+            {
+                httpClient.BaseAddress = new Uri(baseAddress, UriKind.Absolute);
+            }
+        });
+        builder.AddTypedClient<RocketsClient>(httpClient => new RocketsClient(
+            new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient)));
+        return builder;
+    }
+}
+```
+
+Refitter’s is the same, except that it registers the Refit interface instead of a named client:
+
+```csharp
+var builder = services.AddRefitGeneratedClient<IRocketsClient>();
+```
+
+The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the project’s usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file.
+
+The class name, the method name, the `BaseAddressKey` constant and the return type are public API. The body can change between releases.
+
+## The Dovetail joint
+
+[Section titled “The Dovetail joint”](#the-dovetail-joint)
+
+With a Dovetail that can expand it, Dovetail (not Chirograph) also writes a joint for each client, outside the client’s folder: `obj/<configuration>/<framework>/DovetailTemplate.Chirograph.RocketsClient.g.cs`. It is an internal `[DovetailExport]` class, `RocketsClientJoint`, in the client’s namespace, whose `Register` calls `AddRocketsClient(services)`. Its name is all of it that is API. See [With Dovetail](../../guides/with-dovetail/).
+
+# OpenApiClient
+
+> The OpenApiClient MSBuild item declares one client. Every metadata value it reads, whether it is required, its default and what it changes.
+
+An `OpenApiClient` item declares one client: a document, the generator that turns it into code, and the name of what is generated.
+
+```xml
+<ItemGroup>
+  <OpenApiClient Include="openapi/rockets.yaml" Generator="Refitter" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
+</ItemGroup>
+```
+
+Declare it in the project file, or in a `Directory.Build.targets`. The SDK reads the items when the project is evaluated (to add packages, tool downloads and server references) and again when it builds.
+
+## Metadata
+
+[Section titled “Metadata”](#metadata)
+
+Metadata the item doesn’t read is ignored without a warning, so a misspelt name falls back to its default.
+
+| Metadata              | Required | Default                                                    | Meaning                                                                                                                                                                                                                                                                                                              |
+| --------------------- | -------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Include`             | yes      |                                                            | The [source](../../concepts/sources/). A `.csproj`, `.fsproj` or `.vbproj` is a server project. `http://` or `https://` is a URL. Anything else is a file (`.json`, `.yaml`, `.yml`), relative to the project.                                                                                                       |
+| `Generator`           | yes      |                                                            | `Kiota` or `Refitter` ([`CHIRO100`](../diagnostics/#chiro100)).                                                                                                                                                                                                                                                      |
+| `ClientName`          | yes      |                                                            | A C# identifier ([`CHIRO101`](../diagnostics/#chiro101)), unique within the project ([`CHIRO108`](../diagnostics/#chiro108)). Kiota’s client class is called this, Refitter’s interface is `I<ClientName>`, the registration is `Add<ClientName>()` and the configuration key is `Clients:<ClientName>:BaseAddress`. |
+| `Namespace`           | no       | `$(RootNamespace)`                                         | The namespace of everything generated for the client. Give each client its own when a project has several.                                                                                                                                                                                                           |
+| `DocumentName`        | no       | the only document                                          | Server project only: the document to generate from, when the server writes several. `v1` is ASP.NET Core’s default ([`CHIRO103`](../diagnostics/#chiro103)).                                                                                                                                                         |
+| `DocumentCache`       | no       | the document’s copy in `obj`                               | URL only: a file, relative to the project, to keep the last download in. Commit it to build without the URL. See [Document cache](../../concepts/document-cache/).                                                                                                                                                   |
+| `UpdateDocumentCache` | no       | `$(ChirographUpdateOpenApiDocumentCache)`, which is `true` | URL only: `false` uses the cache whenever it exists instead of downloading. Wins over the property.                                                                                                                                                                                                                  |
+| `Options`             | no       |                                                            | More arguments for the generator: after `kiota generate …`, or after Refitter’s settings file. See [Generators](../../concepts/generators/#what-chirograph-passes).                                                                                                                                                  |
+
+`DocumentName` is ignored for a file or URL, and `DocumentCache` and `UpdateDocumentCache` for a file or server project.
+
+## What changes when
+
+[Section titled “What changes when”](#what-changes-when)
+
+* Changing `Generator`, `ClientName`, `Namespace` or `Options` generates the client again on the next build.
+* Changing `Include` to another document of the same content changes nothing: the client is generated from the content, not the path.
+* Removing an item leaves its folder in `obj`, but its code is no longer compiled.
+
+# Properties
+
+> The MSBuild properties that change every client of a project, their defaults, and the ChirographGenerateOpenApiClients target hook.
+
+Set a property in the project file, a `Directory.Build.props`, or on the command line (`-p:Name=value`). The version properties are set when the SDK is imported, each only when the project hasn’t set it already, so a value in `Directory.Build.props` or the project wins.
+
+## Properties
+
+[Section titled “Properties”](#properties)
+
+| Property                                   | Default                             | Meaning                                                                                                                                                                            |
+| ------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChirographUpdateOpenApiDocumentCache`     | `true`                              | The default of every client’s `UpdateDocumentCache`: whether a URL is downloaded again when its document is cached. See [Document cache](../../concepts/document-cache/#updating). |
+| `ChirographGenerateDovetailJoint`          | `true`                              | Whether each client gets a Dovetail joint, with a Dovetail that can write it. See [With Dovetail](../../guides/with-dovetail/).                                                    |
+| `ChirographOpenApiClientsDirectory`        | `$(IntermediateOutputPath)openapi/` | The folder each client’s folder goes in, relative to the project.                                                                                                                  |
+| `ChirographKiotaVersion`                   | the packed version                  | The version of the `Microsoft.OpenApi.Kiota` tool.                                                                                                                                 |
+| `ChirographRefitterVersion`                | the packed version                  | The version of the `Refitter` tool.                                                                                                                                                |
+| `ChirographKiotaBundleVersion`             | the packed version                  | The version of `Microsoft.Kiota.Bundle` added to a project with a Kiota client.                                                                                                    |
+| `ChirographRefitVersion`                   | the packed version                  | The version of `Refit.HttpClientFactory` added to a project with a Refitter client.                                                                                                |
+| `ChirographMicrosoftExtensionsHttpVersion` | the packed version                  | The version of `Microsoft.Extensions.Http` added to a project with a Kiota client and no Refitter client.                                                                          |
+| `ChirographVersion`                        | the SDK’s version                   | Stamped into the registration’s `[GeneratedCode]`. Read it; don’t set it.                                                                                                          |
+
+The packed versions are the ones Chirograph’s own repository pinned when the SDK was packed: they are in the package’s `Sdk/Packages.props`. A package the project references itself is never added, whatever these say: see [Generators](../../concepts/generators/#the-packages-added-to-the-project).
+
+A tool version that isn’t in the packages folder fails the build with [`CHIRO106`](../diagnostics/#chiro106) until the project is restored.
+
+## Targets
+
+[Section titled “Targets”](#targets)
+
+| Target                             | Runs                                                                       | Meaning                                                                                                                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChirographGenerateOpenApiClients` | after `ResolveProjectReferences`, before `CoreCompile` and `BeforeCompile` | Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an earlier build generated. Hook `AfterTargets` or `BeforeTargets` on it. |
+
+It is the only target that is public. The others start with `_Chirograph` and can change in any release.
