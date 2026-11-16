@@ -1,0 +1,28 @@
+<!--
+    A generic-host app on Dovetail. It declares its own client, a Refitter client generated from the server project, and references
+    Joinery.Dovetail: with that Dovetail in the build, Chirograph declares a DovetailTemplate for the client, and Dovetail writes a joint
+    (obj/.../DovetailTemplate.Chirograph.RocketsDovetailClient.g.cs) that calls AddRocketsDovetailClient(). Program.cs builds the host with
+    ConfigureDovetail() and resolves IRocketsDovetailClient without registering it.
+
+    The DovetailHost item declares the generic host, as Joinery.Dovetail.Sdk's host detection would, so Dovetail writes
+    ConfigureDovetail() for Host.CreateApplicationBuilder.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="0.0.0-sample" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Joinery.Dovetail" />
+    <PackageReference Include="Joinery.Dovetail.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <DovetailHost Include="HostApplication">
+      <Namespace>Rockets.Dovetail</Namespace>
+      <HostBuilderType>global::Microsoft.Extensions.Hosting.HostApplicationBuilder</HostBuilderType>
+      <HostBuilderName>builder</HostBuilderName>
+      <HostType>global::Microsoft.Extensions.Hosting.IHost</HostType>
+      <HelperName>global::Joinery.Dovetail.DovetailHostApplicationHelpers</HelperName>
+    </DovetailHost>
+    <OpenApiClient Include="../Rockets.Api/Rockets.Api.csproj" Generator="Refitter" ClientName="RocketsDovetailClient" Namespace="Rockets.Dovetail.Client" />
+  </ItemGroup>
+</Project>

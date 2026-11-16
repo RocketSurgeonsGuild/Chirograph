@@ -3,21 +3,77 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Rockets.Client.Kiota;
 using Rockets.Client.Refitter;
+using Rockets.Client.Url;
 
-// Each client reads its base address from Clients:<ClientName>:BaseAddress, for example the environment variable
-// Clients__RocketsClient__BaseAddress=http://localhost:5000/. The sample only resolves the clients, so it calls no server.
+// Registers the three clients with their generated Add<ClientName>() extensions, without Dovetail. Each client reads its base address
+// from Clients:<ClientName>:BaseAddress, for example the environment variable Clients__RocketsClient__BaseAddress=http://localhost:5179/
+// (mise run sample:run sets all of them). Each lists the rockets of a running Rockets.Api and gets the second one; the app exits
+// non-zero when a call fails or the clients disagree.
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
 builder.Services.AddRocketsClient();
 builder.Services.AddRocketsRefitClient();
+builder.Services.AddRocketsUrlClient();
 
 using var host = builder.Build();
 var kiota = host.Services.GetRequiredService<RocketsClient>();
 var refitter = host.Services.GetRequiredService<IRocketsRefitClient>();
+var url = host.Services.GetRequiredService<RocketsUrlClient>();
 
-Console.WriteLine($"Kiota:    {kiota.GetType().FullName}");
-Console.WriteLine($"Refitter: {nameof(IRocketsRefitClient)} as {refitter.GetType().FullName}");
+try
+{
+    string[][] results =
+    [
+        await Print(
+            "RocketsClient (Kiota, generated from the Rockets.Api project)",
+            async () => [.. (await kiota.Rockets.GetAsync() ?? []).Select(z => Describe(z.Id, z.SerialNumber, z.Type))],
+            async id => await kiota.Rockets[id].GetAsync() is { } z ? Describe(z.Id, z.SerialNumber, z.Type) : "nothing"
+        ),
+        await Print(
+            "IRocketsRefitClient (Refitter, generated from rockets.json)",
+            async () => [.. (await refitter.ListRockets()).Select(z => Describe(z.Id, z.SerialNumber, z.Type))],
+            async id => await refitter.GetRocket(id) is { } z ? Describe(z.Id, z.SerialNumber, z.Type) : "nothing"
+        ),
+        await Print(
+            "RocketsUrlClient (Kiota, generated from http://localhost:5179/openapi/v1.json, cached in rockets.openapi.json)",
+            async () => [.. (await url.Rockets.GetAsync() ?? []).Select(z => Describe(z.Id, z.SerialNumber, z.Type))],
+            async id => await url.Rockets[id].GetAsync() is { } z ? Describe(z.Id, z.SerialNumber, z.Type) : "nothing"
+        ),
+    ];
 
-// With a running Rockets.Api and the base addresses set, the calls look like this:
-//     var rockets = await kiota.Rockets.GetAsync();
-//     var rocket = await refitter.GetRocket(rockets![0].Id!.Value);
+    if (results.Skip(1).Any(z => !z.SequenceEqual(results[0])))
+    {
+        Console.Error.WriteLine("The clients disagree.");
+        return 1;
+    }
+
+    Console.WriteLine("The three clients agree.");
+    return 0;
+}
+catch (Exception e)
+{
+    Console.Error.WriteLine($"A call failed: {e.GetType().Name}: {e.Message}");
+    return 1;
+}
+
+// Lists the rockets, gets the second one by its id, and prints both under the client's title. Returns what it printed.
+static async Task<string[]> Print(string title, Func<Task<string[]>> list, Func<Guid, Task<string>> get)
+{
+    var listed = await list();
+    if (listed.Length < 2)
+    {
+        throw new InvalidOperationException($"{title} listed {listed.Length} rockets, not 2.");
+    }
+
+    var got = await get(Guid.Parse(listed[1].Split(' ')[0]));
+    string[] lines = [.. listed.Select(z => $"  listed {z}"), $"  got    {got}"];
+    Console.WriteLine(title);
+    foreach (var line in lines)
+    {
+        Console.WriteLine(line);
+    }
+
+    return lines;
+}
+
+static string Describe(Guid? id, string? serialNumber, object? type) => $"{id} {serialNumber} {type}";
