@@ -26,6 +26,9 @@
         - Options: more arguments for the generator's command line (kiota generate, or refitter after its settings file).
         - DocumentName (a project): the document the client is generated from, when the project writes several (v1 is ASP.NET Core's
           default).
+        - RegistrationFile: the project's own part of the registration class, relative to the project
+          (<ClientName>ServiceCollectionExtensions.cs when not set). The build writes it when it is missing, unless
+          ChirographScaffoldRegistration is false, and never again; it implements the hook the registration requires.
 
       Each generator is a .NET tool package (Microsoft.OpenApi.Kiota, Refitter), which restore downloads (PackageDownload) and the build
       runs from the packages folder: nothing is installed, and a file source needs no network once the packages are restored. The packages
@@ -48,6 +51,8 @@
     <ChirographUpdateOpenApiDocumentCache Condition="'$(ChirographUpdateOpenApiDocumentCache)' == ''">true</ChirographUpdateOpenApiDocumentCache>
     <!-- whether each client gets a Dovetail joint, when the Dovetail in the build can write it -->
     <ChirographGenerateDovetailJoint Condition="'$(ChirographGenerateDovetailJoint)' == ''">true</ChirographGenerateDovetailJoint>
+    <!-- whether each client gets its registration file (RegistrationFile) in the project when it is missing -->
+    <ChirographScaffoldRegistration Condition="'$(ChirographScaffoldRegistration)' == ''">true</ChirographScaffoldRegistration>
     <!--
         A clients folder the project sets can be in the project: left out of its default items, so the generated code isn't compiled
         twice (CS2002) once evaluation finds it. Items are evaluated after every property, so this reaches the SDK's globs.
@@ -137,13 +142,14 @@
       Condition="'$(ChirographRefitVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) == 'true'"
     />
     <!--
-        Not with a Refitter client: Refit.HttpClientFactory brings Microsoft.Extensions.Http itself, at a version that can be newer than
-        the one packed here (NU1605, a downgrade, on net11.0).
+        Not with a Refitter client, nor beside Microsoft.Extensions.Http.Resilience: Refit.HttpClientFactory and the resilience package
+        bring Microsoft.Extensions.Http themselves, at a version that can be newer than the one packed here (NU1605, a downgrade, on
+        net11.0).
     -->
     <_ChirographImplicitPackageReference
       Include="Microsoft.Extensions.Http"
       Version="$(ChirographMicrosoftExtensionsHttpVersion)"
-      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true'"
+      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Http.Resilience')) != 'true'"
     />
   </ItemGroup>
 
@@ -176,7 +182,7 @@
 
   <Target
     Name="_ChirographGenerateOpenApiClients"
-    DependsOnTargets="_ChirographCheckOpenApiClients;_ChirographResolveOpenApiClientDocuments;_ChirographWriteOpenApiClientSettings;_ChirographRunOpenApiClientGenerators"
+    DependsOnTargets="_ChirographCheckOpenApiClients;_ChirographResolveOpenApiClientDocuments;_ChirographWriteOpenApiClientSettings;_ChirographRunOpenApiClientGenerators;_ChirographScaffoldOpenApiClientRegistrations"
     Condition="'$(DesignTimeBuild)' != 'true'"
   />
 
@@ -197,11 +203,15 @@
       <_ChirographOpenApiClient>
         <GeneratedDirectory>%(_ChirographOpenApiClient.ClientDirectory)generated/</GeneratedDirectory>
         <SettingsFile>%(_ChirographOpenApiClient.ClientDirectory)settings.txt</SettingsFile>
-        <RegistrationFile>%(_ChirographOpenApiClient.ClientDirectory)%(_ChirographOpenApiClient.ClientName)ServiceCollectionExtensions.g.cs</RegistrationFile>
+        <GeneratedRegistrationFile>%(_ChirographOpenApiClient.ClientDirectory)%(_ChirographOpenApiClient.ClientName)ServiceCollectionExtensions.g.cs</GeneratedRegistrationFile>
+        <RegistrationFile Condition="'%(_ChirographOpenApiClient.RegistrationFile)' == ''">%(_ChirographOpenApiClient.ClientName)ServiceCollectionExtensions.cs</RegistrationFile>
         <StampFile>%(_ChirographOpenApiClient.ClientDirectory)generated.stamp</StampFile>
         <RefitterSettingsFile>%(_ChirographOpenApiClient.ClientDirectory)%(_ChirographOpenApiClient.ClientName).refitter</RefitterSettingsFile>
         <Document>%(_ChirographOpenApiClient.ClientDirectory)openapi%(_ChirographOpenApiClient.DocumentExtension)</Document>
         <DownloadedDocument>%(_ChirographOpenApiClient.ClientDirectory)download/openapi%(_ChirographOpenApiClient.DocumentExtension)</DownloadedDocument>
+      </_ChirographOpenApiClient>
+      <_ChirographOpenApiClient>
+        <ScaffoldFile>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '%(_ChirographOpenApiClient.RegistrationFile)'))</ScaffoldFile>
       </_ChirographOpenApiClient>
     </ItemGroup>
   </Target>
@@ -391,7 +401,7 @@
       Writes what a client is generated with, only when it changed (so its time stamp tells when it did), the settings file of Refitter,
       and the registration of the client.
   -->
-  <Target Name="_ChirographWriteOpenApiClientSettings" DependsOnTargets="_ChirographFindOpenApiTools">
+  <Target Name="_ChirographWriteOpenApiClientSettings" DependsOnTargets="_ChirographFindOpenApiTools;ResolveAssemblyReferences">
     <WriteLinesToFile
       File="%(_ChirographOpenApiClient.SettingsFile)"
       Lines="Generator=%(_ChirographOpenApiClient.Generator);Version=%(_ChirographOpenApiClient.ToolVersion);ClientName=%(_ChirographOpenApiClient.ClientName);Namespace=%(_ChirographOpenApiClient.Namespace);Options=$([MSBuild]::Escape('%(_ChirographOpenApiClient.Options)'))"
@@ -405,12 +415,25 @@
       Overwrite="true"
       WriteOnlyWhenDifferent="true"
     />
+    <!--
+        The code between //#if Resilience and //#endif in a template adds the standard resilience handler: it is kept, without those two
+        lines, only when the resolved references of the project include Microsoft.Extensions.Http.Resilience. Chirograph doesn't add it.
+    -->
+    <ItemGroup>
+      <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
+      <_ChirographResilienceReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.Http.Resilience'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_ChirographOpenApiTemplateCut>(?s)[ \t]*//#if Resilience\r?\n.*?//#endif\r?\n</_ChirographOpenApiTemplateCut>
+      <_ChirographOpenApiTemplateCut Condition="'@(_ChirographResilienceReference)' != ''">[ \t]*//#(if Resilience|endif)\r?\n</_ChirographOpenApiTemplateCut>
+    </PropertyGroup>
     <ItemGroup>
       <_ChirographOpenApiClientRegistration Remove="@(_ChirographOpenApiClientRegistration)" />
       <_ChirographOpenApiClientRegistration
-        Include="@(_ChirographOpenApiClient->'%(RegistrationFile)')"
-        Text="$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)templates/%(Generator)Registration.cs.template').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))"
+        Include="@(_ChirographOpenApiClient->'%(GeneratedRegistrationFile)')"
+        Text="$([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)templates/%(Generator)Registration.cs.template')), '$(_ChirographOpenApiTemplateCut)', '').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))"
       />
+      <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
     </ItemGroup>
     <WriteLinesToFile
       File="%(_ChirographOpenApiClientRegistration.Identity)"
@@ -518,7 +541,7 @@
     <ItemGroup>
       <_ChirographOpenApiClientCode Remove="@(_ChirographOpenApiClientCode)" />
       <_ChirographOpenApiClientCode Include="%(_ChirographOpenApiClient.GeneratedDirectory)**/*.cs" />
-      <_ChirographOpenApiClientCode Include="@(_ChirographOpenApiClient->'%(RegistrationFile)')" Condition="Exists('%(_ChirographOpenApiClient.RegistrationFile)')" />
+      <_ChirographOpenApiClientCode Include="@(_ChirographOpenApiClient->'%(GeneratedRegistrationFile)')" Condition="Exists('%(_ChirographOpenApiClient.GeneratedRegistrationFile)')" />
       <Compile Include="@(_ChirographOpenApiClientCode)" />
       <FileWrites Include="@(_ChirographOpenApiClientCode)" />
       <!-- the stamp goes with the code dotnet clean removes, so the next build generates the client again -->
@@ -526,6 +549,38 @@
       <_ChirographOpenApiClientFile Include="@(_ChirographOpenApiClient->'%(StampFile)');@(_ChirographOpenApiClient->'%(SettingsFile)');@(_ChirographOpenApiClient->'%(RefitterSettingsFile)');@(_ChirographOpenApiClient->'%(Document)');@(_ChirographOpenApiClient->'%(DownloadedDocument)')" />
       <FileWrites Include="@(_ChirographOpenApiClientFile)" Condition="Exists('%(_ChirographOpenApiClientFile.Identity)')" />
       <_ChirographOpenApiClientFile Remove="@(_ChirographOpenApiClientFile)" />
+      <!--
+          The project's registration file, scaffolded during this build (after evaluation, so the default Compile glob missed it) or kept
+          out of the project's folder: compiled unless Compile has it already. Not in FileWrites: it is the project's, and dotnet clean
+          keeps it.
+      -->
+      <_ChirographOpenApiClientScaffold Remove="@(_ChirographOpenApiClientScaffold)" />
+      <_ChirographOpenApiClientScaffold Include="@(_ChirographOpenApiClient->'%(ScaffoldFile)')" Condition="Exists('%(_ChirographOpenApiClient.ScaffoldFile)')" />
+      <_ChirographOpenApiClientScaffold Remove="@(Compile->'%(FullPath)')" />
+      <Compile Include="@(_ChirographOpenApiClientScaffold)" />
+      <_ChirographOpenApiClientScaffold Remove="@(_ChirographOpenApiClientScaffold)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+      Writes the project's own registration file of each client (<ClientName>ServiceCollectionExtensions.cs in the project, or the
+      RegistrationFile metadata) when it is missing, from templates/<Generator>RegistrationScaffold.cs.template: it implements the hook
+      the registration requires by returning what it is given, and has an empty ConfigureHttpClientBuilder. It is never written again, so
+      the project can edit it. ChirographScaffoldRegistration set to false turns this off.
+  -->
+  <Target Name="_ChirographScaffoldOpenApiClientRegistrations" DependsOnTargets="_ChirographLocateOpenApiClients" Condition="'$(ChirographScaffoldRegistration)' == 'true'">
+    <ItemGroup>
+      <_ChirographOpenApiClientScaffold Remove="@(_ChirographOpenApiClientScaffold)" />
+      <_ChirographOpenApiClientScaffold
+        Include="@(_ChirographOpenApiClient->'%(ScaffoldFile)')"
+        Condition="!Exists('%(_ChirographOpenApiClient.ScaffoldFile)') and '%(_ChirographOpenApiClient.ClientNameIsValid)' == 'true'"
+        Text="$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)templates/%(Generator)RegistrationScaffold.cs.template').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').TrimEnd())"
+      />
+    </ItemGroup>
+    <MakeDir Directories="@(_ChirographOpenApiClientScaffold->'%(RootDir)%(Directory)')" />
+    <WriteLinesToFile File="%(_ChirographOpenApiClientScaffold.Identity)" Lines="$([MSBuild]::Escape('%(_ChirographOpenApiClientScaffold.Text)'))" Condition="'%(_ChirographOpenApiClientScaffold.Identity)' != ''" />
+    <ItemGroup>
+      <_ChirographOpenApiClientScaffold Remove="@(_ChirographOpenApiClientScaffold)" />
     </ItemGroup>
   </Target>
 </Project>

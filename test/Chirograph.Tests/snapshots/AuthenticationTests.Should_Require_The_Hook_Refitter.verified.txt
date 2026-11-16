@@ -1,0 +1,3 @@
+﻿[
+  CS8795: Partial method 'RocketsClientServiceCollectionExtensions.CreateRefitSettings(IServiceProvider, RefitSettings?)' must have an implementation part because it has accessibility modifiers.
+]

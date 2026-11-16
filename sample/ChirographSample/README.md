@@ -16,7 +16,8 @@ The projects:
 | `Rockets.Dovetail`        | A generic host on Joinery.Dovetail, built with `ConfigureDovetail()`. It declares `IRocketsDovetailClient` (Refitter, from the server project) and resolves it with no `Add<ClientName>()` call: the joint Dovetail writes for the client registers it.         |
 
 Each client reads its base address from `Clients:<ClientName>:BaseAddress`, for example the environment variable
-`Clients__RocketsClient__BaseAddress=http://localhost:5179/`.
+`Clients__RocketsClient__BaseAddress=http://localhost:5179/`. `Rockets.Console/appsettings.json` also gives each of its clients a
+`Timeout` and a default request header from the same section.
 
 ## Running it
 

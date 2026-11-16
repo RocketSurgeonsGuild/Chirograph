@@ -28,7 +28,8 @@ internal static class RocketsApp
         Generator generator,
         string include,
         string clientName = "RocketsClient",
-        IReadOnlyDictionary<string, string?>? metadata = null
+        IReadOnlyDictionary<string, string?>? metadata = null,
+        bool scaffold = true
     )
     {
         // metadata wins over the defaults, and a null leaves the metadata out (Namespace = null falls back to $(RootNamespace))
@@ -43,7 +44,9 @@ internal static class RocketsApp
             all[name] = value;
         }
 
-        return project.ItemInclude("OpenApiClient", include, metadata: all);
+        project.ItemInclude("OpenApiClient", include, metadata: all);
+        // without the scaffolded registration file the project doesn't compile (CS8795), unless it brings one of its own
+        return scaffold ? project : project.Property("ChirographScaffoldRegistration", "false");
     }
 
     /// <summary>References Microsoft.Extensions.Hosting at the version the repository pins for <paramref name="targetFramework" />.</summary>
@@ -60,10 +63,11 @@ internal static class RocketsApp
         string targetFramework,
         Generator generator,
         string include = "rockets.json",
-        IReadOnlyDictionary<string, string?>? metadata = null
+        IReadOnlyDictionary<string, string?>? metadata = null,
+        bool scaffold = true
     ) =>
         project
-           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata))
+           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata, scaffold: scaffold))
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", Program(generator));
 
@@ -79,6 +83,16 @@ internal static class RocketsApp
         Generator.Refitter => Program("IRocketsClient", "client.GetRocket(id)", @namespace),
         _ => throw new ArgumentOutOfRangeException(nameof(generator), generator, null),
     };
+
+    /// <summary>
+    /// <see cref="Program(Generator, string)" />, except that a call that fails writes the type and message of its exception instead of
+    /// failing the application.
+    /// </summary>
+    public static string ProgramReportingFailure(Generator generator) =>
+        Program(generator)
+           .Replace("var rocket = await", "try\n{\n    var rocket = await", StringComparison.Ordinal)
+           .TrimEnd()
+           + "\n}\ncatch (Exception e)\n{\n    Console.WriteLine($\"{e.GetType().FullName}: {e.Message}\");\n}\n";
 
     private static string Program(string clientType, string getRocket, string @namespace) => $$"""
         using System;

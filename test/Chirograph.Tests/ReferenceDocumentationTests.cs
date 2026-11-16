@@ -13,6 +13,7 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
     private const string ItemPage = "docs/src/content/docs/reference/openapiclient.md";
     private const string PropertiesPage = "docs/src/content/docs/reference/properties.md";
     private const string DiagnosticsPage = "docs/src/content/docs/reference/diagnostics.md";
+    private const string OptionaryPage = "docs/src/content/docs/guides/with-optionary.md";
 
     /// <summary>
     /// The metadata a project can set: every metadata the targets read from <c>OpenApiClient</c> or its private copy
@@ -89,6 +90,34 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
         await rows.Should().BeEquivalentTo(raised.Select(z => $"{z.Code} {z.Severity}").ToArray(), CollectionOrdering.Matching).Because($"the codes table of {DiagnosticsPage}");
         await headings.Should().BeEquivalentTo(raised.Select(z => z.Code).Distinct().ToArray(), CollectionOrdering.Matching).Because($"the headings of {DiagnosticsPage}");
         await raised.Where(z => z.HelpLink != $"$(_ChirographDiagnosticsUrl)#{z.Code.ToLowerInvariant()}").Select(z => z.Code).ToArray().Should().BeEmpty().Because("each diagnostic links to its heading");
+    }
+
+    /// <summary>
+    /// The keys of a client's <c>Clients:&lt;ClientName&gt;</c> section that the schema files the SDK ships describe: both files list the same
+    /// keys, and the Optionary guide's table lists exactly those.
+    /// </summary>
+    [Test]
+    public async Task Should_List_Exactly_The_Keys_The_Schemas_Describe()
+    {
+        var schemas = Directory.EnumerateFiles(Path.Combine(Config.RootDirectory, "src", "Chirograph", "Sdk", "schemas"), "*.schema.json")
+                               .Order(StringComparer.Ordinal)
+                               .ToDictionary(
+                                    Path.GetFileName,
+                                    z => System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(z))!["properties"]!
+                                                                        .AsObject()
+                                                                        .Select(p => p.Key)
+                                                                        .Order(StringComparer.Ordinal)
+                                                                        .ToArray()
+                                );
+        var keys = schemas.Values.First();
+
+        await keys.Should().NotBeEmpty();
+        foreach (var (file, fileKeys) in schemas)
+        {
+            await fileKeys.Should().BeEquivalentTo(keys, CollectionOrdering.Matching).Because($"{file} describes the same section");
+        }
+
+        await TableRows(OptionaryPage, "The keys").Order(StringComparer.Ordinal).ToArray().Should().BeEquivalentTo(keys, CollectionOrdering.Matching).Because($"the keys table of {OptionaryPage}");
     }
 
     private static string ReadFile(string path) => File.ReadAllText(Path.Combine(Config.RootDirectory, path));

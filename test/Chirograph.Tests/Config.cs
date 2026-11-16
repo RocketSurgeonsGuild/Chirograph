@@ -75,6 +75,21 @@ internal static class Config
     /// <summary>A released Dovetail without <c>DovetailTemplateMetadataTokens</c>, which must get no <c>DovetailTemplate</c>.</summary>
     public const string DovetailVersionWithoutMetadataTokens = "0.5.3";
 
+    /// <summary>
+    /// The Optionary the schema tests build with: one that reads <c>OptionarySchemaFragment</c> items (Optionary#40, released in 0.1.0).
+    /// 0.1.0 was not yet restorable from nuget.org when this was set, so the tests use the build of main right after it.
+    /// </summary>
+    public const string OptionaryVersion = "0.1.1-beta.0";
+
+    /// <summary>
+    /// A package source with a locally packed <see cref="OptionaryVersion" />, added to every scaffold's NuGet.config, or
+    /// <see langword="null" /> when that version is on nuget.org.
+    /// </summary>
+    public static string? OptionaryStagingPackages { get; } = null;
+
+    /// <summary>A released Optionary without <c>OptionarySchemaFragment</c>, on which the items must be inert.</summary>
+    public const string OptionaryVersionWithoutSchemaFragments = "0.1.0-beta.1";
+
     [Before(Assembly)]
     public static async Task Setup(AssemblyHookContext context)
     {

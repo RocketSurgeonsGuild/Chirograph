@@ -99,7 +99,8 @@ The registration reads the client's base address from `Clients:<ClientName>:Base
 ```
 
 Any configuration source works, so an environment variable `Clients__RocketsClient__BaseAddress` does too. Without a base address, a
-Kiota client uses the first server of its document. A Refit client needs one.
+Kiota client uses the first server of its document. A Refit client needs one. The same section also takes a `Timeout`, default
+request headers and resilience: see [Configuration](../concepts/registration/#configuration).
 
 ## Before the first release
 
@@ -133,5 +134,6 @@ so when you pack again, either use a new version or delete `~/.nuget/packages/ch
 - [From a server project](from-a-server-project/): an ASP.NET Core project in the same build.
 - [From a URL](from-a-url/): a document downloaded on build, with a cache you can commit.
 - [With Dovetail](with-dovetail/): the client registered by a joint.
+- [With Optionary](with-optionary/): `appsettings.json` IntelliSense and validation for each client's section.
 - Coming from somewhere else: [`OpenApiReference`](migrating-from-openapireference/) or
   [LaunchPad's preview](migrating-from-launchpad/).

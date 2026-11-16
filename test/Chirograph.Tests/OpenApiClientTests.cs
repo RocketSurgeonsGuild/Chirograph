@@ -115,24 +115,34 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
 
     /// <summary>
     /// Build seam: the registration Chirograph writes for each generator, a public <c>Add&lt;ClientName&gt;()</c> that returns the
-    /// <c>IHttpClientBuilder</c>, stamped with the version of Chirograph.
+    /// <c>IHttpClientBuilder</c>, stamped with the version of Chirograph. It reads <c>Clients:RocketsClient</c>, and adds the standard
+    /// resilience handler only when the project references Microsoft.Extensions.Http.Resilience.
     /// </summary>
     [Test]
-    [Arguments(Generator.Kiota)]
-    [Arguments(Generator.Refitter)]
-    public async Task Should_Write_The_Registration(Generator generator)
+    [Arguments(Generator.Kiota, false)]
+    [Arguments(Generator.Refitter, false)]
+    [Arguments(Generator.Kiota, true)]
+    [Arguments(Generator.Refitter, true)]
+    public async Task Should_Write_The_Registration(Generator generator, bool referencesResilience)
     {
         using var project = new SdkTestProject(targetFramework);
-        project
-           .AddProject("lib/lib.csproj", project.CreateConsumer("Library").OpenApiClient(generator, "rockets.json"))
-           .AddFile("lib/rockets.json", RocketsApi.Document);
+        var lib = project.CreateConsumer("Library").OpenApiClient(generator, "rockets.json");
+        if (referencesResilience)
+        {
+            lib.ItemPackageReference(
+                "Microsoft.Extensions.Http.Resilience",
+                Config.CentralPackageVersion("Microsoft.Extensions.Http.Resilience", targetFramework)
+            );
+        }
+
+        project.AddProject("lib/lib.csproj", lib).AddFile("lib/rockets.json", RocketsApi.Document);
 
         await project.Build("lib");
         var registration = await File.ReadAllTextAsync(
             Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient", "RocketsClientServiceCollectionExtensions.g.cs")
         );
 
-        await project.VerifyResult(registration, generator.ToString());
+        await project.VerifyResult(registration, referencesResilience ? $"{generator}_Resilience" : generator.ToString());
     }
 
     /// <summary>

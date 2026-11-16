@@ -1,0 +1,6 @@
+﻿{
+  afterABuild: true,
+  afterAClean: true,
+  afterADesignTimeBuild: false,
+  withTheSwitchOff: false
+}

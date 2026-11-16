@@ -45,6 +45,10 @@ public sealed partial class SdkTestProject : IDisposable
                         // Until the Dovetail the joint tests need is released, its locally packed copy (Config.DovetailVersion).
                         Config.DovetailStagingPackages is { } staging
                             ? new XElement("add", new XAttribute("key", "dovetail-staging"), new XAttribute("value", staging))
+                            : null,
+                        // Until the Optionary the schema tests need is released, its locally packed copy (Config.OptionaryVersion).
+                        Config.OptionaryStagingPackages is { } optionaryStaging
+                            ? new XElement("add", new XAttribute("key", "optionary-staging"), new XAttribute("value", optionaryStaging))
                             : null
                     )
                 )
@@ -162,11 +166,11 @@ public sealed partial class SdkTestProject : IDisposable
 
     /// <summary>
     /// The build seam for a build that may fail: runs <c>dotnet build</c> (plus <paramref name="arguments" />) for the project in
-    /// <paramref name="relativePath" /> and returns Chirograph's errors and warnings (<c>CHIRO</c> codes), as <c>CODE: message</c>
+    /// <paramref name="relativePath" /> and returns the errors and warnings whose code starts with <paramref name="codePrefix" /> (Chirograph's <c>CHIRO</c> codes unless it says otherwise), as <c>CODE: message</c>
     /// with the scaffold's folder written as <c>{scaffold}</c>.
     /// </summary>
-    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "") =>
-        Diagnostics(await Build(relativePath, arguments, allowFailure: true));
+    public async Task<string[]> BuildDiagnostics(string relativePath, string arguments = "", string codePrefix = "CHIRO") =>
+        Diagnostics(await Build(relativePath, arguments, allowFailure: true), codePrefix);
 
     private async Task<Microsoft.Build.Logging.StructuredLogger.Build> Build(string relativePath, string arguments, bool allowFailure)
     {
@@ -179,10 +183,10 @@ public sealed partial class SdkTestProject : IDisposable
     /// Chirograph's errors and warnings (<c>CHIRO</c> codes) in <paramref name="build" />, as <c>CODE: message</c> with the scaffold's
     /// folder written as <c>{scaffold}</c>.
     /// </summary>
-    public string[] Diagnostics(Microsoft.Build.Logging.StructuredLogger.Build build) =>
+    public string[] Diagnostics(Microsoft.Build.Logging.StructuredLogger.Build build, string codePrefix = "CHIRO") =>
         [.. build
               .FindChildrenRecursive<Microsoft.Build.Logging.StructuredLogger.AbstractDiagnostic>(
-                   z => z.Code?.StartsWith("CHIRO", StringComparison.Ordinal) == true
+                   z => z.Code?.StartsWith(codePrefix, StringComparison.Ordinal) == true
                )
               // macOS gives the temp folder as /var/… and tools resolve it to /private/var/…
               .Select(

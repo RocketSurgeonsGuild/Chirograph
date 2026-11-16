@@ -5,5 +5,27 @@
       last: it expands the _ChirographImplicitPackageReference items every file before it declares.
   -->
   <Import Project="$(MSBuildThisFileDirectory)Chirograph.OpenApiClients.targets" />
+
+  <!--
+      The schema of each client's configuration section, Clients:<ClientName>, for Optionary: an OptionarySchemaFragment item per client
+      with a valid ClientName, whose File is the schema of its generator (BaseAddress, Timeout, DefaultRequestHeaders and Resilience;
+      BaseAddress is required for Refitter only). An Optionary that reads the item puts the section into the application's
+      appsettings.schema.json; without Optionary, or with one that predates the item, nothing reads it. Declared here, at evaluation,
+      from the clients evaluation knows (_ChirographOpenApiClient, which only exists after the project's own items). The client's metadata
+      comes along (KeepMetadata is ignored at evaluation); Optionary only reads File. ChirographOptionarySchema=false turns them off.
+  -->
+  <ItemGroup Condition="'@(OpenApiClient)' != '' and '$(ChirographOptionarySchema)' != 'false'">
+    <_ChirographOptionarySchemaClient Include="@(_ChirographOpenApiClient->WithMetadataValue('ClientNameIsValid', 'true'))" />
+    <OptionarySchemaFragment
+      Include="@(_ChirographOptionarySchemaClient->WithMetadataValue('Generator', 'Kiota')->'Clients:%(ClientName)')"
+      File="$(MSBuildThisFileDirectory)schemas/kiota.schema.json"
+    />
+    <OptionarySchemaFragment
+      Include="@(_ChirographOptionarySchemaClient->WithMetadataValue('Generator', 'Refitter')->'Clients:%(ClientName)')"
+      File="$(MSBuildThisFileDirectory)schemas/refitter.schema.json"
+    />
+    <_ChirographOptionarySchemaClient Remove="@(_ChirographOptionarySchemaClient)" />
+  </ItemGroup>
+
   <Import Project="$(MSBuildThisFileDirectory)Chirograph.ImplicitPackageReferences.targets" />
 </Project>

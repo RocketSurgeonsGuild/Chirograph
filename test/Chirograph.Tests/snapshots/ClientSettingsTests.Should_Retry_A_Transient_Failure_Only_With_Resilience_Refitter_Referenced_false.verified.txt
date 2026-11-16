@@ -1,0 +1,6 @@
+﻿{
+  Output:
+Refit.ApiException: Response status code does not indicate success: 503 (Service Unavailable).
+,
+  RocketRequests: 1
+}
