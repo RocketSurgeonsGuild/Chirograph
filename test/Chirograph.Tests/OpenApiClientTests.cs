@@ -117,28 +117,33 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     /// Build seam: the registration Chirograph writes for each generator, a public <c>Add&lt;ClientName&gt;()</c> that returns the
     /// <c>IHttpClientBuilder</c>, and the options it reads, <c>RocketsClientOptions</c>, both stamped with the version of Chirograph. The
     /// options carry the generator's delegate, and the registration adds the standard resilience handler only when the project references
-    /// Microsoft.Extensions.Http.Resilience. The code of <c>ClientCredentials</c> (Duende.AccessTokenManagement) is written only when the
-    /// item's <c>Authentication</c> metadata declares it.
+    /// Microsoft.Extensions.Http.Resilience, and service discovery only when it references Microsoft.Extensions.ServiceDiscovery. The code
+    /// of <c>ClientCredentials</c> (Duende.AccessTokenManagement) is written only when the item's <c>Authentication</c> metadata declares it.
     /// </summary>
     [Test]
-    [Arguments(Generator.Kiota, false, null)]
-    [Arguments(Generator.Refitter, false, null)]
-    [Arguments(Generator.Kiota, true, null)]
-    [Arguments(Generator.Refitter, true, null)]
-    [Arguments(Generator.Kiota, false, "ClientCredentials")]
-    [Arguments(Generator.Refitter, false, "ClientCredentials")]
-    public async Task Should_Write_The_Registration(Generator generator, bool referencesResilience, string? authentication)
+    [Arguments(Generator.Kiota, null, null)]
+    [Arguments(Generator.Refitter, null, null)]
+    [Arguments(Generator.Kiota, "Resilience", null)]
+    [Arguments(Generator.Refitter, "Resilience", null)]
+    [Arguments(Generator.Kiota, "ServiceDiscovery", null)]
+    [Arguments(Generator.Refitter, "ServiceDiscovery", null)]
+    [Arguments(Generator.Kiota, null, "ClientCredentials")]
+    [Arguments(Generator.Refitter, null, "ClientCredentials")]
+    public async Task Should_Write_The_Registration(Generator generator, string? block, string? authentication)
     {
         using var project = new SdkTestProject(targetFramework);
         var lib = project
                  .CreateConsumer("Library")
                  .OpenApiClient(generator, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = authentication });
-        if (referencesResilience)
+        if (block is not null)
         {
-            lib.ItemPackageReference(
-                "Microsoft.Extensions.Http.Resilience",
-                Config.CentralPackageVersion("Microsoft.Extensions.Http.Resilience", targetFramework)
-            );
+            // the package whose reference turns the block on
+            var package = block switch
+            {
+                "Resilience" => "Microsoft.Extensions.Http.Resilience",
+                _ => "Microsoft.Extensions.ServiceDiscovery",
+            };
+            lib.ItemPackageReference(package, Config.CentralPackageVersion(package, targetFramework));
         }
 
         project.AddProject("lib/lib.csproj", lib).AddFile("lib/rockets.json", RocketsApi.Document);
@@ -150,7 +155,7 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
 
         await project.VerifyResult(
             new { Registration = registration, Options = options },
-            $"{generator}{( referencesResilience ? "_Resilience" : "" )}{( authentication is null ? "" : $"_{authentication}" )}"
+            $"{generator}{( block is null ? "" : $"_{block}" )}{( authentication is null ? "" : $"_{authentication}" )}"
         );
     }
 

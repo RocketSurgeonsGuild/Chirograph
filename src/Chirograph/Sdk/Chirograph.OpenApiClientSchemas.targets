@@ -34,7 +34,7 @@
   <Target
     Name="_ChirographWriteOpenApiClientSchemas"
     BeforeTargets="_OptionaryReadSchemaFragments;BeforeCompile;CoreCompile"
-    DependsOnTargets="_ChirographLocateOpenApiClientSchemas;_ChirographWriteOpenApiClientSchema"
+    DependsOnTargets="ResolveAssemblyReferences;_ChirographLocateOpenApiClientSchemas;_ChirographWriteOpenApiClientSchema"
     Condition="'@(OpenApiClient)' != '' and '$(ChirographOptionarySchema)' != 'false'"
   />
 
@@ -64,6 +64,7 @@
         - Schema: its JSON Schema, without the description ("type": "string" when not set). __Methods__ stands for the client's methods.
         - Description: what it is. No backslash and no double quote; %3B for a semicolon, __ClientName__ for the client's name.
         - Generator: only for the clients of that generator.
+        - ServiceDiscovery: true only when the project references Microsoft.Extensions.ServiceDiscovery, false only when it doesn't.
         - Methods: the methods that use it, a ;-list. The schema has the key when the client allows one of them, and the other methods
           forbid it. A key without methods (a certificate key, say) goes with every method.
         - Secret: true for a credential, whose description then says to keep it out of appsettings.json.
@@ -86,13 +87,17 @@
       <_ChirographOpenApiClientKey Include="ConnectionString">
         <Description>The client's connection string, such as Endpoint=https://rockets.example.com/%3BTimeout=00:00:30. It wins over the other keys. When this key is set, even to an empty value, ConnectionStrings:__ClientName__ is not read.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="BaseAddress" Generator="Kiota">
+      <_ChirographOpenApiClientKey Include="BaseAddress" Generator="Kiota" ServiceDiscovery="false">
         <Schema>"type": "string", "format": "uri"</Schema>
         <Description>The absolute URI the client calls (HttpClient.BaseAddress). When not set, the client calls the first server of its OpenAPI document.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="BaseAddress" Generator="Refitter">
+      <_ChirographOpenApiClientKey Include="BaseAddress" Generator="Refitter" ServiceDiscovery="false">
         <Schema>"type": "string", "format": "uri"</Schema>
         <Description>The absolute URI the client calls (HttpClient.BaseAddress). A Refit client has no default: give it here, or in a connection string.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="BaseAddress" ServiceDiscovery="true">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>The URI the client calls (HttpClient.BaseAddress): an absolute URI, or a service-discovery address such as https+http://rockets, whose endpoints come from Services:rockets. When not set, https+http://__ClientName__.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="Endpoint">
         <Schema>"type": "string", "format": "uri"</Schema>
@@ -187,6 +192,15 @@
       <!-- the values of Authentication, without spaces and in lowercase: ;clientcredentials; -->
       <_ChirographOpenApiClientSchemaFeatures>;$([System.Text.RegularExpressions.Regex]::Replace('%(_ChirographOpenApiClientSchemaFile.Authentication)', '\s+', '').ToLowerInvariant());</_ChirographOpenApiClientSchemaFeatures>
     </PropertyGroup>
+    <ItemGroup>
+      <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
+      <_ChirographServiceDiscoveryReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.ServiceDiscovery'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <!-- whether the project references Microsoft.Extensions.ServiceDiscovery, as the registration's ServiceDiscovery block says -->
+      <_ChirographOpenApiClientSchemaServiceDiscovery>false</_ChirographOpenApiClientSchemaServiceDiscovery>
+      <_ChirographOpenApiClientSchemaServiceDiscovery Condition="'@(_ChirographServiceDiscoveryReference)' != ''">true</_ChirographOpenApiClientSchemaServiceDiscovery>
+    </PropertyGroup>
 
     <ItemGroup>
       <!-- the client's methods, and the keys of its generator, in order (filtered by Remove, since a batched Include would regroup them) -->
@@ -201,6 +215,10 @@
       <_ChirographOpenApiClientSchemaKey
         Remove="@(_ChirographOpenApiClientSchemaKey)"
         Condition="'%(_ChirographOpenApiClientSchemaKey.Generator)' != '' and '%(_ChirographOpenApiClientSchemaKey.Generator)' != '$(_ChirographOpenApiClientSchemaGenerator)'"
+      />
+      <_ChirographOpenApiClientSchemaKey
+        Remove="@(_ChirographOpenApiClientSchemaKey)"
+        Condition="'%(_ChirographOpenApiClientSchemaKey.ServiceDiscovery)' != '' and '%(_ChirographOpenApiClientSchemaKey.ServiceDiscovery)' != '$(_ChirographOpenApiClientSchemaServiceDiscovery)'"
       />
 
       <!-- the keys of methods: each with each of the client's methods (a cross product), and whether the method uses it -->

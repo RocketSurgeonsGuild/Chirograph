@@ -34,7 +34,11 @@ public enum RocketsClientAuthentication
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "{chirograph-version}")]
 public sealed class RocketsClientOptions
 {
-    /// <summary>The base address of the client, an absolute <c>http</c> or <c>https</c> URI (key <c>BaseAddress</c>, alias <c>Endpoint</c>).</summary>
+    /// <summary>
+    ///     The base address of the client, an absolute <c>http</c> or <c>https</c> URI (key <c>BaseAddress</c>, alias <c>Endpoint</c>). When the
+    ///     project references Microsoft.Extensions.ServiceDiscovery, it may be a service-discovery address such as <c>https+http://rockets</c>,
+    ///     and it is <c>https+http://RocketsClient</c> when not set.
+    /// </summary>
     public string? BaseAddress { get; set; }
 
     /// <summary>The timeout of the client's <c>HttpClient</c> (key <c>Timeout</c>, a <c>TimeSpan</c> in the invariant culture).</summary>
@@ -335,11 +339,22 @@ internal sealed class RocketsClientOptionsSetup :
 
     /// <summary>
     ///     Applies the connection string over everything else: <c>Clients:RocketsClient:ConnectionString</c> when that key exists (an
-    ///     empty value meaning none), else <c>ConnectionStrings:RocketsClient</c>. The two are never merged.
+    ///     empty value meaning none), else <c>ConnectionStrings:RocketsClient</c>. The two are never merged. With service discovery, a
+    ///     client still without a BaseAddress then gets <c>https+http://RocketsClient</c>.
     /// </summary>
     public void PostConfigure(string? name, global::Throwaway.Clients.RocketsClientOptions options)
     {
-        if ((name ?? global::Microsoft.Extensions.Options.Options.DefaultName) != global::Microsoft.Extensions.Options.Options.DefaultName || _configuration is null)
+        if ((name ?? global::Microsoft.Extensions.Options.Options.DefaultName) != global::Microsoft.Extensions.Options.Options.DefaultName)
+        {
+            return;
+        }
+
+        ApplyConnectionString(options);
+    }
+
+    private void ApplyConnectionString(global::Throwaway.Clients.RocketsClientOptions options)
+    {
+        if (_configuration is null)
         {
             return;
         }
@@ -358,6 +373,17 @@ internal sealed class RocketsClientOptionsSetup :
         }
     }
 
+    // an absolute http or https URI; with service discovery, its scheme may be a +-list of them too, such as https+http
+    private static bool IsBaseAddress(string baseAddress)
+    {
+        if (!global::System.Uri.TryCreate(baseAddress, global::System.UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme == global::System.Uri.UriSchemeHttp || uri.Scheme == global::System.Uri.UriSchemeHttps;
+    }
+
     /// <summary>Checks the options, whichever source set them.</summary>
     public global::Microsoft.Extensions.Options.ValidateOptionsResult Validate(string? name, global::Throwaway.Clients.RocketsClientOptions options)
     {
@@ -367,11 +393,11 @@ internal sealed class RocketsClientOptionsSetup :
         }
 
         var failures = new global::System.Collections.Generic.List<string>(options.ConfigurationErrors);
-        if (options.BaseAddress is { Length: > 0 } baseAddress
-         && !(global::System.Uri.TryCreate(baseAddress, global::System.UriKind.Absolute, out var uri)
-           && (uri.Scheme == global::System.Uri.UriSchemeHttp || uri.Scheme == global::System.Uri.UriSchemeHttps)))
+        if (options.BaseAddress is { Length: > 0 } baseAddress && !IsBaseAddress(baseAddress))
         {
-            failures.Add("The BaseAddress of RocketsClient is not an absolute http or https URI.");
+            failures.Add(
+                "The BaseAddress of RocketsClient is not an absolute http or https URI. A service-discovery address, such as https+http://RocketsClient, needs the project to reference Microsoft.Extensions.ServiceDiscovery."
+            );
         }
 
         if (options.Timeout is { } timeout

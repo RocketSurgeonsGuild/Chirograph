@@ -88,7 +88,9 @@ Beyond the keys, the schema checks what a validator can see in `appsettings.json
   `appsettings.json`, in user secrets, an environment variable or a vault.
 - `ConnectionString` is a plain string: a schema cannot check what is inside it. `ConnectionStrings:<ClientName>` is not described,
   since Optionary describes the sections the application owns.
-- Neither generator requires `BaseAddress`: a connection string, in the section or in `ConnectionStrings:<ClientName>`, can give it.
+- Neither generator requires `BaseAddress`: a connection string, in the section or in `ConnectionStrings:<ClientName>`, can give it,
+  and with service discovery the client has a default address. With service discovery, the description of `BaseAddress`
+  says it may be a service-discovery address, and gives its default, `https+http://<ClientName>`.
 
 ## What Chirograph declares
 

@@ -58,7 +58,7 @@ DefaultRequestHeaders: []
 Authentication: None,
   Endpoint=s3cr3t:
 OptionsValidationException:
-  The BaseAddress of RocketsClient is not an absolute http or https URI.,
+  The BaseAddress of RocketsClient is not an absolute http or https URI. A service-discovery address, such as https+http://RocketsClient, needs the project to reference Microsoft.Extensions.ServiceDiscovery.,
   Resilience=s3cr3t:
 OptionsValidationException:
   ConnectionStrings:RocketsClient (Resilience) is not true or false.,
