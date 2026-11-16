@@ -371,17 +371,13 @@ internal sealed class __ClientName__OptionsSetup :
     // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '\''
     private const char SingleQuote = (char)39;
 
-    private readonly global::Microsoft.Extensions.Configuration.IConfiguration? _configuration;
-    //#if ServiceDiscovery
     private readonly global::System.IServiceProvider _services;
-    //#endif
+    private readonly global::Microsoft.Extensions.Configuration.IConfiguration? _configuration;
 
     public __ClientName__OptionsSetup(global::System.IServiceProvider services)
     {
-        _configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)services.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
-        //#if ServiceDiscovery
         _services = services;
-        //#endif
+        _configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)services.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
     }
 
     /// <summary>
@@ -646,6 +642,13 @@ internal sealed class __ClientName__OptionsSetup :
         }
 
         ValidateAuthentication(options, failures);
+        //#if ClientCredentials
+        if (options.Authentication == global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt)
+        {
+            global::__Namespace__.__ClientName__ClientAssertion.ValidateRegistration(_services, failures);
+        }
+
+        //#endif
         global::__Namespace__.__ClientName__Certificate.Validate(options, failures);
         return failures.Count == 0
             ? global::Microsoft.Extensions.Options.ValidateOptionsResult.Success
@@ -1886,6 +1889,32 @@ internal sealed class __ClientName__ClientAssertion : global::Duende.AccessToken
                 ),
                 lifetime
             )
+        );
+    }
+
+    /// <summary>
+    ///     Checks that the <c>IClientAssertionService</c> Duende asks reaches <see cref="__ClientName__ClientAssertions" />: it is that one,
+    ///     or the one of a client registered later, which keeps the one before it keyed with its own type. One the application registered
+    ///     after <c>Add__ClientName__()</c> replaces it, and no assertion would be made.
+    /// </summary>
+    internal static void ValidateRegistration(global::System.IServiceProvider services, global::System.Collections.Generic.List<string> failures)
+    {
+        var service = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<global::Duende.AccessTokenManagement.IClientAssertionService>(services);
+        for (var hops = 0; service is not null && hops < 64; hops++)
+        {
+            if (service is global::__Namespace__.__ClientName__ClientAssertions)
+            {
+                return;
+            }
+
+            service = global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetKeyedService<global::Duende.AccessTokenManagement.IClientAssertionService>(
+                services,
+                service.GetType()
+            );
+        }
+
+        failures.Add(
+            "The Authentication of __ClientName__ is PrivateKeyJwt, and the IClientAssertionService registered after Add__ClientName__() replaces the one that makes its assertion: register your own before Add__ClientName__(), which keeps it for the other clients."
         );
     }
 

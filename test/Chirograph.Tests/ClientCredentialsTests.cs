@@ -207,6 +207,8 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
     /// <summary>
     /// <c>PrivateKeyJwt</c> needs <c>ClientId</c>, <c>TokenEndpoint</c> or <c>Authority</c>, and a certificate, and takes neither a
     /// <c>ClientSecret</c> nor a <c>ClientCredentialStyle</c>. A certificate that can't be loaded fails too. No failure repeats a value.
+    /// An <c>IClientAssertionService</c> of the application's own, registered after <c>AddRocketsClient()</c>, would replace the one that
+    /// makes the assertion, and fails too; registered before, it is kept for the other clients and the client authenticates.
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota)]
@@ -218,6 +220,7 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
         using var project = new SdkTestProject(targetFramework);
         var certificates = Path.Combine(project.Directory, "certificates");
         TestCertificates.WriteClientCertificate(certificates);
+        tokens.AssertionCertificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(certificates, "client.crt")));
         var pfx = Path.Combine(certificates, "client.pfx");
         var results = await RunScenarios(
             project,
@@ -236,11 +239,22 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
                     Path.Combine(certificates, "s3cr3t.pfx"),
                     ("TokenEndpoint", "https://s3cr3t.example/token")
                 ),
+                ["An assertion service of its own, registered after"] = With(
+                    AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", tokens.TokenEndpoint.ToString())),
+                    new() { [OwnAssertionServiceVariable] = "after" }
+                ),
+                ["An assertion service of its own, registered before"] = With(
+                    AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", tokens.TokenEndpoint.ToString())),
+                    new() { [OwnAssertionServiceVariable] = "before" }
+                ),
             }
         );
 
         await project.VerifyResult(results, generator.ToString());
     }
+
+    // where the application registers an IClientAssertionService of its own, before or after AddRocketsClient(), when it is set
+    private const string OwnAssertionServiceVariable = "TEST_OWN_ASSERTION_SERVICE";
 
     // the keys under Clients:RocketsClient for PrivateKeyJwt, with the BaseAddress of the API, the client id the token server knows the
     // certificate of, the certificate file (with the password of a PKCS#12 file), and the trust of the token server's certificate
@@ -358,7 +372,18 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
             builder.Logging.ClearProviders();
             // every HttpClient trusts the token server's certificate, Duende's back-channel client among them
             builder.Services.ConfigureHttpClientDefaults(http => http.ConfigurePrimaryHttpMessageHandler({{RocketsTlsApi.TrustServerCertificate}}));
+            var ownAssertionService = Environment.GetEnvironmentVariable("{{OwnAssertionServiceVariable}}");
+            if (ownAssertionService == "before")
+            {
+                builder.Services.AddSingleton<Duende.AccessTokenManagement.IClientAssertionService, OwnAssertionService>();
+            }
+
             builder.Services.AddRocketsClient().ConfigurePrimaryHttpMessageHandler({{RocketsTlsApi.TrustServerCertificate}});
+            if (ownAssertionService == "after")
+            {
+                builder.Services.AddSingleton<Duende.AccessTokenManagement.IClientAssertionService, OwnAssertionService>();
+            }
+
             {{addFusionCache}}
             using var host = builder.Build();
             {{countFusionCache}}
@@ -393,6 +418,16 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
             catch (Exception e)
             {
                 Console.WriteLine($"{e.GetType().FullName}: {e.Message}");
+            }
+
+            // an application's own assertions, for clients of its own: it makes none
+            sealed class OwnAssertionService : Duende.AccessTokenManagement.IClientAssertionService
+            {
+                public System.Threading.Tasks.Task<Duende.IdentityModel.Client.ClientAssertion?> GetClientAssertionAsync(
+                    Duende.AccessTokenManagement.ClientCredentialsClientName? clientName = null,
+                    Duende.AccessTokenManagement.TokenRequestParameters? parameters = null,
+                    System.Threading.CancellationToken ct = default
+                ) => System.Threading.Tasks.Task.FromResult<Duende.IdentityModel.Client.ClientAssertion?>(null);
             }
             """;
     }

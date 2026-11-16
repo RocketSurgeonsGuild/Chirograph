@@ -381,7 +381,8 @@ A certificate has one role: the one `PrivateKeyJwt` signs with is not also prese
 The assertion comes from an `IClientAssertionService`, registered keyed with the client's name (`"RocketsClient"`). Duende asks the
 unkeyed `IClientAssertionService` for the assertion of each of its clients; the registration makes that one hand each client to the
 service keyed with its name, and any other to the service registered before it (Duende's, which makes none, or the application's).
-An `IClientAssertionService` of the application's own registered after `AddRocketsClient()` replaces that one: register it before.
+An `IClientAssertionService` of the application's own registered after `AddRocketsClient()` would replace that one, so no assertion
+would be made: [validation](#validation) fails at startup and says to register it before, where it is kept for the other clients.
 
 ### Azure
 

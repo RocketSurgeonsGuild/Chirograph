@@ -272,10 +272,12 @@ internal sealed class RocketsClientOptionsSetup :
     // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '/''
     private const char SingleQuote = (char)39;
 
+    private readonly global::System.IServiceProvider _services;
     private readonly global::Microsoft.Extensions.Configuration.IConfiguration? _configuration;
 
     public RocketsClientOptionsSetup(global::System.IServiceProvider services)
     {
+        _services = services;
         _configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)services.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
     }
 
