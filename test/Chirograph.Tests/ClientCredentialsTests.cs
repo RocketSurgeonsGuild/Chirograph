@@ -199,8 +199,8 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
         var (clientType, getRocket) = generator switch
         {
             Generator.Kiota => ("RocketsClient", "client.Rockets[id].GetAsync()"),
-            Generator.Refitter => throw new NotImplementedException(),
-            _ => ("IRocketsClient", "client.GetRocket(id)"),
+            Generator.Refitter => ("IRocketsClient", "client.GetRocket(id)"),
+            _ => throw new ArgumentOutOfRangeException(nameof(generator), generator, null),
         };
         // FusionCache as the token cache, cleared after the calls, before one more
         var addFusionCache = fusionCache

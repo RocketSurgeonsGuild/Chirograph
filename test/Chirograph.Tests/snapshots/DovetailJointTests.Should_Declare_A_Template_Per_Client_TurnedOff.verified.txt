@@ -26,6 +26,7 @@
   },
   ProjectReference: {},
   Properties: {
+    ChirographDuendeAccessTokenManagementVersion: {pin: Duende.AccessTokenManagement},
     ChirographGenerateDovetailJoint: false,
     ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
     ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},

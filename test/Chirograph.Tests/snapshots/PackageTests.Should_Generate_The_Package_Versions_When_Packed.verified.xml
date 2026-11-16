@@ -7,5 +7,6 @@
 <ChirographKiotaBundleVersion Condition="'$(ChirographKiotaBundleVersion)' == ''">{pin: Microsoft.Kiota.Bundle}</ChirographKiotaBundleVersion>
 <ChirographRefitVersion Condition="'$(ChirographRefitVersion)' == ''">{pin: Refit.HttpClientFactory}</ChirographRefitVersion>
 <ChirographMicrosoftExtensionsHttpVersion Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' == ''">{pin: Microsoft.Extensions.Http}</ChirographMicrosoftExtensionsHttpVersion>
+<ChirographDuendeAccessTokenManagementVersion Condition="'$(ChirographDuendeAccessTokenManagementVersion)' == ''">{pin: Duende.AccessTokenManagement}</ChirographDuendeAccessTokenManagementVersion>
 </PropertyGroup>
 </Project>

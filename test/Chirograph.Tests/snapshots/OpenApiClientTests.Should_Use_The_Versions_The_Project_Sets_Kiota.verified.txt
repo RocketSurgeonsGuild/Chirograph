@@ -20,6 +20,7 @@
   },
   ProjectReference: {},
   Properties: {
+    ChirographDuendeAccessTokenManagementVersion: {pin: Duende.AccessTokenManagement},
     ChirographGenerateDovetailJoint: true,
     ChirographKiotaBundleVersion: 2.0.0,
     ChirographKiotaVersion: 1.37.0,
