@@ -22,6 +22,41 @@ The `Include` is a path relative to the project. A `.json` file is read as JSON,
 Anything that is not a project (`.csproj`, `.fsproj`, `.vbproj`) or a URL (`http://`, `https://`) is a file. A file that does not
 exist fails the build with [`CHIRO102`](../../reference/diagnostics/#chiro102).
 
+## The registration file
+
+The first build writes `RocketsClientServiceCollectionExtensions.cs` next to the project file: the project's part of the registration.
+It implements the hook every client must have (`CreateRefitSettings` here, `CreateRequestAdapter` for Kiota) by returning what the
+container gave, and has an empty `ConfigureHttpClientBuilder` for handlers of your own. Commit it; the build never writes it again.
+
+```csharp
+static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder) =>
+    builder.AddStandardResilienceHandler();
+```
+
+## Authenticate the client
+
+Register the authentication keyed with the client's name, then the client:
+
+```csharp
+// Kiota
+builder.Services.AddKeyedSingleton<IAuthenticationProvider>(
+    "RocketsClient",
+    (services, _) => new BaseBearerTokenAuthenticationProvider(services.GetRequiredService<IAccessTokenProvider>()));
+
+// Refitter
+builder.Services.AddKeyedSingleton(
+    "RocketsClient",
+    (services, _) => new RefitSettings
+    {
+        AuthorizationHeaderValueGetter = (request, cancellationToken) =>
+            services.GetRequiredService<ITokenSource>().GetTokenAsync(cancellationToken),
+    });
+
+builder.Services.AddRocketsClient();
+```
+
+See [Authentication](../../concepts/registration/#authentication) for the lookup and the hook.
+
 ## Several clients
 
 Give each client its own `ClientName`, and its own `Namespace` when they share a project, so their generated types don't collide:

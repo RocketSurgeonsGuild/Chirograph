@@ -69,6 +69,8 @@ public class IncrementalTests(string targetFramework) : LoggerTest<TestRecord>(T
             "Include" => (Generator.Kiota, "copy.json", null, ""),
             _ => throw new ArgumentOutOfRangeException(nameof(setting), setting, null),
         };
+        // the project's registration file was written for the first settings: the project deletes it, and the build writes it again
+        File.Delete(Path.Combine(project.Directory, "lib", "RocketsClientServiceCollectionExtensions.cs"));
         project.AddProject("lib/lib.csproj", project.CreateConsumer("Library").OpenApiClient(generator, include, metadata: metadata));
         var changed = await project.Build("lib", arguments);
 
@@ -97,6 +99,8 @@ public class IncrementalTests(string targetFramework) : LoggerTest<TestRecord>(T
             "lib/lib.csproj",
             project.CreateConsumer("Library").OpenApiClient(Generator.Refitter, "rockets.json", "KeptClient", new Dictionary<string, string?> { ["Namespace"] = "Throwaway.Kept" })
         );
+        // the project removes the registration file of the client too
+        File.Delete(Path.Combine(project.Directory, "lib", "RemovedClientServiceCollectionExtensions.cs"));
         var afterRemoving = await project.Build("lib");
 
         await project.VerifyResult(

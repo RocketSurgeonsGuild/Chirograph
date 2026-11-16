@@ -1,0 +1,1 @@
+﻿Refit.ApiRequestException: The request was canceled due to the configured HttpClient.Timeout of 0.5 seconds elapsing.

@@ -5,9 +5,9 @@ using Rockets.Client.Kiota;
 using Rockets.Client.Refitter;
 using Rockets.Client.Url;
 
-// Registers the three clients with their generated Add<ClientName>() extensions, without Dovetail. Each client reads its base address
-// from Clients:<ClientName>:BaseAddress, for example the environment variable Clients__RocketsClient__BaseAddress=http://localhost:5179/
-// (mise run sample:run sets all of them). Each lists the rockets of a running Rockets.Api and gets the second one; the app exits
+// Registers the three clients with their generated Add<ClientName>() extensions, without Dovetail. Each client reads its section,
+// Clients:<ClientName>: appsettings.json sets a Timeout and a default request header, and the base address comes from the environment,
+// for example Clients__RocketsClient__BaseAddress=http://localhost:5179/ (mise run sample:run sets all of them). Each lists the rockets of a running Rockets.Api and gets the second one; the app exits
 // non-zero when a call fails or the clients disagree.
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
