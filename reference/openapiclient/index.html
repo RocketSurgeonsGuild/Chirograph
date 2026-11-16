@@ -122,17 +122,18 @@ packages, tool downloads and server references) and again when it builds.</p>
 <td>More arguments for the generator: after <code dir="auto">kiota generate …</code>, or after Refitter’s settings file. See <a href="../../concepts/generators/#what-chirograph-passes">Generators</a>.</td>
 </tr>
 <tr>
-<td><code dir="auto">RegistrationFile</code></td>
+<td><code dir="auto">Authentication</code></td>
 <td>no</td>
-<td><code dir="auto">&#x3C;ClientName>ServiceCollectionExtensions.cs</code></td>
-<td>The project’s own part of the registration class, relative to the project. The build writes it when it is missing (unless <code dir="auto">ChirographScaffoldRegistration</code> is <code dir="auto">false</code>) and never again. See <a href="../../concepts/registration/#the-registration-file">Registration</a>.</td>
+<td></td>
+<td>A <code dir="auto">;</code>-separated list of the authentication methods the client may use beyond <code dir="auto">None</code>, <code dir="auto">ApiKey</code>, <code dir="auto">Bearer</code> and <code dir="auto">Basic</code>: <code dir="auto">ClientCredentials</code>, which adds <code dir="auto">Duende.AccessTokenManagement</code> and allows <code dir="auto">ClientCredentials</code> and <code dir="auto">PrivateKeyJwt</code>, and <code dir="auto">Azure</code>, which adds <code dir="auto">Azure.Identity</code> and allows <code dir="auto">AzureDefault</code>, <code dir="auto">AzureManagedIdentity</code>, <code dir="auto">AzureWorkloadIdentity</code> and <code dir="auto">AzureServicePrincipal</code>. An unknown value is <a href="../diagnostics/#chiro109"><code dir="auto">CHIRO109</code></a>. See <a href="../../concepts/registration/#client-credentials">Client credentials</a>, <a href="../../concepts/registration/#private-key-jwt">Private key JWT</a> and <a href="../../concepts/registration/#azure">Azure</a>.</td>
 </tr>
 </tbody>
 </table>
 <p><code dir="auto">DocumentName</code> is ignored for a file or URL, and <code dir="auto">DocumentCache</code> and <code dir="auto">UpdateDocumentCache</code> for a file or server project.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="what-changes-when">What changes when</h2><a class="sl-anchor-link" href="#what-changes-when"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “What changes when”</span></a></div>
 <ul>
-<li>Changing <code dir="auto">Generator</code>, <code dir="auto">ClientName</code>, <code dir="auto">Namespace</code> or <code dir="auto">Options</code> generates the client again on the next build.</li>
+<li>Changing <code dir="auto">Generator</code>, <code dir="auto">ClientName</code>, <code dir="auto">Namespace</code> or <code dir="auto">Options</code> generates the client again on the next build. Changing
+<code dir="auto">Authentication</code> only rewrites the registration and the options.</li>
 <li>Changing <code dir="auto">Include</code> to another document of the same content changes nothing: the client is generated from the content, not the
 path.</li>
 <li>Removing an item leaves its folder in <code dir="auto">obj</code>, but its code is no longer compiled.</li>
