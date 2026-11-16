@@ -142,17 +142,20 @@ public sealed class RocketsClientOptions
     public string? CertificateStore { get; set; }
 
     /// <summary>
-    ///     The client id of <c>ClientCredentials</c>, or of the application or user-assigned identity of an Azure method (key
-    ///     <c>ClientId</c>).
+    ///     The client id of <c>ClientCredentials</c> and <c>PrivateKeyJwt</c>, or of the application or user-assigned identity of an Azure
+    ///     method (key <c>ClientId</c>).
     /// </summary>
     public string? ClientId { get; set; }
 
-    /// <summary>The client secret of <c>ClientCredentials</c> or <c>AzureServicePrincipal</c> (key <c>ClientSecret</c>).</summary>
+    /// <summary>
+    ///     The client secret of <c>ClientCredentials</c> or <c>AzureServicePrincipal</c> (key <c>ClientSecret</c>). Not with
+    ///     <c>PrivateKeyJwt</c>, which signs instead.
+    /// </summary>
     public string? ClientSecret { get; set; }
 
     /// <summary>
-    ///     The scope a token is asked for, space-separated (key <c>Scope</c>): optional for <c>ClientCredentials</c>, needed by an Azure
-    ///     method (<c>api://rockets/.default</c>, say).
+    ///     The scope a token is asked for, space-separated (key <c>Scope</c>): optional for <c>ClientCredentials</c> and
+    ///     <c>PrivateKeyJwt</c>, needed by an Azure method (<c>api://rockets/.default</c>, say).
     /// </summary>
     public string? Scope { get; set; }
 
@@ -232,6 +235,7 @@ internal sealed class RocketsClientOptionsSetup :
     private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
     [
         new("ClientCredentials", "ClientCredentials"),
+        new("PrivateKeyJwt", "ClientCredentials"),
         new("AzureDefault", "Azure"),
         new("AzureManagedIdentity", "Azure"),
         new("AzureWorkloadIdentity", "Azure"),

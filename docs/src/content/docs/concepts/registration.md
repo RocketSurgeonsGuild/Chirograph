@@ -217,7 +217,8 @@ handler sends them. With `None`, the default, the container gives the client its
 | `Bearer`         | `Token`, or `TokenProvider` in code                                                                        | `Authorization: Bearer <token>`.          |
 | `Basic`          | `Username`, `Password`                                                                                     | `Authorization: Basic`, the two in UTF-8. |
 
-`ClientCredentials` is one more method, which the `OpenApiClient` item declares: see [Client credentials](#client-credentials).
+`ClientCredentials` and `PrivateKeyJwt` are two more methods, which the `OpenApiClient` item declares: see
+[Client credentials](#client-credentials) and [Private key JWT](#private-key-jwt).
 
 ```json
 {
@@ -264,8 +265,8 @@ the default `https+http://<ClientName>` is one.
 ### Client credentials
 
 `ClientCredentials` gets an OAuth access token with the client-credentials grant and sends it as `Authorization: Bearer <token>`, through
-[Duende.AccessTokenManagement](https://docs.duendesoftware.com/accesstokenmanagement/) 4.x. It is the one method the `OpenApiClient` item
-must declare, because it needs that package:
+[Duende.AccessTokenManagement](https://docs.duendesoftware.com/accesstokenmanagement/) 4.x. The `OpenApiClient` item must declare it,
+because it needs that package (the declaration allows [`PrivateKeyJwt`](#private-key-jwt) too):
 
 ```xml
 <OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Authentication="ClientCredentials" />
@@ -336,6 +337,42 @@ Duende doesn't claim compatibility with native AOT: a native publish of a client
 `Microsoft.Extensions.Caching.Hybrid`'s default JSON serializer (its token cache), and works. A client that doesn't declare it adds no
 package and no warning.
 
+### Private key JWT
+
+`PrivateKeyJwt` is `ClientCredentials` with a client assertion (`private_key_jwt`, RFC 7523) in place of the secret: the client proves
+who it is with a short-lived JWT signed by its certificate. The `ClientCredentials` declaration on the `OpenApiClient` item allows it.
+It takes the keys of `ClientCredentials` without `ClientSecret` and `ClientCredentialStyle`, plus a certificate, given with the
+[certificate keys](#client-certificate-mtls):
+
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "BaseAddress": "https://rockets.example.com/",
+            "Authentication": "PrivateKeyJwt",
+            "Authority": "https://login.example.com/",
+            "ClientId": "rockets-app",
+            "CertificatePath": "/run/secrets/rockets-signing.pfx",
+            "CertificatePassword": "…",
+            "Scope": "rockets.read"
+        }
+    }
+}
+```
+
+The assertion has `iss` and `sub` set to `ClientId`, `aud` set to the token endpoint (the configured one, or the one the discovery
+document of `Authority` gives), a random `jti`, and `exp` five minutes ahead. It is signed through `Microsoft.IdentityModel.JsonWebTokens`,
+which Duende brings: RS256 with an RSA key, ES256, ES384 or ES512 with an EC key. The certificate is loaded for each assertion, and
+Duende asks for one only when it requests a token, so a renewed file is read on the next token request. Startup checks that a
+certificate is given, and that it loads with its private key. A `ClientSecret` alongside fails [validation](#validation).
+
+A certificate has one role: the one `PrivateKeyJwt` signs with is not also presented for [mutual TLS](#client-certificate-mtls).
+
+The assertion comes from an `IClientAssertionService`, registered keyed with the client's name (`"RocketsClient"`). Duende asks the
+unkeyed `IClientAssertionService` for the assertion of each of its clients; the registration makes that one hand each client to the
+service keyed with its name, and any other to the service registered before it (Duende's, which makes none, or the application's).
+An `IClientAssertionService` of the application's own registered after `AddRocketsClient()` replaces that one: register it before.
+
 ### From the container
 
 With `Authentication` set to `None`, when the client is created, the registration takes its authentication from the container, under
@@ -384,7 +421,8 @@ builder.Services.AddRocketsClient(options =>
 
 ## Client certificate (mTLS)
 
-A client can present a certificate to the server, for mutual TLS, whatever its `Authentication`, `None` included. Give it as a file:
+A client can present a certificate to the server, for mutual TLS, whatever its `Authentication`, `None` included, unless
+[`PrivateKeyJwt`](#private-key-jwt) signs with it. Give it as a file:
 
 ```json
 {

@@ -84,7 +84,7 @@
       },
       "CertificatePath": {
         "type": "string",
-        "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+        "description": "A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint."
       },
       "CertificatePassword": {
         "type": "string",
@@ -96,7 +96,7 @@
       },
       "CertificateThumbprint": {
         "type": "string",
-        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath."
       },
       "CertificateStore": {
         "type": "string",
@@ -105,15 +105,15 @@
       },
       "ClientId": {
         "type": "string",
-        "description": "The client id of ClientCredentials, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method."
+        "description": "The client id of ClientCredentials and PrivateKeyJwt, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method."
       },
       "ClientSecret": {
         "type": "string",
-        "description": "The client secret of ClientCredentials or AzureServicePrincipal. AzureServicePrincipal takes it or the certificate keys, not both. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+        "description": "The client secret of ClientCredentials or AzureServicePrincipal. Not with PrivateKeyJwt, which signs with the certificate instead; AzureServicePrincipal takes it or the certificate keys, not both. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
       },
       "Scope": {
         "type": "string",
-        "description": "The scopes a token is asked for, space-separated: optional for ClientCredentials, needed by an Azure method (api://rockets/.default, say)."
+        "description": "The scopes a token is asked for, space-separated: optional for ClientCredentials and PrivateKeyJwt, needed by an Azure method (api://rockets/.default, say)."
       },
       "TenantId": {
         "type": "string",
@@ -451,7 +451,7 @@
       },
       "CertificatePath": {
         "type": "string",
-        "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+        "description": "A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint."
       },
       "CertificatePassword": {
         "type": "string",
@@ -463,7 +463,7 @@
       },
       "CertificateThumbprint": {
         "type": "string",
-        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath."
       },
       "CertificateStore": {
         "type": "string",
@@ -472,15 +472,15 @@
       },
       "ClientId": {
         "type": "string",
-        "description": "The client id of ClientCredentials, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method."
+        "description": "The client id of ClientCredentials and PrivateKeyJwt, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method."
       },
       "ClientSecret": {
         "type": "string",
-        "description": "The client secret of ClientCredentials or AzureServicePrincipal. AzureServicePrincipal takes it or the certificate keys, not both. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
+        "description": "The client secret of ClientCredentials or AzureServicePrincipal. Not with PrivateKeyJwt, which signs with the certificate instead; AzureServicePrincipal takes it or the certificate keys, not both. It is a secret: keep it out of appsettings.json, in user secrets, an environment variable or a vault, say."
       },
       "Scope": {
         "type": "string",
-        "description": "The scopes a token is asked for, space-separated: optional for ClientCredentials, needed by an Azure method (api://rockets/.default, say)."
+        "description": "The scopes a token is asked for, space-separated: optional for ClientCredentials and PrivateKeyJwt, needed by an Azure method (api://rockets/.default, say)."
       },
       "TenantId": {
         "type": "string",

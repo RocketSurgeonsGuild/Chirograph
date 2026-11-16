@@ -99,7 +99,7 @@
       },
       "CertificatePath": {
         "type": "string",
-        "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+        "description": "A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint."
       },
       "CertificatePassword": {
         "type": "string",
@@ -111,7 +111,7 @@
       },
       "CertificateThumbprint": {
         "type": "string",
-        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath."
       },
       "CertificateStore": {
         "type": "string",
@@ -300,7 +300,7 @@
       },
       "CertificatePath": {
         "type": "string",
-        "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+        "description": "A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint."
       },
       "CertificatePassword": {
         "type": "string",
@@ -312,7 +312,7 @@
       },
       "CertificateThumbprint": {
         "type": "string",
-        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath."
       },
       "CertificateStore": {
         "type": "string",

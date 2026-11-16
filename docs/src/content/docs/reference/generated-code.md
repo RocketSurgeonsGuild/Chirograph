@@ -149,13 +149,16 @@ constants and the return type are public API. The body can change between releas
 
 With `Authentication="ClientCredentials"` on the item, and only then, the file also has:
 
-- `ClientCredentials` in `RocketsClientAuthentication`, and its keys on `RocketsClientOptions`: `ClientId`, `ClientSecret`, `Scope`,
-  `TokenEndpoint`, `Authority`, `Resource` and `ClientCredentialStyle`.
+- `ClientCredentials` and `PrivateKeyJwt` in `RocketsClientAuthentication`, and their keys on `RocketsClientOptions`: `ClientId`,
+  `ClientSecret`, `Scope`, `TokenEndpoint`, `Authority`, `Resource` and `ClientCredentialStyle`.
 - `RocketsClientCredentialStyle`, public: `Header` or `Body`.
 - `RocketsClientClientCredentials`, internal: it configures Duende's client-credentials client `RocketsClient` from the options,
   reads the token endpoint from the `Authority`'s discovery document, and gives the handler the token (see
   [Client credentials](../../concepts/registration/#client-credentials)). The registration calls Duende's
   `AddClientCredentialsTokenManagement()`.
+- `RocketsClientClientAssertion`, internal: the `IClientAssertionService` keyed `"RocketsClient"`, which signs the assertion of
+  `PrivateKeyJwt` with the certificate, and `RocketsClientClientAssertions`, internal: the unkeyed `IClientAssertionService` Duende
+  asks, which hands each client to the one keyed with its name (see [Private key JWT](../../concepts/registration/#private-key-jwt)).
 
 The public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
 the sources and [Validation](../../concepts/registration/#validation) for what fails.

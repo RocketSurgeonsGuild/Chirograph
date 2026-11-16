@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -17,7 +18,8 @@ namespace Chirograph.Tests.Scaffolding;
 ///     An OAuth token server for the client-credentials tests, over HTTPS on Kestrel on a free port of the loopback interface (an
 ///     <c>Authority</c> must be https). It issues tokens <c>t1</c>, <c>t2</c>… at <c>/connect/token</c> to <see cref="ClientId" /> (and
 ///     <see cref="ShortLivedClientId" />, whose tokens live only a little longer than Duende's cache buffer) with
-///     <see cref="ClientSecret" />, given in the <c>Authorization</c> header or in the body, and serves a discovery document at
+///     <see cref="ClientSecret" />, given in the <c>Authorization</c> header or in the body, and to <see cref="AssertionClientId" /> with a
+///     client assertion signed by <see cref="AssertionCertificate" />, and serves a discovery document at
 ///     <c>/.well-known/openid-configuration</c>. <see cref="Requests" /> records each request, without a secret, so a test sees how many
 ///     tokens a client asked for, how, and when it read the discovery document. <see cref="IsValid" /> tells <see cref="RocketsApi" /> which
 ///     bearer tokens it issued. The server certificate is self-signed: an application trusts it by pinning <see cref="ServerCertificateHash" />
@@ -33,6 +35,15 @@ internal sealed class TokenServer : IAsyncDisposable
 
     /// <summary>The secret of both clients.</summary>
     public const string ClientSecret = "s3cr3t";
+
+    /// <summary>
+    ///     A client id the server issues tokens to for an hour when it authenticates with a client assertion (RFC 7523) that
+    ///     <see cref="AssertionCertificate" /> signed.
+    /// </summary>
+    public const string AssertionClientId = "rockets-app-jwt";
+
+    /// <summary>The certificate, without its private key, that the assertions of <see cref="AssertionClientId" /> must be signed by.</summary>
+    public X509Certificate2? AssertionCertificate { get; set; }
 
     private TokenServer(X509Certificate2 serverCertificate) => _serverCertificate = serverCertificate;
 
@@ -83,6 +94,11 @@ internal sealed class TokenServer : IAsyncDisposable
     private async Task<IResult> Token(HttpContext context)
     {
         var form = await context.Request.ReadFormAsync();
+        if (form.ContainsKey("client_assertion") || form.ContainsKey("client_assertion_type"))
+        {
+            return Assertion(form);
+        }
+
         string? clientId, clientSecret, style;
         if (context.Request.Headers.Authorization.ToString() is { Length: > 0 } authorization && authorization.StartsWith("Basic ", StringComparison.Ordinal))
         {
@@ -100,12 +116,87 @@ internal sealed class TokenServer : IAsyncDisposable
             return Results.Json(new { error = "invalid_client" }, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        return Issue(clientId == ShortLivedClientId ? 61 : 3600, $"{style}, scope={form["scope"]}, resource={form["resource"]}");
+    }
+
+    private IResult Issue(int lifetime, string how)
+    {
         var token = $"t{Interlocked.Increment(ref _issued)}";
-        var lifetime = clientId == ShortLivedClientId ? 61 : 3600;
         _tokens[token] = DateTimeOffset.UtcNow.AddSeconds(lifetime);
-        _requests.Enqueue($"token {token} ({style}, scope={form["scope"]}, resource={form["resource"]})");
+        _requests.Enqueue($"token {token} ({how})");
         return Results.Json(new { access_token = token, token_type = "Bearer", expires_in = lifetime });
     }
+
+    // checks a client assertion (RFC 7523) by hand, independently of the library that signed it: its type, its RS256 signature against
+    // AssertionCertificate, iss and sub (the client id), aud (the token endpoint), a jti never seen before, and an exp in the future and
+    // at most ten minutes away; records its lifetime (exp - iat)
+    private IResult Assertion(IFormCollection form)
+    {
+        string? Refuse(string why)
+        {
+            _requests.Enqueue($"token refused (assertion: {why})");
+            return null;
+        }
+
+        string? Check()
+        {
+            if (form["client_assertion_type"] != "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+            {
+                return Refuse("client_assertion_type");
+            }
+
+            if (form["grant_type"] != "client_credentials" || form.ContainsKey("client_secret"))
+            {
+                return Refuse("grant_type or client_secret");
+            }
+
+            var parts = form["client_assertion"].ToString().Split('.');
+            if (parts.Length != 3 || AssertionCertificate is null)
+            {
+                return Refuse("not a JWS");
+            }
+
+            using var header = JsonDocument.Parse(Base64UrlDecode(parts[0]));
+            using var payload = JsonDocument.Parse(Base64UrlDecode(parts[1]));
+            using var key = AssertionCertificate.GetRSAPublicKey()!;
+            if (header.RootElement.GetProperty("alg").GetString() != "RS256"
+             || !key.VerifyData(Encoding.ASCII.GetBytes(parts[0] + "." + parts[1]), Base64UrlDecode(parts[2]), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
+            {
+                return Refuse("signature");
+            }
+
+            var claims = payload.RootElement;
+            string? Claim(string name) => claims.TryGetProperty(name, out var value) ? value.ToString() : null;
+            if (Claim("iss") != AssertionClientId || Claim("sub") != AssertionClientId)
+            {
+                return Refuse("iss or sub");
+            }
+
+            if (Claim("aud") != TokenEndpoint.ToString())
+            {
+                return Refuse("aud");
+            }
+
+            if (Claim("jti") is not { Length: > 0 } jti || !_assertionIds.TryAdd(jti, 0))
+            {
+                return Refuse("jti");
+            }
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            return !claims.TryGetProperty("exp", out var exp) || exp.GetInt64() <= now || exp.GetInt64() > now + 600
+                ? Refuse("exp")
+                : claims.TryGetProperty("iat", out var iat)
+                    ? $"{exp.GetInt64() - iat.GetInt64()}s"
+                    : "no iat";
+        }
+
+        return Check() is { } lifetime
+            ? Issue(3600, $"assertion RS256, lifetime {lifetime}, scope={form["scope"]}, resource={form["resource"]}")
+            : Results.Json(new { error = "invalid_client" }, statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    private static byte[] Base64UrlDecode(string value) =>
+        Convert.FromBase64String(value.Replace('-', '+').Replace('_', '/').PadRight(value.Length + ( ( 4 - ( value.Length % 4 ) ) % 4 ), '='));
 
     private IResult Discovery()
     {
@@ -117,5 +208,6 @@ internal sealed class TokenServer : IAsyncDisposable
     private readonly X509Certificate2 _serverCertificate;
     private readonly ConcurrentQueue<string> _requests = new();
     private readonly ConcurrentDictionary<string, DateTimeOffset> _tokens = new();
+    private readonly ConcurrentDictionary<string, byte> _assertionIds = new();
     private int _issued;
 }

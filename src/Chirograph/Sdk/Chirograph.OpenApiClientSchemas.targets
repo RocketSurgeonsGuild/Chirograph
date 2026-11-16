@@ -81,6 +81,7 @@
       <_ChirographOpenApiClientMethod Include="Bearer" />
       <_ChirographOpenApiClientMethod Include="Basic" Requires="Username" />
       <_ChirographOpenApiClientMethod Include="ClientCredentials" Feature="ClientCredentials" Requires="ClientId;TokenEndpoint|Authority" />
+      <_ChirographOpenApiClientMethod Include="PrivateKeyJwt" Feature="ClientCredentials" Requires="ClientId;TokenEndpoint|Authority;CertificatePath|CertificateThumbprint" />
       <_ChirographOpenApiClientMethod Include="AzureDefault" Feature="Azure" Requires="Scope" />
       <_ChirographOpenApiClientMethod Include="AzureManagedIdentity" Feature="Azure" Requires="Scope" />
       <_ChirographOpenApiClientMethod Include="AzureWorkloadIdentity" Feature="Azure" Requires="Scope" />
@@ -148,7 +149,7 @@
         <Description>The password of Basic.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="CertificatePath">
-        <Description>A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint.</Description>
+        <Description>A client certificate: a PKCS#12 (.pfx, .p12) or PEM file, presented for mutual TLS whatever the Authentication, unless PrivateKeyJwt or AzureServicePrincipal signs with it. Not with CertificateThumbprint.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="CertificatePassword" Secret="true">
         <Description>The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key.</Description>
@@ -157,31 +158,31 @@
         <Description>The PEM private key, when CertificatePath is a PEM certificate without its key.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="CertificateThumbprint">
-        <Description>The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath.</Description>
+        <Description>The thumbprint of a client certificate in CertificateStore, instead of a file (for mutual TLS, or for PrivateKeyJwt or AzureServicePrincipal to sign with). Not with CertificatePath.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="CertificateStore">
         <Schema>"type": "string", "pattern": "^[A-Za-z]+/[^/]+$"</Schema>
         <Description>The store CertificateThumbprint is in, as &lt;location&gt;/&lt;name&gt;: CurrentUser/My (the default) or LocalMachine/My, say.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="ClientId" Methods="ClientCredentials;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
-        <Description>The client id of ClientCredentials, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method.</Description>
+      <_ChirographOpenApiClientKey Include="ClientId" Methods="ClientCredentials;PrivateKeyJwt;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Description>The client id of ClientCredentials and PrivateKeyJwt, or of the application (AzureServicePrincipal, AzureWorkloadIdentity) or user-assigned managed identity (AzureManagedIdentity, AzureDefault) of an Azure method.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="ClientSecret" Methods="ClientCredentials;AzureServicePrincipal" Secret="true">
-        <Description>The client secret of ClientCredentials or AzureServicePrincipal. AzureServicePrincipal takes it or the certificate keys, not both.</Description>
+        <Description>The client secret of ClientCredentials or AzureServicePrincipal. Not with PrivateKeyJwt, which signs with the certificate instead%3B AzureServicePrincipal takes it or the certificate keys, not both.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="Scope" Methods="ClientCredentials;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
-        <Description>The scopes a token is asked for, space-separated: optional for ClientCredentials, needed by an Azure method (api://rockets/.default, say).</Description>
+      <_ChirographOpenApiClientKey Include="Scope" Methods="ClientCredentials;PrivateKeyJwt;AzureDefault;AzureManagedIdentity;AzureWorkloadIdentity;AzureServicePrincipal">
+        <Description>The scopes a token is asked for, space-separated: optional for ClientCredentials and PrivateKeyJwt, needed by an Azure method (api://rockets/.default, say).</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="TokenEndpoint" Methods="ClientCredentials">
+      <_ChirographOpenApiClientKey Include="TokenEndpoint" Methods="ClientCredentials;PrivateKeyJwt">
         <Schema>"type": "string", "format": "uri"</Schema>
-        <Description>The token endpoint of ClientCredentials, an absolute http or https URI. Not with Authority.</Description>
+        <Description>The token endpoint of ClientCredentials and PrivateKeyJwt, an absolute http or https URI. Not with Authority.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="Authority" Methods="ClientCredentials">
+      <_ChirographOpenApiClientKey Include="Authority" Methods="ClientCredentials;PrivateKeyJwt">
         <Schema>"type": "string", "format": "uri", "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"</Schema>
-        <Description>The authority of ClientCredentials, an absolute https URI whose discovery document gives the token endpoint, read on the first token request. Not with TokenEndpoint.</Description>
+        <Description>The authority of ClientCredentials and PrivateKeyJwt, an absolute https URI whose discovery document gives the token endpoint, read on the first token request. Not with TokenEndpoint.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="Resource" Methods="ClientCredentials">
-        <Description>The resource ClientCredentials asks a token for (RFC 8707).</Description>
+      <_ChirographOpenApiClientKey Include="Resource" Methods="ClientCredentials;PrivateKeyJwt">
+        <Description>The resource ClientCredentials and PrivateKeyJwt ask a token for (RFC 8707).</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="ClientCredentialStyle" Methods="ClientCredentials">
         <Schema>"type": "string", "enum": ["Header", "Body"]</Schema>
