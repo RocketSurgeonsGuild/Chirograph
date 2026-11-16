@@ -58,6 +58,8 @@ public static class RocketsClientServiceCollectionExtensions
             foreach (var header in options.DefaultRequestHeaders)
                 httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
         });
+        // the client certificate (mTLS), on the primary handler the factory made
+        builder.ConfigurePrimaryHttpMessageHandler((handler, provider) => RocketsClientCertificate.Present(handler, Options(provider)));
         builder.AddTypedClient<RocketsClient>((httpClient, services) =>
         {
             // keyed with "RocketsClient", else unkeyed, else none (anonymous for the authentication provider)
@@ -115,13 +117,16 @@ constants and the return type are public API. The body can change between releas
 
 `RocketsClientOptions.g.cs` holds the client's options and what fills them:
 
-- `RocketsClientOptions`, public: `BaseAddress`, `Timeout`, `DefaultRequestHeaders`, `Resilience`, `AllowedHosts` and
-  `Authentication`, plus `ConfigureRequestAdapter` (Kiota) or `ConfigureRefitSettings` (Refitter).
+- `RocketsClientOptions`, public: `BaseAddress`, `Timeout`, `DefaultRequestHeaders`, `Resilience`, `AllowedHosts`,
+  `Authentication`, and the certificate keys `CertificatePath`, `CertificatePassword`, `CertificateKeyPath`,
+  `CertificateThumbprint` and `CertificateStore`, plus `ConfigureRequestAdapter` (Kiota) or `ConfigureRefitSettings` (Refitter).
 - `RocketsClientAuthentication`, public: the methods the client can be configured with (`None` so far).
 - `RocketsClientOptionsSetup`, internal: it fills the options from the keys under `Clients:RocketsClient` (an
   `IConfigureOptions`) and from the connection string (an `IPostConfigureOptions`), validates them (an `IValidateOptions`), and
   reloads them with the configuration (an `IOptionsChangeTokenSource`). It parses the connection string itself, without
   `DbConnectionStringBuilder` or the configuration binder, so nothing in it needs reflection.
+- `RocketsClientCertificate`, internal: it loads the certificate the certificate keys give (a PKCS#12 or PEM file, or a store),
+  checks those keys, and sets the certificate on the primary handler for mutual TLS.
 
 The two public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
 the sources and [Validation](../../concepts/registration/#validation) for what fails.

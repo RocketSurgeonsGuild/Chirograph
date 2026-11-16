@@ -43,6 +43,11 @@ The registration reads the whole section (see [Registration](../../concepts/regi
 | `Resilience`            | boolean                 | `true` adds the standard resilience handler. Only takes effect when the project references `Microsoft.Extensions.Http.Resilience`.                   |
 | `AllowedHosts`          | array of strings        | More hosts than the `BaseAddress` host that may receive the client's credentials.                                                                    |
 | `Authentication`        | `None`                  | How the client authenticates. `None`, the default, takes the authentication from the container.                                                      |
+| `CertificatePath`       | string                  | A client certificate for mutual TLS: a PKCS#12 (`.pfx`, `.p12`) or PEM file. Not with `CertificateThumbprint`.                                       |
+| `CertificatePassword`   | string                  | The password of the PKCS#12 file, or of its encrypted PEM key.                                                                                       |
+| `CertificateKeyPath`    | string                  | The PEM private key, when `CertificatePath` is a PEM certificate without its key.                                                                    |
+| `CertificateThumbprint` | string                  | A client certificate in `CertificateStore`, instead of a file.                                                                                       |
+| `CertificateStore`      | `<location>/<name>`     | The store of `CertificateThumbprint`: `CurrentUser/My` (the default) or `LocalMachine/My`, say.                                                      |
 
 ```json
 {

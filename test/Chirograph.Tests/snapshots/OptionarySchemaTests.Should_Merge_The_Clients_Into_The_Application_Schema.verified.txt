@@ -65,11 +65,32 @@
           "None"
         ],
         "description": "How the client authenticates. None (the default): the client takes its authentication from the container."
+      },
+      "CertificatePath": {
+        "type": "string",
+        "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+      },
+      "CertificatePassword": {
+        "type": "string",
+        "description": "The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key."
+      },
+      "CertificateKeyPath": {
+        "type": "string",
+        "description": "The PEM private key, when CertificatePath is a PEM certificate without its key."
+      },
+      "CertificateThumbprint": {
+        "type": "string",
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+      },
+      "CertificateStore": {
+        "type": "string",
+        "pattern": "^[A-Za-z]+/[^/]+$",
+        "description": "The store CertificateThumbprint is in, as <location>/<name>: CurrentUser/My (the default) or LocalMachine/My, say."
       }
     },
     "propertyNames": {
-      "pattern": "^(?:[Cc][Oo][Nn][Nn][Ee][Cc][Tt][Ii][Oo][Nn][Ss][Tt][Rr][Ii][Nn][Gg]|[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Ee][Nn][Dd][Pp][Oo][Ii][Nn][Tt]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee]|[Aa][Ll][Ll][Oo][Ww][Ee][Dd][Hh][Oo][Ss][Tt][Ss]|[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ii][Oo][Nn])$",
-      "patternErrorMessage": "Unknown key in section \"Clients:KiotaClient\". Known keys (case-insensitive): ConnectionString, BaseAddress, Endpoint, Timeout, DefaultRequestHeaders, Resilience, AllowedHosts, Authentication.",
+      "pattern": "^(?:[Cc][Oo][Nn][Nn][Ee][Cc][Tt][Ii][Oo][Nn][Ss][Tt][Rr][Ii][Nn][Gg]|[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Ee][Nn][Dd][Pp][Oo][Ii][Nn][Tt]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee]|[Aa][Ll][Ll][Oo][Ww][Ee][Dd][Hh][Oo][Ss][Tt][Ss]|[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ii][Oo][Nn]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Kk][Ee][Yy][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Tt][Hh][Uu][Mm][Bb][Pp][Rr][Ii][Nn][Tt]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Ss][Tt][Oo][Rr][Ee])$",
+      "patternErrorMessage": "Unknown key in section \"Clients:KiotaClient\". Known keys (case-insensitive): ConnectionString, BaseAddress, Endpoint, Timeout, DefaultRequestHeaders, Resilience, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint, CertificateStore.",
       "doNotSuggest": true
     }
   },
@@ -120,11 +141,32 @@
           "None"
         ],
         "description": "How the client authenticates. None (the default): the client takes its authentication from the container."
+      },
+      "CertificatePath": {
+        "type": "string",
+        "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+      },
+      "CertificatePassword": {
+        "type": "string",
+        "description": "The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key."
+      },
+      "CertificateKeyPath": {
+        "type": "string",
+        "description": "The PEM private key, when CertificatePath is a PEM certificate without its key."
+      },
+      "CertificateThumbprint": {
+        "type": "string",
+        "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+      },
+      "CertificateStore": {
+        "type": "string",
+        "pattern": "^[A-Za-z]+/[^/]+$",
+        "description": "The store CertificateThumbprint is in, as <location>/<name>: CurrentUser/My (the default) or LocalMachine/My, say."
       }
     },
     "propertyNames": {
-      "pattern": "^(?:[Cc][Oo][Nn][Nn][Ee][Cc][Tt][Ii][Oo][Nn][Ss][Tt][Rr][Ii][Nn][Gg]|[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Ee][Nn][Dd][Pp][Oo][Ii][Nn][Tt]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee]|[Aa][Ll][Ll][Oo][Ww][Ee][Dd][Hh][Oo][Ss][Tt][Ss]|[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ii][Oo][Nn])$",
-      "patternErrorMessage": "Unknown key in section \"Clients:RefitterClient\". Known keys (case-insensitive): ConnectionString, BaseAddress, Endpoint, Timeout, DefaultRequestHeaders, Resilience, AllowedHosts, Authentication.",
+      "pattern": "^(?:[Cc][Oo][Nn][Nn][Ee][Cc][Tt][Ii][Oo][Nn][Ss][Tt][Rr][Ii][Nn][Gg]|[Bb][Aa][Ss][Ee][Aa][Dd][Dd][Rr][Ee][Ss][Ss]|[Ee][Nn][Dd][Pp][Oo][Ii][Nn][Tt]|[Tt][Ii][Mm][Ee][Oo][Uu][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Rr][Ee][Qq][Uu][Ee][Ss][Tt][Hh][Ee][Aa][Dd][Ee][Rr][Ss]|[Rr][Ee][Ss][Ii][Ll][Ii][Ee][Nn][Cc][Ee]|[Aa][Ll][Ll][Oo][Ww][Ee][Dd][Hh][Oo][Ss][Tt][Ss]|[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ii][Oo][Nn]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Kk][Ee][Yy][Pp][Aa][Tt][Hh]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Tt][Hh][Uu][Mm][Bb][Pp][Rr][Ii][Nn][Tt]|[Cc][Ee][Rr][Tt][Ii][Ff][Ii][Cc][Aa][Tt][Ee][Ss][Tt][Oo][Rr][Ee])$",
+      "patternErrorMessage": "Unknown key in section \"Clients:RefitterClient\". Known keys (case-insensitive): ConnectionString, BaseAddress, Endpoint, Timeout, DefaultRequestHeaders, Resilience, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint, CertificateStore.",
       "doNotSuggest": true
     }
   }

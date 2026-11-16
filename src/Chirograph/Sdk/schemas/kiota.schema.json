@@ -43,6 +43,27 @@
       "type": "string",
       "enum": ["None"],
       "description": "How the client authenticates. None (the default): the client takes its authentication from the container."
+    },
+    "CertificatePath": {
+      "type": "string",
+      "description": "A client certificate for mutual TLS: a PKCS#12 (.pfx, .p12) or PEM file, presented whatever the Authentication. Not with CertificateThumbprint."
+    },
+    "CertificatePassword": {
+      "type": "string",
+      "description": "The password of the CertificatePath PKCS#12 file, or of its encrypted PEM key."
+    },
+    "CertificateKeyPath": {
+      "type": "string",
+      "description": "The PEM private key, when CertificatePath is a PEM certificate without its key."
+    },
+    "CertificateThumbprint": {
+      "type": "string",
+      "description": "The thumbprint of a client certificate in CertificateStore, instead of a file. Not with CertificatePath."
+    },
+    "CertificateStore": {
+      "type": "string",
+      "pattern": "^[A-Za-z]+/[^/]+$",
+      "description": "The store CertificateThumbprint is in, as <location>/<name>: CurrentUser/My (the default) or LocalMachine/My, say."
     }
   }
 }
