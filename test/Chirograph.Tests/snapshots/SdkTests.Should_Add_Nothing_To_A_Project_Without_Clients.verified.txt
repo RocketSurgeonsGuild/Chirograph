@@ -1,0 +1,14 @@
+﻿{
+  PackageDownload: {},
+  PackageReference: {},
+  ProjectReference: {},
+  Properties: {
+    ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
+    ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
+    ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographUpdateOpenApiDocumentCache: true,
+    ChirographVersion: {chirograph-version}
+  }
+}

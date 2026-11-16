@@ -1,0 +1,5 @@
+solution: Chirograph.slnx
+# Coverage settings for the TestSolution module (the library writes its own default when this is missing).
+runSettings: test/coverage.runsettings
+# One `dotnet test --solution` over Chirograph.slnx.
+TestMode: Solution

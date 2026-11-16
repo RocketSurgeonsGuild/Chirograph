@@ -1,0 +1,12 @@
+<!--
+    Settings every project here shares. The Chirograph wiring is in each client project: an
+    <Sdk Name="Chirograph" Version="..." /> element next to its own SDK, and its OpenApiClient items.
+    No project references Chirograph's targets directly.
+-->
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>

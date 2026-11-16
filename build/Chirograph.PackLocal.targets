@@ -1,0 +1,55 @@
+<Project>
+  <!--
+      Packs every src/*.csproj into a local feed, for the two consumers that restore Chirograph as a package rather than a project: the
+      tests (test/Chirograph.Tests, which pack 1.0.0-local into artifacts/nuget-local before they build) and the sample
+      (sample/ChirographSample/build/pack.proj, which packs 0.0.0-sample into artifacts/nuget-sample). The importing file sets:
+
+        - ChirographLocalPackFeed: the folder the packages go to. Old Chirograph packages are deleted from it first: a consumer takes the
+          highest version it finds there, or the one fixed version, so a stale package would win over the one about to be packed.
+        - ChirographLocalPackProperties: the version, as Version=… or VersionSuffix=…, and any other global property of the pack.
+        - ChirographLocalPackConfiguration: Debug or Release (Release when not set).
+        - ChirographLocalPackagesFolder (optional): a packages folder of the consumer's own, from which the extracted Chirograph packages
+          are removed, since a fixed version would otherwise keep serving the first copy ever restored.
+  -->
+  <PropertyGroup>
+    <ChirographLocalPackConfiguration Condition="'$(ChirographLocalPackConfiguration)' == ''">Release</ChirographLocalPackConfiguration>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_ChirographLocalPackProject Include="$(MSBuildThisFileDirectory)..\src\**\*.csproj" />
+  </ItemGroup>
+
+  <Target Name="ChirographPackLocally">
+    <PropertyGroup>
+      <_ChirographLocalPackProperties>Configuration=$(ChirographLocalPackConfiguration);PackageOutputPath=$(ChirographLocalPackFeed);$(ChirographLocalPackProperties)</_ChirographLocalPackProperties>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ChirographLocalStalePackage Include="$(ChirographLocalPackFeed)Chirograph*.nupkg;$(ChirographLocalPackFeed)Chirograph*.snupkg" />
+      <_ChirographLocalStaleCacheDirectory
+        Include="$([System.IO.Directory]::GetDirectories('$(ChirographLocalPackagesFolder)', 'chirograph*'))"
+        Condition="'$(ChirographLocalPackagesFolder)' != '' and Exists('$(ChirographLocalPackagesFolder)')"
+      />
+    </ItemGroup>
+    <Delete Files="@(_ChirographLocalStalePackage)" />
+    <RemoveDir Directories="@(_ChirographLocalStaleCacheDirectory)" />
+
+    <!--
+        Restore and Pack run as separate calls: in one call, Pack reuses the evaluation made before restore and, on a clean checkout,
+        builds without the package-provided references. The extra global property gives the restore its own evaluation.
+    -->
+    <MSBuild
+      Projects="@(_ChirographLocalPackProject)"
+      Targets="Restore"
+      Properties="$(_ChirographLocalPackProperties);_ChirographLocalPackRestore=true"
+      RemoveProperties="TargetFramework;RuntimeIdentifier"
+      BuildInParallel="false"
+    />
+    <MSBuild
+      Projects="@(_ChirographLocalPackProject)"
+      Targets="Pack"
+      Properties="$(_ChirographLocalPackProperties)"
+      RemoveProperties="TargetFramework;RuntimeIdentifier"
+      BuildInParallel="true"
+    />
+  </Target>
+</Project>

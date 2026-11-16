@@ -1,0 +1,15 @@
+<Project>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" />
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
+        <PackageReference Include="Rocket.Surgery.Extensions.Testing.TUnit" />
+        <PackageReference Include="TUnit" />
+        <PackageReference Include="TUnit.Assertions.Should" />
+        <Using Include="Rocket.Surgery.Extensions.Testing" />
+        <Using Include="TUnit.Assertions.Should" />
+        <Using Include="TUnit.Assertions.Should.Extensions" />
+        <Using Include="TUnit.Assertions.Enums" />
+        <PackageReference Include="Verify.TUnit" />
+    </ItemGroup>
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+</Project>

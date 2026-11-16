@@ -1,0 +1,3 @@
+﻿[
+  CHIRO108: The OpenApiClient items 'rockets.json, other.json' have the same ClientName 'RocketsClient': give each client a name of its own.
+]

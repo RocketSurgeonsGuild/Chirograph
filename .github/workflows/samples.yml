@@ -1,0 +1,140 @@
+name: samples
+
+# Packs src/** at 0.0.0-sample into artifacts/nuget-sample and builds sample/ChirographSample against that feed, as an external
+# consumer would, on Linux, Windows and macOS. Chirograph.slnx doesn't list the sample: it is its own solution on local packages.
+
+on:
+    push:
+        branches:
+            - main
+            - next
+        tags:
+            - v*
+    pull_request:
+        branches:
+            - main
+            - next
+            - integration/**
+    merge_group:
+        branches:
+            - main
+            - next
+
+env:
+    # Adds .config/mise.ci.toml, which keeps the editor-only tools out of CI installs and out of the shared mise cache.
+    MISE_ENV: ci
+
+permissions:
+    contents: read
+
+# A newer run for the same branch (or pull request head) cancels this one; tags and merge-queue refs are unique.
+concurrency:
+    group: samples-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    # The sample only builds from src/, sample/, build/Chirograph.PackLocal.targets and the root Directory.*.props/targets, plus the toolchain (.config/mise.toml,
+    # global.json, NuGet.config) and this workflow. Anything else skips the legs; tags always build them.
+    changes:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: read
+        outputs:
+            samples: ${{ startsWith(github.ref, 'refs/tags/') || steps.filter.outputs.samples == 'true' }}
+        steps:
+            - name: Checkout
+              if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+              uses: actions/checkout@v7
+            - name: 🔎 Detect sample changes
+              id: filter
+              if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+              uses: dorny/paths-filter@v4
+              with:
+                  filters: |
+                      samples:
+                          - 'src/**'
+                          - 'sample/**'
+                          - 'build/Chirograph.PackLocal.targets'
+                          - 'Directory.*.props'
+                          - 'Directory.*.targets'
+                          - '.config/mise.toml'
+                          - 'global.json'
+                          - 'NuGet.config'
+                          - '.github/workflows/samples.yml'
+
+    sample:
+        name: ${{ matrix.os }}
+        needs: changes
+        if: needs.changes.outputs.samples == 'true'
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os:
+                    - ubuntu-latest
+                    - windows-latest
+                    - macos-latest
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  fetch-depth: '0'
+            # .config/mise.toml uses {{env.HOME}}, which Windows runners don't set. Keep mise's data and NuGet's packages on D:,
+            # which has the room; the temp folder moves there too, since mise-action renames from it into MISE_DATA_DIR and
+            # Windows can't rename across drives (EXDEV).
+            - name: Set up Windows paths
+              if: runner.os == 'Windows'
+              run: |
+                  mkdir -p D:/tmp
+                  {
+                      echo "HOME=$USERPROFILE"
+                      echo "TEMP=D:/tmp"
+                      echo "TMP=D:/tmp"
+                      echo "MISE_DATA_DIR=D:/mise"
+                      echo "NUGET_PACKAGES=D:/nuget/packages"
+                  } >> "$GITHUB_ENV"
+            - name: 🛠️ Setup mise
+              uses: jdx/mise-action@v5
+              env:
+                  # One install at a time: mise downloads dotnet-install.sh to one shared path for every dotnet version, so the
+                  # SDK and runtime installs overwrite it under each other ("failed to execute command") when they run in parallel.
+                  MISE_JOBS: '1'
+              with:
+                  install: true
+                  # Only dotnet (the SDK and the runtime): the sample needs nothing else.
+                  install_args: dotnet
+                  cache: true
+                  # Restore only: build.yml is the single cache writer (as in lint.yml).
+                  cache_save: false
+                  cache_key: mise-{{platform}}-{{cache_period}}
+                  cache_max_age_days: 7
+                  experimental: true
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+            - name: 🔎 Locate dotnet
+              run: |
+                  if [ -z "${DOTNET_ROOT:-}" ]; then
+                      DOTNET_ROOT="$(dirname "$(command -v dotnet)")"
+                      echo "DOTNET_ROOT=$DOTNET_ROOT" >> "$GITHUB_ENV"
+                  fi
+                  "$DOTNET_ROOT/dotnet" --version
+            # What `mise run sample:pack` runs. It is called directly with the dotnet mise installed (it exports DOTNET_ROOT): on
+            # Windows the runner's own SDKs come first on PATH, and `mise run` would also run the repo's npm deps step, which fails
+            # on Windows.
+            - name: 📦 Pack src/** at 0.0.0-sample
+              working-directory: sample/ChirographSample
+              run: '"$DOTNET_ROOT/dotnet" msbuild build/pack.proj -bl:../../artifacts/logs/sample-pack.binlog'
+            - name: ⚙️ Build sample/ChirographSample
+              run: '"$DOTNET_ROOT/dotnet" build sample/ChirographSample/ChirographSample.slnx -bl:artifacts/logs/sample-build.binlog'
+            # Resolves both generated clients from the container and prints their types; it calls no server.
+            - name: ▶️ Run Rockets.Console
+              run: '"$DOTNET_ROOT/dotnet" run --no-build --project sample/ChirographSample/Rockets.Console/Rockets.Console.csproj'
+            - name: 🏺 Publish logs
+              if: always()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: samples-logs-${{ matrix.os }}
+                  path: artifacts/logs/

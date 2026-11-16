@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+        MSBuild.ProjectCreation loads MSBuild in-proc from an SDK of the host's major version, and only SDK 11 is installed (mise adds
+        just the .NET 10 runtime). The scaffolded projects cover both target frameworks instead, through TargetFrameworksAttribute.
+    -->
+    <TargetFramework>net11.0</TargetFramework>
+    <!--
+        MSB3277: Microsoft.Build references a newer NuGet.Frameworks than the newest NuGet.* packages. Harmless: MSBuild and NuGet are
+        loaded from the installed SDK at run time, so these only compile against.
+    -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSBuild.ProjectCreation" />
+    <!-- Load all of MSBuild from the SDK (MSBuildAssemblyResolver): copies from these packages don't match its Microsoft.Build.dll. -->
+    <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" ExcludeAssets="runtime" />
+    <PackageReference Include="MSBuild.StructuredLogger.Utils" />
+    <PackageReference Include="NuGet.Packaging" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+  <!--
+      The tests scaffold throwaway consumer projects that restore Chirograph from artifacts/nuget-local (see SdkTestProject.cs and
+      Config.NugetArtifactsDirectory), so the package has to exist and be current before they run. Every src/*.csproj is packed on
+      every build of this project instead of in a separate manual step.
+  -->
+  <!-- build/Chirograph.PackLocal.targets, which the sample's build/pack.proj shares, does the packing. -->
+  <PropertyGroup>
+    <ChirographLocalPackFeed>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', 'artifacts', 'nuget-local'))</ChirographLocalPackFeed>
+    <ChirographLocalPackProperties>VersionSuffix=local</ChirographLocalPackProperties>
+    <ChirographLocalPackConfiguration>$(Configuration)</ChirographLocalPackConfiguration>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\build\Chirograph.PackLocal.targets" />
+
+  <Target Name="PackChirographSourcePackages" BeforeTargets="Build">
+    <!-- One call without a TargetFramework: MSBuild caches it, and the src projects never inherit this project's TargetFramework. -->
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="ChirographPackLocally"
+      Properties="Configuration=$(Configuration)"
+      RemoveProperties="TargetFramework;RuntimeIdentifier"
+    />
+  </Target>
+</Project>

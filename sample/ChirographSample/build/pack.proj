@@ -1,0 +1,24 @@
+<!--
+    Packs every src/*.csproj into artifacts/nuget-sample at the fixed version each project's
+    <Sdk Name="Chirograph" Version="..." /> names, so this sample consumes Chirograph exactly as a
+    published package - never via ProjectReference or direct props/targets imports.
+
+        dotnet msbuild build/pack.proj      (or: mise run sample:pack)
+
+    Rerun after changing anything under src/, then build/run the sample as usual. The packing itself is
+    the repository's build/Chirograph.PackLocal.targets, which the tests use too.
+-->
+<Project DefaultTargets="Pack">
+  <PropertyGroup>
+    <ChirographLocalPackFeed>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', 'artifacts', 'nuget-sample'))</ChirographLocalPackFeed>
+    <ChirographLocalPackProperties>Version=0.0.0-sample</ChirographLocalPackProperties>
+    <!-- the sample's own packages folder (see NuGet.config), which would otherwise keep serving the first 0.0.0-sample restored -->
+    <ChirographLocalPackagesFolder>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '.nuget', 'packages'))</ChirographLocalPackagesFolder>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\build\Chirograph.PackLocal.targets" />
+
+  <Target Name="Pack" DependsOnTargets="ChirographPackLocally">
+    <Message Importance="high" Text="Chirograph packages $(ChirographLocalPackProperties) -> $(ChirographLocalPackFeed)" />
+  </Target>
+</Project>

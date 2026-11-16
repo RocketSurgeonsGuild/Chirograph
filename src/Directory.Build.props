@@ -1,0 +1,10 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <!-- Default local/dev/test packs to the local feed; CI's build pipeline passes its own
+         PackageOutputPath (artifacts/nuget, GitVersion-numbered) as a global property, which
+         always wins over this plain assignment regardless of the condition below. -->
+    <PackageOutputPath Condition="'$(PackageOutputPath)' == ''">$(SolutionDir)artifacts/nuget-local</PackageOutputPath>
+  </PropertyGroup>
+</Project>

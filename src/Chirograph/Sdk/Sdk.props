@@ -1,0 +1,10 @@
+<Project>
+  <!--
+      Chirograph is applied next to a project's own SDK (<Sdk Name="Chirograph" />, or <Import Sdk="Chirograph" /> from an SDK that
+      chains it), so it never imports Microsoft.NET.Sdk itself.
+
+      Packages.props, generated when the SDK is packed, sets ChirographVersion and the versions of the generator tools and the packages
+      their clients need, each only when the project has not set it already.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)Packages.props" />
+</Project>

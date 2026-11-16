@@ -1,0 +1,30 @@
+﻿{
+  PackageDownload: {
+    Microsoft.OpenApi.Kiota: {
+      Arguments: generate --language CSharp --openapi "{Document}" --class-name {ClientName} --namespace-name {Namespace} --output "{GeneratedDirectory}" --clean-output --exclude-backward-compatible --log-level Warning,
+      PackageId: Microsoft.OpenApi.Kiota,
+      Tool: kiota.dll,
+      Version: [{pin: Microsoft.OpenApi.Kiota}]
+    }
+  },
+  PackageReference: {
+    Microsoft.Extensions.Http: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Microsoft.Extensions.Http}
+    },
+    Microsoft.Kiota.Bundle: {
+      IsImplicitlyDefined: true,
+      Version: {pin: Microsoft.Kiota.Bundle}
+    }
+  },
+  ProjectReference: {},
+  Properties: {
+    ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
+    ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
+    ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographUpdateOpenApiDocumentCache: true,
+    ChirographVersion: {chirograph-version}
+  }
+}

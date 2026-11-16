@@ -1,0 +1,81 @@
+# Chirograph Constitution
+
+Chirograph generates typed HTTP clients from OpenAPI documents at build time. A project declares a client with one `OpenApiClient`
+MSBuild item and gets a compiled Kiota or Refitter client, registered with `IHttpClientFactory`. The words below (client, source,
+document, generator, registration, joint) mean what [GLOSSARY.md](GLOSSARY.md) says. The design and its decisions are in
+[plans/chirograph.md](plans/chirograph.md).
+
+## Core Principles
+
+### I. An MSBuild SDK, and nothing else
+
+Chirograph ships one package, `Chirograph`, of package type `MSBuildSdk`: props, targets and templates under `Sdk/`. It ships no
+compiled code, no runtime library and no source generator. The generators run as processes during the build, fetched with
+`PackageDownload`. If a compiled MSBuild task is ever needed, adopt Dovetail's `Joinery.Dovetail.Build.Tasks` pattern then, not before.
+
+### II. Behaviour is pinned by end-to-end tests
+
+Every behaviour is proven by building a real consumer project against the packed SDK: `test/Chirograph.Tests` packs `src/**`
+before it builds and scaffolds consumers with MSBuild.ProjectCreation. Tests observe what a consumer sees (generated files, build
+output, diagnostics, the registered client), never the targets' internals. Snapshots use Verify on the observable result only.
+
+### III. Diagnostic codes are public API
+
+The `CHIROnnn` codes, the `OpenApiClient` item metadata and the `Chirograph*` properties are Chirograph's public surface. A code is
+never reused or renumbered, every code has a reference page with its own anchor, and a test checks that the reference pages list
+exactly the metadata, properties and codes the targets read and raise. Breaking changes follow semantic versioning.
+
+### IV. Generator telemetry stays off
+
+Builds must not phone home. Chirograph sets `KIOTA_CLI_TELEMETRY_OPTOUT=true`, `KIOTA_OFFLINE_ENABLED=true` and
+`DOTNET_CLI_TELEMETRY_OPTOUT=1` for every generator run, and a test pins them. Generated code stays in `obj` and is never committed;
+only a URL source's document cache may be committed.
+
+### V. Works without Dovetail
+
+Registration is a plain `IServiceCollection` extension. Dovetail users get a joint through Dovetail's own `DovetailTemplate`
+extension point. Chirograph never references Dovetail.
+
+### VI. Central package management, no version drift
+
+All NuGet package versions live in `Directory.Packages.props`; `.csproj` files never specify versions. The generator tools and the
+runtime packages their clients need (`Microsoft.OpenApi.Kiota`, `Microsoft.Kiota.Bundle`, `Refitter`, `Refit.HttpClientFactory`)
+move together as one Renovate group, and the pack writes their versions into `Sdk/Packages.props`. A package a consumer references
+itself always wins over Chirograph's implicit reference.
+
+## Development Workflow
+
+The repository mirrors [Dovetail](https://github.com/RocketSurgeonsGuild/Dovetail)'s conventions.
+
+**Toolchain**: `mise install` installs everything (the .NET 11 SDK, the .NET 10 runtime, node, hk and the rest, from
+`.config/mise.toml`). Run `dotnet` through mise.
+
+**Build**: `mise run build` runs the ModularPipelines build in `build/Build.cs`: build, test, pack into `artifacts/nuget`, and the
+docs into `artifacts/docs`.
+
+**Test**:
+
+- Framework: TUnit on Microsoft.Testing.Platform (not VSTest)
+- Test classes inherit `LoggerTest<TestRecord>` from `Rocket.Surgery.Extensions.Testing.TUnit`
+- Assertions: TUnit Should syntax (`TUnit.Assertions.Should`) · Mocks, if ever needed: TUnit.Mocks · Snapshots: Verify.TUnit
+- Run all: `dotnet test`
+- Run single: `dotnet run --project test/Chirograph.Tests -- --treenode-filter "*/..."`
+- Accept snapshots: `dotnet verify accept`, only after reading the diff
+
+**Lint and format**: `hk check` and `hk fix` (`.config/hk.pkl`: dotnet format, biome, oxfmt, tombi, actionlint, xmllint and the
+rest). The pre-commit hook runs `hk fix`; CI runs it through `lint.yml` with autofix.ci.
+
+**Docs**: `mise run docs` (Astro + Starlight dev server); `mise run docs:build` builds the site that `build.yml` deploys to gh-pages.
+
+**Sample**: `mise run sample:pack` packs `src/**` at `0.0.0-sample`, then `dotnet build sample/ChirographSample/ChirographSample.slnx`.
+
+**Release**: GitVersion computes the version from the branch or tag; GitReleaseManager drafts releases and milestones; pushing a `v*`
+tag publishes to nuget.org with trusted publishing.
+
+## Governance
+
+This constitution supersedes all other practices in this repository. `AGENTS.md` and `CLAUDE.md` are generated from it by APM
+(`apm compile`): amend this file, then recompile, never the generated files. Pull requests pass `hk check`, `mise run build` and the
+tests. Complexity must be justified.
+
+**Version**: 1.0.0 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-15
