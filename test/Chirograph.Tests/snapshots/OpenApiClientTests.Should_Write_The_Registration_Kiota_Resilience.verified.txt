@@ -98,8 +98,15 @@ public static partial class RocketsClientServiceCollectionExtensions
                 }
             }
         );
+        ConfigureHttpClientBuilder(builder);
         return builder;
     }
+
+    /// <summary>
+    ///     Optional: implement it in the project of the client to configure the builder of the client further (handlers, resilience and
+    ///     the like). <c>AddRocketsClient()</c> calls it last; unimplemented, the call compiles away.
+    /// </summary>
+    static partial void ConfigureHttpClientBuilder(global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder builder);
 
     /// <summary>
     ///     The request adapter of <see cref="RocketsClient" />. The project of the client implements it (CS8795 otherwise), in a

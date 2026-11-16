@@ -1,0 +1,8 @@
+﻿// edited by the project
+namespace Throwaway.Clients;
+
+static partial class RocketsClientServiceCollectionExtensions
+{
+    private static partial global::Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(global::System.IServiceProvider services, global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter) => adapter;
+
+}

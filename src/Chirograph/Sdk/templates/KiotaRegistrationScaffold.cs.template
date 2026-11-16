@@ -1,0 +1,23 @@
+// Written by Chirograph because the file was missing. It is the project's own: edit it, Chirograph never writes it again.
+#nullable enable
+
+namespace __Namespace__;
+
+static partial class __ClientName__ServiceCollectionExtensions
+{
+    /// <summary>
+    ///     Required: the request adapter of <see cref="__ClientName__" />. <paramref name="adapter" /> has the authentication provider
+    ///     from the container (keyed "__ClientName__", else unkeyed, else anonymous): return it, or change or replace it.
+    /// </summary>
+    private static partial global::Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(
+        global::System.IServiceProvider services,
+        global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter
+    ) => adapter;
+
+    /// <summary>
+    ///     Optional: called at the end of <c>Add__ClientName__()</c>. Add handlers, resilience and the like to the client's builder here.
+    /// </summary>
+    static partial void ConfigureHttpClientBuilder(global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder builder)
+    {
+    }
+}

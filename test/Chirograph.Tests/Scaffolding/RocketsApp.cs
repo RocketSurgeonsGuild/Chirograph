@@ -29,7 +29,7 @@ internal static class RocketsApp
         string include,
         string clientName = "RocketsClient",
         IReadOnlyDictionary<string, string?>? metadata = null,
-        bool hook = true
+        bool scaffold = true
     )
     {
         // metadata wins over the defaults, and a null leaves the metadata out (Namespace = null falls back to $(RootNamespace))
@@ -45,39 +45,9 @@ internal static class RocketsApp
         }
 
         project.ItemInclude("OpenApiClient", include, metadata: all);
-        return hook ? project.Hook(generator, clientName, all["Namespace"]) : project;
+        // without the scaffolded registration file the project doesn't compile (CS8795), unless it brings one of its own
+        return scaffold ? project : project.Property("ChirographScaffoldRegistration", "false");
     }
-
-    /// <summary>
-    /// The implementation of the hook every client project must have, <c>CreateRequestAdapter</c> (Kiota) or <c>CreateRefitSettings</c>
-    /// (Refitter), that returns what it is given: written to <c>obj</c> and compiled before <c>CoreCompile</c>, so the project needs no file.
-    /// The namespace is <paramref name="namespace" />, or <c>$(RootNamespace)</c> when it is <c>null</c>.
-    /// </summary>
-    public static ProjectCreator Hook(this ProjectCreator project, Generator generator, string clientName = "RocketsClient", string? @namespace = null)
-    {
-        var file = $"$(IntermediateOutputPath){clientName}.Hook.cs";
-        // %3B is a semicolon: WriteLinesToFile would split the line on one
-        var code = $"namespace {@namespace ?? "$(RootNamespace)"}%3B public static partial class {clientName}ServiceCollectionExtensions {{ "
-          + HookMember(generator).Replace(";", "%3B", StringComparison.Ordinal)
-          + " }";
-        return project
-              .Target($"_ThrowawayHook{clientName}", beforeTargets: "CoreCompile")
-              .Task(
-                   "WriteLinesToFile",
-                   parameters: new Dictionary<string, string?> { ["File"] = file, ["Lines"] = code, ["Overwrite"] = "true", ["WriteOnlyWhenDifferent"] = "true" }
-               )
-              .TargetItemInclude("Compile", file);
-    }
-
-    /// <summary>The implementation of the hook of <paramref name="generator" />'s registration that returns what it is given.</summary>
-    public static string HookMember(Generator generator) => generator switch
-    {
-        Generator.Kiota =>
-            "private static partial global::Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(global::System.IServiceProvider services, global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter) => adapter;",
-        Generator.Refitter =>
-            "private static partial global::Refit.RefitSettings? CreateRefitSettings(global::System.IServiceProvider services, global::Refit.RefitSettings? settings) => settings;",
-        _ => throw new ArgumentOutOfRangeException(nameof(generator), generator, null),
-    };
 
     /// <summary>References Microsoft.Extensions.Hosting at the version the repository pins for <paramref name="targetFramework" />.</summary>
     public static ProjectCreator Hosting(this ProjectCreator project, string targetFramework) =>
@@ -94,10 +64,10 @@ internal static class RocketsApp
         Generator generator,
         string include = "rockets.json",
         IReadOnlyDictionary<string, string?>? metadata = null,
-        bool hook = true
+        bool scaffold = true
     ) =>
         project
-           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata, hook: hook))
+           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata, scaffold: scaffold))
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", Program(generator));
 

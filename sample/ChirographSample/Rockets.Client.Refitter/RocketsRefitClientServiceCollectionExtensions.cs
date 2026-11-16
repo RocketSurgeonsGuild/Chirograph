@@ -1,10 +1,21 @@
-using System;
-using Refit;
+// Written by Chirograph because the file was missing. It is the project's own: edit it, Chirograph never writes it again.
+#nullable enable
 
 namespace Rockets.Client.Refitter;
 
-public static partial class RocketsRefitClientServiceCollectionExtensions
+static partial class RocketsRefitClientServiceCollectionExtensions
 {
-    // the RefitSettings from the application's container (keyed "RocketsRefitClient", else unkeyed, else none)
-    private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
+    /// <summary>
+    ///     Required: the <c>RefitSettings</c> of <see cref="IRocketsRefitClient" />. <paramref name="settings" /> are the ones from the
+    ///     container (keyed "RocketsRefitClient", else unkeyed, else none): return them, or change or replace them.
+    /// </summary>
+    private static partial global::Refit.RefitSettings? CreateRefitSettings(global::System.IServiceProvider services, global::Refit.RefitSettings? settings) =>
+        settings;
+
+    /// <summary>
+    ///     Optional: called at the end of <c>AddRocketsRefitClient()</c>. Add handlers, resilience and the like to the client's builder here.
+    /// </summary>
+    static partial void ConfigureHttpClientBuilder(global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder builder)
+    {
+    }
 }

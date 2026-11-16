@@ -1,12 +1,23 @@
-using System;
-using Microsoft.Kiota.Abstractions;
-using Microsoft.Kiota.Http.HttpClientLibrary;
+// Written by Chirograph because the file was missing. It is the project's own: edit it, Chirograph never writes it again.
+#nullable enable
 
 namespace Rockets.Client.Kiota;
 
-public static partial class RocketsClientServiceCollectionExtensions
+static partial class RocketsClientServiceCollectionExtensions
 {
-    // the adapter as built, with the authentication provider from the application's container (keyed "RocketsClient", else unkeyed,
-    // else anonymous)
-    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter) => adapter;
+    /// <summary>
+    ///     Required: the request adapter of <see cref="RocketsClient" />. <paramref name="adapter" /> has the authentication provider
+    ///     from the container (keyed "RocketsClient", else unkeyed, else anonymous): return it, or change or replace it.
+    /// </summary>
+    private static partial global::Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(
+        global::System.IServiceProvider services,
+        global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter
+    ) => adapter;
+
+    /// <summary>
+    ///     Optional: called at the end of <c>AddRocketsClient()</c>. Add handlers, resilience and the like to the client's builder here.
+    /// </summary>
+    static partial void ConfigureHttpClientBuilder(global::Microsoft.Extensions.DependencyInjection.IHttpClientBuilder builder)
+    {
+    }
 }

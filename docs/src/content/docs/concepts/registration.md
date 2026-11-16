@@ -15,7 +15,7 @@ public static IHttpClientBuilder AddRocketsClient(this IServiceCollection servic
 
 It is in the client's namespace, in a `partial` class named `RocketsClientServiceCollectionExtensions`. It is public, so an
 application can register a client that a library it references generated. The project of the client must implement one hook of that
-class, or it fails to compile with `CS8795`: see [Authentication](#authentication).
+class, or it fails to compile with `CS8795`: the build writes that part for a new client (see [The registration file](#the-registration-file)).
 
 ## What it registers
 
@@ -120,23 +120,42 @@ Refit's `AuthorizationHeaderValueGetter` fills an `Authorization` header that th
 ### The hook
 
 The project of the client decides what the client uses at last, in a partial method of the registration's class that it must implement
-(the build fails with `CS8795` without one). It gets what the container gave; returning it as is keeps that:
+(the build fails with `CS8795` without one). It gets what the container gave; returning it as is keeps that. Return something else to
+change it: another adapter (say with an authentication provider of the library's own), or settings with a serializer or a handler set.
+
+## The registration file
+
+The project owns one part of the registration class, `RocketsClientServiceCollectionExtensions.cs` in the project's folder (the
+`RegistrationFile` metadata moves it). When it is missing, the build writes it, so a new client compiles straight away:
 
 ```csharp
 namespace MyApp.Rockets;
 
-public static partial class RocketsClientServiceCollectionExtensions
+static partial class RocketsClientServiceCollectionExtensions
 {
-    // Kiota
+    // Required. Kiota:
     private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter) => adapter;
+    // Refitter:
+    // private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
 
-    // Refitter
-    private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
+    // Optional: called at the end of AddRocketsClient()
+    static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder)
+    {
+    }
 }
 ```
 
-Return something else to change it: another adapter (say with an authentication provider of the library's own), or settings with a
-serializer or a handler set.
+Commit it and edit it: the build never writes it again, and `dotnet clean` keeps it. A design-time build doesn't write it.
+`ConfigureHttpClientBuilder` is the place for handlers, resilience and the like that every application of the client gets:
+
+```csharp
+static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder) =>
+    builder.AddHttpMessageHandler<ApiKeyHandler>().AddStandardResilienceHandler();
+```
+
+Set `ChirographScaffoldRegistration` to `false` for a project that keeps the file somewhere the build can't see; the project then
+compiles the part itself. When a client is removed, renamed, or moves to another generator or namespace, delete its file (the build
+writes a new one).
 
 ## Without the registration
 

@@ -22,22 +22,16 @@ The `Include` is a path relative to the project. A `.json` file is read as JSON,
 Anything that is not a project (`.csproj`, `.fsproj`, `.vbproj`) or a URL (`http://`, `https://`) is a file. A file that does not
 exist fails the build with [`CHIRO102`](../../reference/diagnostics/#chiro102).
 
-## Implement the hook
+## The registration file
 
-Every client project implements one partial method of the generated registration, or the build fails with `CS8795`. Returning what it
-is given uses the authentication from the application's container:
+The first build writes `RocketsClientServiceCollectionExtensions.cs` next to the project file: the project's part of the registration.
+It implements the hook every client must have (`CreateRefitSettings` here, `CreateRequestAdapter` for Kiota) by returning what the
+container gave, and has an empty `ConfigureHttpClientBuilder` for handlers of your own. Commit it; the build never writes it again.
 
 ```csharp
-namespace MyApp.Rockets;
-
-public static partial class RocketsClientServiceCollectionExtensions
-{
-    private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
-}
+static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder) =>
+    builder.AddStandardResilienceHandler();
 ```
-
-For a Kiota client it is
-`private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter) => adapter;`.
 
 ## Authenticate the client
 

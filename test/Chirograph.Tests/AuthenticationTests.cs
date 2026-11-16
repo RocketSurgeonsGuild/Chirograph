@@ -57,7 +57,7 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
         await using var api = RocketsApi.Start();
         using var project = new SdkTestProject(targetFramework);
         project
-           .AddRocketsApp(targetFramework, generator, hook: false)
+           .AddRocketsApp(targetFramework, generator, scaffold: false)
            .AddFile("app/Program.cs", Program(generator, Registration.Keyed))
            .AddFile("app/Hook.cs", Hook(generator));
 
@@ -74,7 +74,7 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
     public async Task Should_Require_The_Hook(Generator generator)
     {
         using var project = new SdkTestProject(targetFramework);
-        project.AddRocketsApp(targetFramework, generator, hook: false);
+        project.AddRocketsApp(targetFramework, generator, scaffold: false);
 
         var diagnostics = await project.BuildDiagnostics("app", codePrefix: "CS8795");
 
@@ -163,6 +163,7 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
     // the provider (Kiota) and the handler (Refit) the throwaway applications register; the Refit handler is the primary handler
     // RefitSettings.HttpMessageHandlerFactory gives
     private const string KiotaTypes = $$"""
+        #nullable enable
         sealed class SerialNumberProvider(string serialNumber) : Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider
         {
             public System.Threading.Tasks.Task AuthenticateRequestAsync(

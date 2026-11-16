@@ -104,7 +104,7 @@ private static partial RefitSettings? CreateRefitSettings(IServiceProvider servi
 The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the
 project's usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file.
 
-The class name, the method name, the hook (`CreateRequestAdapter` or `CreateRefitSettings`), the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between
+The class name, the method name, the hooks (`CreateRequestAdapter` or `CreateRefitSettings`, and `ConfigureHttpClientBuilder`, which `AddRocketsClient()` calls last), the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between
 releases.
 
 ## The Dovetail joint
