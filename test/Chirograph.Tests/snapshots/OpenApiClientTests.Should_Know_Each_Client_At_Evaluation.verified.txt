@@ -6,6 +6,13 @@
     Kind: Project,
     Namespace: app
   },
+  HTTPS://EXAMPLE.COM/OPENAPI.JSON: {
+    ClientName: UpperCaseUrlClient,
+    ClientNameIsValid: True,
+    Generator: Kiota,
+    Kind: Url,
+    Namespace: Throwaway.Clients
+  },
   https://example.com/openapi.json: {
     ClientName: DefaultClient,
     ClientNameIsValid: True,

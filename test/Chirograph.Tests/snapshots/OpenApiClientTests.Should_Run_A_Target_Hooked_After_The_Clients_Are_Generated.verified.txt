@@ -1,0 +1,7 @@
+﻿[
+  Client code: Rocket.cs,
+  Client code: RocketsClient.cs,
+  Client code: RocketsClientServiceCollectionExtensions.g.cs,
+  Client code: RocketsItemRequestBuilder.cs,
+  Client code: RocketsRequestBuilder.cs
+]
