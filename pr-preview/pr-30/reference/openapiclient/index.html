@@ -121,6 +121,12 @@ packages, tool downloads and server references) and again when it builds.</p>
 <td></td>
 <td>More arguments for the generator: after <code dir="auto">kiota generate …</code>, or after Refitter’s settings file. See <a href="../../concepts/generators/#what-chirograph-passes">Generators</a>.</td>
 </tr>
+<tr>
+<td><code dir="auto">RegistrationFile</code></td>
+<td>no</td>
+<td><code dir="auto">&#x3C;ClientName>ServiceCollectionExtensions.cs</code></td>
+<td>The project’s own part of the registration class, relative to the project. The build writes it when it is missing (unless <code dir="auto">ChirographScaffoldRegistration</code> is <code dir="auto">false</code>) and never again. See <a href="../../concepts/registration/#the-registration-file">Registration</a>.</td>
+</tr>
 </tbody>
 </table>
 <p><code dir="auto">DocumentName</code> is ignored for a file or URL, and <code dir="auto">DocumentCache</code> and <code dir="auto">UpdateDocumentCache</code> for a file or server project.</p>
