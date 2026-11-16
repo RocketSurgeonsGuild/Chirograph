@@ -37,12 +37,40 @@
       "items": {
         "type": "string"
       },
-      "description": "More hosts than the BaseAddress host that may receive the client's credentials."
+      "description": "More hosts than the BaseAddress host (and port) that may receive the client's credentials: a host alone allows each of its ports, host:port that port only."
     },
     "Authentication": {
       "type": "string",
-      "enum": ["None"],
-      "description": "How the client authenticates. None (the default): the client takes its authentication from the container."
+      "enum": ["None", "ApiKey", "Bearer", "Basic"],
+      "description": "How the client authenticates. None (the default): the client takes its authentication from the container. ApiKey, Bearer and Basic: the client sends the credentials its keys give, and only to the BaseAddress host and the AllowedHosts."
+    },
+    "ApiKey": {
+      "type": "string",
+      "description": "The API key of ApiKey. Alias Key."
+    },
+    "Key": {
+      "type": "string",
+      "description": "An alias of ApiKey. Set one or the other, not both."
+    },
+    "ApiKeyHeader": {
+      "type": "string",
+      "description": "The header ApiKey sends the key in. X-Api-Key when neither it nor ApiKeyQuery is set."
+    },
+    "ApiKeyQuery": {
+      "type": "string",
+      "description": "The query parameter ApiKey sends the key in, instead of a header."
+    },
+    "Token": {
+      "type": "string",
+      "description": "The token of Bearer, sent as Authorization: Bearer <token>. In code, TokenProvider on the options can give it instead."
+    },
+    "Username": {
+      "type": "string",
+      "description": "The user name of Basic. It cannot hold a colon."
+    },
+    "Password": {
+      "type": "string",
+      "description": "The password of Basic."
     },
     "CertificatePath": {
       "type": "string",

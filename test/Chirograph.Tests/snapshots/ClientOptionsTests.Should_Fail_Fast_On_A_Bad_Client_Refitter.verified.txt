@@ -8,7 +8,7 @@ Built the provider.
 Created True.,
   Host, bad client:
 OptionsValidationException:
-  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.
+  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.
   The BaseAddress of RocketsClient is not an absolute http or https URI.,
   Host, good client: Started.
 }

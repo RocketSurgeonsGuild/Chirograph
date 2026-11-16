@@ -23,6 +23,12 @@ internal sealed class RocketsApi : IAsyncDisposable
     public const string SerialNumberHeader = "X-Serial-Number";
 
     /// <summary>
+    ///     The credentials the API echoes after the serial number of the rocket, as <c>(name=value, ...)</c>: the <c>Authorization</c> and
+    ///     <c>X-Api-Key</c> headers and the <c>api_key</c> query parameter, so a test sees the credentials a client sends.
+    /// </summary>
+    public static readonly string[] EchoedCredentials = ["Authorization", "X-Api-Key", "api_key"];
+
+    /// <summary>
     ///     The OpenAPI document of the API: one operation, GetRocket, which returns a Rocket.
     /// </summary>
     public const string Document = """
@@ -169,6 +175,12 @@ internal sealed class RocketsApi : IAsyncDisposable
     public int TransientFailures { get; set; }
 
     /// <summary>
+    ///     Where a request for a rocket is redirected (<c>302 Found</c>, to the same path there), when it is set: another API, a different
+    ///     host to a client's credentials.
+    /// </summary>
+    public Uri? RedirectRocketsTo { get; set; }
+
+    /// <summary>
     ///     How many times a rocket was asked for, the requests that failed included.
     /// </summary>
     public int RocketRequests => _rocketRequests;
@@ -229,10 +241,11 @@ internal sealed class RocketsApi : IAsyncDisposable
         {
             "/openapi.json" when DocumentUnavailable => (404, ""),
             _ when rocketRequest > 0 && rocketRequest <= TransientFailures => (503, ""),
+            _ when rocketRequest > 0 && RedirectRocketsTo is not null => (302, ""),
             "/openapi.json" => (200, Document),
             _ when path.StartsWith("/rockets/", StringComparison.Ordinal) => (
                 200,
-                $$"""{ "id": "{{path["/rockets/".Length..]}}", "serialNumber": "{{context.Request.Headers[SerialNumberHeader] ?? "FALCON-9"}}" }"""
+                $$"""{ "id": "{{path["/rockets/".Length..]}}", "serialNumber": "{{SerialNumber(context.Request)}}" }"""
             ),
             _ => (404, ""),
         };
@@ -243,11 +256,24 @@ internal sealed class RocketsApi : IAsyncDisposable
         }
 
         var bytes = Encoding.UTF8.GetBytes(body);
+        if (status == 302) context.Response.RedirectLocation = new Uri(RedirectRocketsTo!, path).ToString();
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/json";
         context.Response.ContentLength64 = bytes.Length;
         await context.Response.OutputStream.WriteAsync(bytes);
         context.Response.Close();
+    }
+
+    // the serial number of the rocket: X-Serial-Number, else FALCON-9, then the credentials the request carried, if any
+    private static string SerialNumber(HttpListenerRequest request)
+    {
+        var credentials = EchoedCredentials
+                         .Select(name => (name, value: name == "api_key" ? request.QueryString[name] : request.Headers[name]))
+                         .Where(z => z.value is not null)
+                         .Select(z => $"{z.name}={z.value}")
+                         .ToArray();
+        var serialNumber = request.Headers[SerialNumberHeader] ?? "FALCON-9";
+        return credentials.Length == 0 ? serialNumber : $"{serialNumber} ({string.Join(", ", credentials)})";
     }
 
     private readonly HttpListener _listener;

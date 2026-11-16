@@ -88,16 +88,20 @@ public static class __ClientName__ServiceCollectionExtensions
             builder,
             static (global::System.Net.Http.HttpClient httpClient, global::System.IServiceProvider services) =>
             {
-                // the authentication provider comes from the container: keyed with the name of the client, else unkeyed, else anonymous;
+                // the authentication provider comes from the container (keyed with the name of the client, else unkeyed, else anonymous),
+                // unless the options set an Authentication: the handler then sets the credentials, and the provider is anonymous;
                 // ConfigureRequestAdapter on the options, when it is set, then has the last word
+                var options = Options(services);
                 var adapter = new global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
-                    Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                    (options.Authentication == global::__Namespace__.__ClientName__Authentication.None
+                        ? Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                        : null)
                     ?? new global::Microsoft.Kiota.Abstractions.Authentication.AnonymousAuthenticationProvider(),
                     Resolve<global::Microsoft.Kiota.Abstractions.Serialization.IParseNodeFactory>(services),
                     Resolve<global::Microsoft.Kiota.Abstractions.Serialization.ISerializationWriterFactory>(services),
                     httpClient
                 );
-                var configureRequestAdapter = Options(services).ConfigureRequestAdapter;
+                var configureRequestAdapter = options.ConfigureRequestAdapter;
                 return new global::__Namespace__.__ClientName__(configureRequestAdapter is null ? adapter : configureRequestAdapter(services, adapter));
             }
         );
@@ -119,6 +123,12 @@ public static class __ClientName__ServiceCollectionExtensions
             }
         );
         //#endif
+        // configured authentication: when Authentication isn't None, the handler that adds the credentials, after the handlers added so far
+        // and before those added later (service discovery's among them, so the host check sees the address as configured)
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureHttpMessageHandlerBuilder(
+            builder,
+            static (global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder handlers) => global::__Namespace__.__ClientName__AuthenticationHandler.Configure(handlers)
+        );
         return builder;
     }
 

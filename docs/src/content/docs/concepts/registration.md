@@ -20,7 +20,8 @@ The project of the client writes no code of its own.
 ## What it registers
 
 - **Kiota:** a named `HttpClient`, `RocketsClient`, and the typed client `RocketsClient`, built on Kiota's `HttpClientRequestAdapter`
-  with the authentication provider from the container (see [Authentication](#authentication)).
+  with the authentication provider from the container, unless the options configure an authentication (see
+  [Authentication](#authentication)).
 - **Refitter:** `IRocketsClient`, through Refit's `AddRefitGeneratedClient`. Refit's source generator writes the implementation at
   build time, so there is no reflection.
 - **Both:** the options, `RocketsClientOptions`, with their validation, which runs when the host starts.
@@ -76,8 +77,14 @@ The section's path is a constant on the registration class, `RocketsClientServic
 | `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` in the invariant culture (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                           |
 | `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. Not in a connection string.                                                                                           |
 | `Resilience`            | bool                 | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. |
-| `AllowedHosts`          | array of hosts       | More hosts than the `BaseAddress` host that may receive the client's credentials, for the authentication methods to come. In a connection string, a comma-separated list.                                   |
-| `Authentication`        | method               | How the client authenticates. Only `None` (the default) so far: the client takes its authentication from the [container](#authentication).                                                                  |
+| `AllowedHosts`          | array of hosts       | More hosts than the `BaseAddress` host that may receive the client's [credentials](#which-hosts-get-the-credentials). In a connection string, a comma-separated list.                                       |
+| `Authentication`        | method               | How the client authenticates: `None` (the default, the [container](#from-the-container) decides), `ApiKey`, `Bearer` or `Basic` ([configured](#configured-authentication)).                                 |
+| `ApiKey`                | string               | The key of `ApiKey`. Alias `Key`.                                                                                                                                                                           |
+| `ApiKeyHeader`          | string               | The header `ApiKey` sends the key in, `X-Api-Key` by default.                                                                                                                                               |
+| `ApiKeyQuery`           | string               | The query parameter `ApiKey` sends the key in, instead of a header.                                                                                                                                         |
+| `Token`                 | string               | The token of `Bearer`. In code, `TokenProvider` can give it instead.                                                                                                                                        |
+| `Username`              | string               | The user name of `Basic`.                                                                                                                                                                                   |
+| `Password`              | string               | The password of `Basic`.                                                                                                                                                                                    |
 | `CertificatePath`       | path                 | A [client certificate](#client-certificate-mtls), a PKCS#12 (`.pfx`, `.p12`) or PEM file.                                                                                                                   |
 | `CertificatePassword`   | string               | The password of the PKCS#12 file, or of the encrypted PEM key.                                                                                                                                              |
 | `CertificateKeyPath`    | path                 | The PEM private key, when `CertificatePath` is a PEM certificate without its key.                                                                                                                           |
@@ -134,6 +141,8 @@ It fails on:
 - a key given twice, or an alias with its key;
 - a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
 - a `BaseAddress` that isn't an absolute `http` or `https` URI, or a `Timeout` that isn't positive;
+- an `Authentication` without the keys it needs, with the keys of another method (`None` included), or with no host to send the
+  credentials to (neither `BaseAddress` nor `AllowedHosts`);
 - a [client certificate](#client-certificate-mtls) given by both a path and a thumbprint, a `CertificatePassword` or
   `CertificateKeyPath` without a `CertificatePath`, a `CertificateStore` without a `CertificateThumbprint`, a file that doesn't exist,
   and a certificate that doesn't load with its private key (a wrong password, say).
@@ -164,11 +173,64 @@ builder.Services
     .AddStandardResilienceHandler();
 ```
 
-Chirograph adds no handlers itself, and adds resilience only when `Resilience` asks for it.
+Chirograph adds a handler itself only when `Authentication` asks for one, and resilience only when `Resilience` does. Handlers chained on
+the builder come after the authentication handler, so they see the credentials.
 
 ## Authentication
 
-When the client is created, the registration takes its authentication from the container, under the key of the client's name first:
+A client authenticates one of two ways. With `Authentication` set to a method, configuration gives the credentials and a generated
+handler sends them. With `None`, the default, the container gives the client its authentication.
+
+### Configured authentication
+
+| `Authentication` | Keys                                                                                                       | Sends                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `ApiKey`         | `ApiKey` (alias `Key`), and `ApiKeyHeader` (default `X-Api-Key`) or `ApiKeyQuery` (a query parameter name) | The key in the header, or in the query.   |
+| `Bearer`         | `Token`, or `TokenProvider` in code                                                                        | `Authorization: Bearer <token>`.          |
+| `Basic`          | `Username`, `Password`                                                                                     | `Authorization: Basic`, the two in UTF-8. |
+
+```json
+{
+    "ConnectionStrings": {
+        "RocketsClient": "Endpoint=https://rockets.example.com/;Authentication=ApiKey;Key=abc123"
+    }
+}
+```
+
+The keys of a method other than the one chosen are an error, so a token left over from another setup can't be sent by mistake.
+`TokenProvider` is asked for the token on each request that gets it, so a token that expires is fetched again by the provider, which
+caches it as it needs:
+
+```csharp
+builder.Services.AddRocketsClient(options =>
+{
+    options.Authentication = RocketsClientAuthentication.Bearer;
+    options.TokenProvider = (services, cancellationToken) => services.GetRequiredService<ITokenSource>().GetTokenAsync(cancellationToken);
+});
+```
+
+The handler is added to the client's `HttpClient`, so Kiota and Refit go through the same pipeline. With `Authentication` set:
+
+- **Kiota:** the adapter gets `AnonymousAuthenticationProvider`, not the container's provider, so nothing sets the credentials twice.
+- **Refitter:** the `RefitSettings` still come from the container, since they carry Refit's serializers.
+- `ConfigureRequestAdapter` and `ConfigureRefitSettings` still have [the last word](#the-last-word).
+
+#### Which hosts get the credentials
+
+The handler adds the credentials only to a request for the `BaseAddress` host, on its port, or for a host in `AllowedHosts`. An entry of
+`AllowedHosts` that is a host alone allows each of its ports; `host:port` allows that port only. A Kiota next-link to another host goes
+without them.
+
+The handler also follows redirects in place of the primary handler (it turns the primary handler's `AllowAutoRedirect` off, and follows
+as many as that allowed), so each hop is checked the same way: a redirect to another host goes without the credentials, whichever
+header or query parameter carries them.
+
+A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`.
+
+### From the container
+
+With `Authentication` set to `None`, when the client is created, the registration takes its authentication from the container, under
+the key of the client's name first:
 
 - **Kiota:** an `IAuthenticationProvider` keyed `"RocketsClient"`, else an unkeyed one, else `AnonymousAuthenticationProvider`. An
   `IParseNodeFactory` and an `ISerializationWriterFactory` are looked up the same way, and Kiota's defaults are used without one.

@@ -13,6 +13,15 @@ public enum RocketsClientAuthentication
 {
     /// <summary>Configuration sets no credentials: the client authenticates as the container says, if at all.</summary>
     None,
+
+    /// <summary>An API key, in a header (<c>X-Api-Key</c> unless <c>ApiKeyHeader</c> names another) or in the query (<c>ApiKeyQuery</c>).</summary>
+    ApiKey,
+
+    /// <summary>A bearer token, <c>Authorization: Bearer</c>, from <c>Token</c> or from <c>TokenProvider</c> in code.</summary>
+    Bearer,
+
+    /// <summary>A user name and password, <c>Authorization: Basic</c>.</summary>
+    Basic,
 }
 
 /// <summary>
@@ -49,6 +58,30 @@ public sealed class RocketsClientOptions
 
     /// <summary>How the client authenticates (key <c>Authentication</c>). <c>None</c> by default.</summary>
     public global::Throwaway.Clients.RocketsClientAuthentication Authentication { get; set; }
+
+    /// <summary>The API key of <c>ApiKey</c> (key <c>ApiKey</c>, alias <c>Key</c>).</summary>
+    public string? ApiKey { get; set; }
+
+    /// <summary>The header <c>ApiKey</c> sends the key in (key <c>ApiKeyHeader</c>). <c>X-Api-Key</c> when neither it nor ApiKeyQuery is set.</summary>
+    public string? ApiKeyHeader { get; set; }
+
+    /// <summary>The query parameter <c>ApiKey</c> sends the key in, instead of a header (key <c>ApiKeyQuery</c>).</summary>
+    public string? ApiKeyQuery { get; set; }
+
+    /// <summary>The token of <c>Bearer</c> (key <c>Token</c>).</summary>
+    public string? Token { get; set; }
+
+    /// <summary>
+    ///     Gives the token of <c>Bearer</c> instead of <see cref="Token" />, in code only. It is asked for each request that gets the
+    ///     credentials, so it caches the token itself when fetching one is costly.
+    /// </summary>
+    public global::System.Func<global::System.IServiceProvider, global::System.Threading.CancellationToken, global::System.Threading.Tasks.ValueTask<string>>? TokenProvider { get; set; }
+
+    /// <summary>The user name of <c>Basic</c> (key <c>Username</c>).</summary>
+    public string? Username { get; set; }
+
+    /// <summary>The password of <c>Basic</c> (key <c>Password</c>).</summary>
+    public string? Password { get; set; }
 
     /// <summary>
     ///     The client certificate, a PKCS#12 (<c>.pfx</c>, <c>.p12</c>) or PEM file (key <c>CertificatePath</c>). It is presented for
@@ -113,6 +146,13 @@ internal sealed class RocketsClientOptionsSetup :
             ["Resilience"] = "Resilience",
             ["AllowedHosts"] = "AllowedHosts",
             ["Authentication"] = "Authentication",
+            ["ApiKey"] = "ApiKey",
+            ["Key"] = "ApiKey",
+            ["ApiKeyHeader"] = "ApiKeyHeader",
+            ["ApiKeyQuery"] = "ApiKeyQuery",
+            ["Token"] = "Token",
+            ["Username"] = "Username",
+            ["Password"] = "Password",
             ["CertificatePath"] = "CertificatePath",
             ["CertificatePassword"] = "CertificatePassword",
             ["CertificateKeyPath"] = "CertificateKeyPath",
@@ -120,12 +160,21 @@ internal sealed class RocketsClientOptionsSetup :
             ["CertificateStore"] = "CertificateStore",
         };
 
+    // the methods, by the name configuration gives them
+    private static readonly global::System.Collections.Generic.KeyValuePair<string, global::Throwaway.Clients.RocketsClientAuthentication>[] Methods =
+    [
+        new("None", global::Throwaway.Clients.RocketsClientAuthentication.None),
+        new("ApiKey", global::Throwaway.Clients.RocketsClientAuthentication.ApiKey),
+        new("Bearer", global::Throwaway.Clients.RocketsClientAuthentication.Bearer),
+        new("Basic", global::Throwaway.Clients.RocketsClientAuthentication.Basic),
+    ];
+
     // the keys, as the messages list them: under Clients:RocketsClient, and in a connection string
     private const string ObjectKeyList =
-        "ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
+        "ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
     private const string ConnectionStringKeyList =
-        "BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts, Authentication, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
-    private const string AuthenticationList = "None";
+        "BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
+    private static readonly string AuthenticationList = string.Join(", ", global::System.Linq.Enumerable.Select(Methods, static z => z.Key));
 
     // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '/''
     private const char SingleQuote = (char)39;
@@ -337,13 +386,80 @@ internal sealed class RocketsClientOptionsSetup :
     // the keys each method needs, and that no other method's keys are set
     private static void ValidateAuthentication(global::Throwaway.Clients.RocketsClientOptions options, global::System.Collections.Generic.List<string> failures)
     {
-        switch (options.Authentication)
+        var method = options.Authentication;
+        // each method's keys, and whether they are set: a key set for a method other than the one chosen is an error
+        var keys = new (string Key, bool IsSet, global::Throwaway.Clients.RocketsClientAuthentication Method)[]
+        {
+            ("ApiKey", options.ApiKey is not null, global::Throwaway.Clients.RocketsClientAuthentication.ApiKey),
+            ("ApiKeyHeader", options.ApiKeyHeader is not null, global::Throwaway.Clients.RocketsClientAuthentication.ApiKey),
+            ("ApiKeyQuery", options.ApiKeyQuery is not null, global::Throwaway.Clients.RocketsClientAuthentication.ApiKey),
+            ("Token", options.Token is not null, global::Throwaway.Clients.RocketsClientAuthentication.Bearer),
+            ("TokenProvider", options.TokenProvider is not null, global::Throwaway.Clients.RocketsClientAuthentication.Bearer),
+            ("Username", options.Username is not null, global::Throwaway.Clients.RocketsClientAuthentication.Basic),
+            ("Password", options.Password is not null, global::Throwaway.Clients.RocketsClientAuthentication.Basic),
+        };
+        var others = new global::System.Collections.Generic.List<string>();
+        foreach (var key in keys)
+        {
+            if (key.IsSet && key.Method != method)
+            {
+                others.Add($"{key.Key} ({key.Method})");
+            }
+        }
+
+        if (others.Count > 0)
+        {
+            failures.Add($"The Authentication of RocketsClient is {method}, and keys of another method are set: {string.Join(", ", others)}.");
+        }
+
+        switch (method)
         {
             case global::Throwaway.Clients.RocketsClientAuthentication.None:
+                return;
+            case global::Throwaway.Clients.RocketsClientAuthentication.ApiKey:
+                if (options.ApiKey is null)
+                {
+                    failures.Add("The Authentication of RocketsClient is ApiKey, which needs ApiKey (or Key).");
+                }
+
+                if (options.ApiKeyHeader is not null && options.ApiKeyQuery is not null)
+                {
+                    failures.Add("The Authentication of RocketsClient is ApiKey, which takes ApiKeyHeader or ApiKeyQuery, not both.");
+                }
+
+                break;
+            case global::Throwaway.Clients.RocketsClientAuthentication.Bearer:
+                if (options.Token is null && options.TokenProvider is null)
+                {
+                    failures.Add("The Authentication of RocketsClient is Bearer, which needs Token, or TokenProvider in code.");
+                }
+
+                if (options.Token is not null && options.TokenProvider is not null)
+                {
+                    failures.Add("The Authentication of RocketsClient is Bearer, which takes Token or TokenProvider, not both.");
+                }
+
+                break;
+            case global::Throwaway.Clients.RocketsClientAuthentication.Basic:
+                if (options.Username is null || options.Password is null)
+                {
+                    failures.Add("The Authentication of RocketsClient is Basic, which needs Username and Password.");
+                }
+
+                if (options.Username?.IndexOf(':') >= 0)
+                {
+                    failures.Add("The Username of RocketsClient has a colon, which Basic authentication cannot send.");
+                }
+
                 break;
             default:
                 failures.Add($"The Authentication of RocketsClient is not a method it can use: {AuthenticationList}.");
-                break;
+                return;
+        }
+
+        if (options.BaseAddress is not { Length: > 0 } && options.AllowedHosts.Count == 0)
+        {
+            failures.Add($"The Authentication of RocketsClient is {method}, and it has no host to send the credentials to: set BaseAddress, or AllowedHosts.");
         }
     }
 
@@ -524,32 +640,256 @@ internal sealed class RocketsClientOptionsSetup :
 
                 break;
             case "Authentication":
-                if (string.Equals(value, "None", global::System.StringComparison.OrdinalIgnoreCase))
+                foreach (var method in Methods)
                 {
-                    options.Authentication = global::Throwaway.Clients.RocketsClientAuthentication.None;
-                }
-                else
-                {
-                    options.ConfigurationErrors.Add($"{where} is not a method RocketsClient can use: {AuthenticationList}.");
+                    if (string.Equals(value, method.Key, global::System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        options.Authentication = method.Value;
+                        return;
+                    }
                 }
 
+                options.ConfigurationErrors.Add($"{where} is not a method RocketsClient can use: {AuthenticationList}.");
+                break;
+            // an empty value leaves a key unset
+            case "ApiKey":
+                options.ApiKey = value.Length > 0 ? value : null;
+                break;
+            case "ApiKeyHeader":
+                options.ApiKeyHeader = value.Length > 0 ? value : null;
+                break;
+            case "ApiKeyQuery":
+                options.ApiKeyQuery = value.Length > 0 ? value : null;
+                break;
+            case "Token":
+                options.Token = value.Length > 0 ? value : null;
+                break;
+            case "Username":
+                options.Username = value.Length > 0 ? value : null;
+                break;
+            case "Password":
+                options.Password = value.Length > 0 ? value : null;
                 break;
             case "CertificatePath":
-                options.CertificatePath = value;
+                options.CertificatePath = value.Length > 0 ? value : null;
                 break;
             case "CertificatePassword":
-                options.CertificatePassword = value;
+                options.CertificatePassword = value.Length > 0 ? value : null;
                 break;
             case "CertificateKeyPath":
-                options.CertificateKeyPath = value;
+                options.CertificateKeyPath = value.Length > 0 ? value : null;
                 break;
             case "CertificateThumbprint":
-                options.CertificateThumbprint = value;
+                options.CertificateThumbprint = value.Length > 0 ? value : null;
                 break;
             case "CertificateStore":
-                options.CertificateStore = value;
+                options.CertificateStore = value.Length > 0 ? value : null;
                 break;
         }
+    }
+}
+
+/// <summary>
+///     Adds the credentials <see cref="RocketsClientOptions" /> configures to the requests of <c>RocketsClient</c>, when its Authentication
+///     isn't <c>None</c>, and only to the <c>BaseAddress</c> host (and port) and the <c>AllowedHosts</c>. It follows redirects in place of the
+///     primary handler, so every hop passes the same check: a redirect to another host goes without the credentials.
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "{chirograph-version}")]
+internal sealed class RocketsClientAuthenticationHandler : global::System.Net.Http.DelegatingHandler
+{
+    private const string DefaultApiKeyHeader = "X-Api-Key";
+
+    private readonly global::System.IServiceProvider _services;
+    private readonly global::Throwaway.Clients.RocketsClientOptions _options;
+    private readonly global::System.Uri? _baseAddress;
+    private readonly int _maxRedirects;
+
+    private RocketsClientAuthenticationHandler(global::System.IServiceProvider services, global::Throwaway.Clients.RocketsClientOptions options, int maxRedirects)
+    {
+        _services = services;
+        _options = options;
+        _maxRedirects = maxRedirects;
+        _baseAddress = global::System.Uri.TryCreate(options.BaseAddress, global::System.UriKind.Absolute, out var baseAddress) ? baseAddress : null;
+    }
+
+    /// <summary>
+    ///     Adds the handler after the handlers added so far, when the options in effect as the handlers are built set an Authentication, and
+    ///     takes over the redirects of the primary handler.
+    /// </summary>
+    internal static void Configure(global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder builder)
+    {
+        var options = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                     .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::Throwaway.Clients.RocketsClientOptions>>(builder.Services)
+                     .CurrentValue;
+        if (options.Authentication == global::Throwaway.Clients.RocketsClientAuthentication.None)
+        {
+            return;
+        }
+
+        builder.AdditionalHandlers.Add(new global::Throwaway.Clients.RocketsClientAuthenticationHandler(builder.Services, options, TakeOverRedirects(builder.PrimaryHandler)));
+    }
+
+    // the primary handler would follow a redirect with every header of the request: it stops following them, and the handler follows as
+    // many as it would have
+    private static int TakeOverRedirects(global::System.Net.Http.HttpMessageHandler? handler)
+    {
+        while (handler is global::System.Net.Http.DelegatingHandler { InnerHandler: { } inner })
+        {
+            handler = inner;
+        }
+
+        switch (handler)
+        {
+            case global::System.Net.Http.SocketsHttpHandler { AllowAutoRedirect: true } sockets:
+                sockets.AllowAutoRedirect = false;
+                return sockets.MaxAutomaticRedirections;
+            case global::System.Net.Http.HttpClientHandler { AllowAutoRedirect: true } client:
+                client.AllowAutoRedirect = false;
+                return client.MaxAutomaticRedirections;
+            default:
+                return 0;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage> SendAsync(
+        global::System.Net.Http.HttpRequestMessage request,
+        global::System.Threading.CancellationToken cancellationToken
+    )
+    {
+        for (var redirects = 0; ; redirects++)
+        {
+            if (IsAllowed(request.RequestUri))
+            {
+                await AuthenticateAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+
+            var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (redirects >= _maxRedirects || Redirect(request, response) is not { } next)
+            {
+                return response;
+            }
+
+            response.Dispose();
+            request = next;
+        }
+    }
+
+    // the BaseAddress host, on its port, and the AllowedHosts: a host alone allows each of its ports, host:port that port
+    private bool IsAllowed(global::System.Uri? uri)
+    {
+        if (uri is not { IsAbsoluteUri: true })
+        {
+            return false;
+        }
+
+        if (_baseAddress is not null
+         && string.Equals(uri.Host, _baseAddress.Host, global::System.StringComparison.OrdinalIgnoreCase)
+         && uri.Port == _baseAddress.Port)
+        {
+            return true;
+        }
+
+        foreach (var host in _options.AllowedHosts)
+        {
+            if (string.Equals(host, uri.Host, global::System.StringComparison.OrdinalIgnoreCase)
+             || string.Equals(host, uri.Host + ":" + uri.Port, global::System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // sets the credentials of the method on the request, replacing any it has (a request sent again, say)
+    private async global::System.Threading.Tasks.ValueTask AuthenticateAsync(global::System.Net.Http.HttpRequestMessage request, global::System.Threading.CancellationToken cancellationToken)
+    {
+        switch (_options.Authentication)
+        {
+            case global::Throwaway.Clients.RocketsClientAuthentication.ApiKey when _options.ApiKeyQuery is { } query:
+                request.RequestUri = WithQueryParameter(request.RequestUri!, query, _options.ApiKey!);
+                break;
+            case global::Throwaway.Clients.RocketsClientAuthentication.ApiKey:
+                var header = _options.ApiKeyHeader ?? DefaultApiKeyHeader;
+                request.Headers.Remove(header);
+                request.Headers.TryAddWithoutValidation(header, _options.ApiKey);
+                break;
+            case global::Throwaway.Clients.RocketsClientAuthentication.Bearer:
+                var token = _options.Token ?? await _options.TokenProvider!(_services, cancellationToken).ConfigureAwait(false);
+                request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                break;
+            case global::Throwaway.Clients.RocketsClientAuthentication.Basic:
+                request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Basic",
+                    global::System.Convert.ToBase64String(global::System.Text.Encoding.UTF8.GetBytes(_options.Username + ":" + _options.Password))
+                );
+                break;
+        }
+    }
+
+    // the URI with the query parameter set to the value, once
+    private static global::System.Uri WithQueryParameter(global::System.Uri uri, string name, string value)
+    {
+        var escapedName = global::System.Uri.EscapeDataString(name);
+        var builder = new global::System.UriBuilder(uri);
+        var parameters = new global::System.Collections.Generic.List<string>();
+        foreach (var parameter in builder.Query.TrimStart('?').Split('&'))
+        {
+            if (parameter.Length > 0 && parameter != escapedName && !parameter.StartsWith(escapedName + "=", global::System.StringComparison.Ordinal))
+            {
+                parameters.Add(parameter);
+            }
+        }
+
+        parameters.Add(escapedName + "=" + global::System.Uri.EscapeDataString(value));
+        builder.Query = string.Join("&", parameters);
+        return builder.Uri;
+    }
+
+    // the request a redirect asks for, as the primary handler would have made it, without the credentials of this one; null when the
+    // response isn't a redirect it would follow
+    private global::System.Net.Http.HttpRequestMessage? Redirect(global::System.Net.Http.HttpRequestMessage request, global::System.Net.Http.HttpResponseMessage response)
+    {
+        var status = (int)response.StatusCode;
+        if (status is not (301 or 302 or 303 or 307 or 308) || response.Headers.Location is not { } location || request.RequestUri is not { } from)
+        {
+            return null;
+        }
+
+        var to = location.IsAbsoluteUri ? location : new global::System.Uri(from, location);
+        // no other scheme, and no downgrade from https to http
+        if ((to.Scheme != global::System.Uri.UriSchemeHttp && to.Scheme != global::System.Uri.UriSchemeHttps)
+         || (from.Scheme == global::System.Uri.UriSchemeHttps && to.Scheme == global::System.Uri.UriSchemeHttp))
+        {
+            return null;
+        }
+
+        var method = request.Method;
+        var content = request.Content;
+        if ((status is 301 or 302 && method == global::System.Net.Http.HttpMethod.Post) || (status == 303 && method != global::System.Net.Http.HttpMethod.Head))
+        {
+            method = global::System.Net.Http.HttpMethod.Get;
+            content = null;
+        }
+
+        var next = new global::System.Net.Http.HttpRequestMessage(method, to) { Content = content, Version = request.Version, VersionPolicy = request.VersionPolicy };
+        foreach (var header in request.Headers)
+        {
+            if (!string.Equals(header.Key, "Authorization", global::System.StringComparison.OrdinalIgnoreCase)
+             && !(_options.Authentication == global::Throwaway.Clients.RocketsClientAuthentication.ApiKey
+               && string.Equals(header.Key, _options.ApiKeyHeader ?? DefaultApiKeyHeader, global::System.StringComparison.OrdinalIgnoreCase)))
+            {
+                next.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+        }
+
+        foreach (var option in request.Options)
+        {
+            ((global::System.Collections.Generic.IDictionary<string, object?>)next.Options)[option.Key] = option.Value;
+        }
+
+        return next;
     }
 }
 
@@ -877,18 +1217,28 @@ public static class RocketsClientServiceCollectionExtensions
             builder,
             static (global::System.Net.Http.HttpClient httpClient, global::System.IServiceProvider services) =>
             {
-                // the authentication provider comes from the container: keyed with the name of the client, else unkeyed, else anonymous;
+                // the authentication provider comes from the container (keyed with the name of the client, else unkeyed, else anonymous),
+                // unless the options set an Authentication: the handler then sets the credentials, and the provider is anonymous;
                 // ConfigureRequestAdapter on the options, when it is set, then has the last word
+                var options = Options(services);
                 var adapter = new global::Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
-                    Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                    (options.Authentication == global::Throwaway.Clients.RocketsClientAuthentication.None
+                        ? Resolve<global::Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider>(services)
+                        : null)
                     ?? new global::Microsoft.Kiota.Abstractions.Authentication.AnonymousAuthenticationProvider(),
                     Resolve<global::Microsoft.Kiota.Abstractions.Serialization.IParseNodeFactory>(services),
                     Resolve<global::Microsoft.Kiota.Abstractions.Serialization.ISerializationWriterFactory>(services),
                     httpClient
                 );
-                var configureRequestAdapter = Options(services).ConfigureRequestAdapter;
+                var configureRequestAdapter = options.ConfigureRequestAdapter;
                 return new global::Throwaway.Clients.RocketsClient(configureRequestAdapter is null ? adapter : configureRequestAdapter(services, adapter));
             }
+        );
+        // configured authentication: when Authentication isn't None, the handler that adds the credentials, after the handlers added so far
+        // and before those added later (service discovery's among them, so the host check sees the address as configured)
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureHttpMessageHandlerBuilder(
+            builder,
+            static (global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder handlers) => global::Throwaway.Clients.RocketsClientAuthenticationHandler.Configure(handlers)
         );
         return builder;
     }
