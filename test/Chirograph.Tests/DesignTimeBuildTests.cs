@@ -52,15 +52,6 @@ public class DesignTimeBuildTests(string targetFramework) : LoggerTest<TestRecor
         new
         {
             Generated = build.GeneratedClients(),
-            // what Chirograph adds to the compilation, relative to the folder of the project's clients (the compiler itself doesn't run
-            // again after a build: it is up to date)
-            Compiled = build
-                      .AddedItems("_ChirographCompileOpenApiClients", "Compile")
-                      .Select(z => z.Replace('\\', '/'))
-                      .Where(z => z.Contains("/openapi/", StringComparison.Ordinal))
-                      .Select(z => z[( z.IndexOf("/openapi/", StringComparison.Ordinal) + "/openapi/".Length )..])
-                      .Distinct(StringComparer.Ordinal)
-                      .Order(StringComparer.Ordinal)
-                      .ToArray(),
+            Compiled = build.CompiledClientFiles(),
         };
 }
