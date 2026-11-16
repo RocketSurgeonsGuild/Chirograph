@@ -386,19 +386,20 @@ to the options-delegate tests above.
 Each milestone is one pull request. Each one updates the docs (`concepts/registration.md`, the reference pages and the guides) and
 the drift tests for what it adds. The sample gains one authenticated client in M2.
 
-| #   | Milestone                                                                                   | Depends on |
-| --- | ------------------------------------------------------------------------------------------- | ---------- |
-| M1  | Options class, connection strings and startup validation; remove the hooks and the scaffold | —          |
-| M2  | `ApiKey`, `Bearer` and `Basic`, the auth handler and the host check                         | M1         |
-| M3  | Client certificate (mTLS)                                                                   | M1         |
-| M4  | Per-client generated schema                                                                 | M1         |
-| M5  | `Authentication` item metadata and `ClientCredentials` through Duende                       | M2         |
-| M6  | `PrivateKeyJwt`                                                                             | M3, M5     |
-| M7  | Azure credentials                                                                           | M3, M5     |
-| M8  | Service discovery                                                                           | M2         |
+| #   | Milestone                                                                                   | Depends on | Issue                                                                        |
+| --- | ------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------- |
+| M1  | Options class, connection strings and startup validation; remove the hooks and the scaffold | —          | [Chirograph#33](https://github.com/RocketSurgeonsGuild/Chirograph/issues/33) |
+| M2  | `ApiKey`, `Bearer` and `Basic`, the auth handler and the host check                         | M1         | [Chirograph#34](https://github.com/RocketSurgeonsGuild/Chirograph/issues/34) |
+| M3  | Client certificate (mTLS)                                                                   | M1         | [Chirograph#35](https://github.com/RocketSurgeonsGuild/Chirograph/issues/35) |
+| M4  | Per-client generated schema                                                                 | M1         | [Chirograph#36](https://github.com/RocketSurgeonsGuild/Chirograph/issues/36) |
+| M5  | `Authentication` item metadata and `ClientCredentials` through Duende                       | M2         | [Chirograph#37](https://github.com/RocketSurgeonsGuild/Chirograph/issues/37) |
+| M6  | `PrivateKeyJwt`                                                                             | M3, M5     | [Chirograph#38](https://github.com/RocketSurgeonsGuild/Chirograph/issues/38) |
+| M7  | Azure credentials                                                                           | M3, M5     | [Chirograph#39](https://github.com/RocketSurgeonsGuild/Chirograph/issues/39) |
+| M8  | Service discovery                                                                           | M2         | [Chirograph#40](https://github.com/RocketSurgeonsGuild/Chirograph/issues/40) |
 
 M2, M3 and M4 can run in parallel once M1 lands. So can M6, M7 and M8 once their dependencies have. Every milestone after M4 adds its
-keys to the schema generator. The issues are linked from the tracking issue.
+keys to the schema generator. The tracking issue is [Chirograph#32](https://github.com/RocketSurgeonsGuild/Chirograph/issues/32), on the org project
+[Chirograph](https://github.com/orgs/RocketSurgeonsGuild/projects/4), with the "blocked by" links above.
 
 ---
 
