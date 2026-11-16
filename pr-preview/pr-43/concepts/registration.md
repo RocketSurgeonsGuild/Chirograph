@@ -79,6 +79,11 @@ The section's path is a constant on the registration class, `RocketsClientServic
 | `Token`                 | string               | The token of `Bearer`. In code, `TokenProvider` can give it instead.                                                                                                                                        |
 | `Username`              | string               | The user name of `Basic`.                                                                                                                                                                                   |
 | `Password`              | string               | The password of `Basic`.                                                                                                                                                                                    |
+| `CertificatePath`       | path                 | A [client certificate](#client-certificate-mtls), a PKCS#12 (`.pfx`, `.p12`) or PEM file.                                                                                                                   |
+| `CertificatePassword`   | string               | The password of the PKCS#12 file, or of the encrypted PEM key.                                                                                                                                              |
+| `CertificateKeyPath`    | path                 | The PEM private key, when `CertificatePath` is a PEM certificate without its key.                                                                                                                           |
+| `CertificateThumbprint` | string               | A client certificate in a certificate store, instead of a file.                                                                                                                                             |
+| `CertificateStore`      | `<location>/<name>`  | The store of `CertificateThumbprint`: `CurrentUser/My` (the default) or `LocalMachine/My`, say.                                                                                                             |
 
 Keys are case-insensitive. A key that isn't set leaves the `HttpClient` as it is. Any configuration source works: the environment
 variable `Clients__RocketsClient__DefaultRequestHeaders__X-Api-Version` sets a header, for example.
@@ -131,7 +136,10 @@ It fails on:
 - a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
 - a `BaseAddress` that isn't an absolute `http` or `https` URI, or a `Timeout` that isn't positive;
 - an `Authentication` without the keys it needs, with the keys of another method (`None` included), or with no host to send the
-  credentials to (neither `BaseAddress` nor `AllowedHosts`).
+  credentials to (neither `BaseAddress` nor `AllowedHosts`);
+- a [client certificate](#client-certificate-mtls) given by both a path and a thumbprint, a `CertificatePassword` or
+  `CertificateKeyPath` without a `CertificatePath`, a `CertificateStore` without a `CertificateThumbprint`, a file that doesn't exist,
+  and a certificate that doesn't load with its private key (a wrong password, say).
 
 The messages name the source (`Clients:RocketsClient:Timeout`, `ConnectionStrings:RocketsClient`) and the key, never a value, so they
 are safe to log even when a value is a secret.
@@ -258,6 +266,38 @@ A delegate on the options decides what the client uses at last. It gets what the
 builder.Services.AddRocketsClient(options =>
     options.ConfigureRefitSettings = (services, settings) => new RefitSettings { ContentSerializer = mySerializer });
 ```
+
+## Client certificate (mTLS)
+
+A client can present a certificate to the server, for mutual TLS, whatever its `Authentication`, `None` included. Give it as a file:
+
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "BaseAddress": "https://rockets.example.com/",
+            "CertificatePath": "/run/secrets/rockets-client.pfx",
+            "CertificatePassword": "…"
+        }
+    }
+}
+```
+
+- A PKCS#12 file (`.pfx`, `.p12`), with its `CertificatePassword` if it has one.
+- A PEM certificate with its key in `CertificateKeyPath`, the key encrypted with `CertificatePassword` or not.
+- A PEM file that holds both the certificate and its key.
+
+Or as a certificate in a store: `CertificateThumbprint`, in `CertificateStore` (`CurrentUser/My` unless it says otherwise). The keys
+work in a connection string too: `Endpoint=https://rockets.example.com/;CertificatePath=/run/secrets/rockets-client.pfx;CertificatePassword=…`.
+
+The registration puts the certificate on the client's primary handler (`ConfigurePrimaryHttpMessageHandler`), the
+`SocketsHttpHandler` or `HttpClientHandler` the factory made, not in a `DelegatingHandler`. It loads it again each time the handler is
+made, so a renewed file is picked up when the handlers rotate. The certificate is checked at startup, with the rest of the options: it
+must load, with its private key.
+
+`ConfigurePrimaryHttpMessageHandler` with a handler of your own on the builder `AddRocketsClient()` returns (or a `RefitSettings`
+`HttpMessageHandlerFactory`) replaces the handler that carries the certificate. The overload that changes the handler,
+`ConfigurePrimaryHttpMessageHandler((handler, services) => …)`, keeps it.
 
 ## Without the registration
 

@@ -155,6 +155,31 @@ merges them, as Optionary does for any section.</p>
 <td>string</td>
 <td>The password of <code dir="auto">Basic</code>.</td>
 </tr>
+<tr>
+<td><code dir="auto">CertificatePath</code></td>
+<td>string</td>
+<td>A client certificate for mutual TLS: a PKCS#12 (<code dir="auto">.pfx</code>, <code dir="auto">.p12</code>) or PEM file. Not with <code dir="auto">CertificateThumbprint</code>.</td>
+</tr>
+<tr>
+<td><code dir="auto">CertificatePassword</code></td>
+<td>string</td>
+<td>The password of the PKCS#12 file, or of its encrypted PEM key.</td>
+</tr>
+<tr>
+<td><code dir="auto">CertificateKeyPath</code></td>
+<td>string</td>
+<td>The PEM private key, when <code dir="auto">CertificatePath</code> is a PEM certificate without its key.</td>
+</tr>
+<tr>
+<td><code dir="auto">CertificateThumbprint</code></td>
+<td>string</td>
+<td>A client certificate in <code dir="auto">CertificateStore</code>, instead of a file.</td>
+</tr>
+<tr>
+<td><code dir="auto">CertificateStore</code></td>
+<td><code dir="auto">&#x3C;location>/&#x3C;name></code></td>
+<td>The store of <code dir="auto">CertificateThumbprint</code>: <code dir="auto">CurrentUser/My</code> (the default) or <code dir="auto">LocalMachine/My</code>, say.</td>
+</tr>
 </tbody>
 </table>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"Clients"</span><span style="--0:#D6DEEB;--1:#403F53">: {</span></div></div><div class="ec-line"><div class="code"><span class="indent">        </span><span style="--0:#7FDBCA;--1:#096E72">"RocketsClient"</span><span style="--0:#D6DEEB;--1:#403F53">: {</span></div></div><div class="ec-line"><div class="code"><span class="indent">            </span><span style="--0:#7FDBCA;--1:#096E72">"BaseAddress"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">https://rockets.example.com/</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">            </span><span style="--0:#7FDBCA;--1:#096E72">"Timeout"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">00:00:30</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">            </span><span style="--0:#7FDBCA;--1:#096E72">"DefaultRequestHeaders"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"X-Api-Key"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">…</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53"> },</span></div></div><div class="ec-line"><div class="code"><span class="indent">            </span><span style="--0:#7FDBCA;--1:#096E72">"Resilience"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">true</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{    &#x22;Clients&#x22;: {        &#x22;RocketsClient&#x22;: {            &#x22;BaseAddress&#x22;: &#x22;https://rockets.example.com/&#x22;,            &#x22;Timeout&#x22;: &#x22;00:00:30&#x22;,            &#x22;DefaultRequestHeaders&#x22;: { &#x22;X-Api-Key&#x22;: &#x22;…&#x22; },            &#x22;Resilience&#x22;: true        }    }}"><div></div></button></div></figure></div>
