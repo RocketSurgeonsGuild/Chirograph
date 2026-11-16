@@ -29,6 +29,11 @@
       "groupName": "openapi generators"
     },
     {
+      "description": "The generated ClientCredentials code uses Duende.AccessTokenManagement's 4.x API, which differs from the other majors",
+      "matchPackageNames": ["Duende.AccessTokenManagement"],
+      "allowedVersions": "<5"
+    },
+    {
       "description": "The extra runtime is the net10.0 test runtime; the SDK carries the newest one",
       "matchDepNames": ["dotnet-runtime"],
       "allowedVersions": "<11"

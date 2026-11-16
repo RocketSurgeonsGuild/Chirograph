@@ -26,6 +26,8 @@
         - Options: more arguments for the generator's command line (kiota generate, or refitter after its settings file).
         - DocumentName (a project): the document the client is generated from, when the project writes several (v1 is ASP.NET Core's
           default).
+        - Authentication: a ;-separated list of the authentication methods the client may use beyond those it always can (None, ApiKey,
+          Bearer, Basic): ClientCredentials, which adds Duende.AccessTokenManagement. An unknown value is CHIRO109.
 
       Each generator is a .NET tool package (Microsoft.OpenApi.Kiota, Refitter), which restore downloads (PackageDownload) and the build
       runs from the packages folder: nothing is installed, and a file source needs no network once the packages are restored. The packages
