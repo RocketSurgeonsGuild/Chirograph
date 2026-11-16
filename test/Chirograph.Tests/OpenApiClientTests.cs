@@ -117,19 +117,24 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     /// Build seam: the registration Chirograph writes for each generator, a public <c>Add&lt;ClientName&gt;()</c> that returns the
     /// <c>IHttpClientBuilder</c>, and the options it reads, <c>RocketsClientOptions</c>, both stamped with the version of Chirograph. The
     /// options carry the generator's delegate, and the registration adds the standard resilience handler only when the project references
-    /// Microsoft.Extensions.Http.Resilience, and service discovery only when it references Microsoft.Extensions.ServiceDiscovery.
+    /// Microsoft.Extensions.Http.Resilience, and service discovery only when it references Microsoft.Extensions.ServiceDiscovery. The code
+    /// of <c>ClientCredentials</c> (Duende.AccessTokenManagement) is written only when the item's <c>Authentication</c> metadata declares it.
     /// </summary>
     [Test]
-    [Arguments(Generator.Kiota, null)]
-    [Arguments(Generator.Refitter, null)]
-    [Arguments(Generator.Kiota, "Resilience")]
-    [Arguments(Generator.Refitter, "Resilience")]
-    [Arguments(Generator.Kiota, "ServiceDiscovery")]
-    [Arguments(Generator.Refitter, "ServiceDiscovery")]
-    public async Task Should_Write_The_Registration(Generator generator, string? block)
+    [Arguments(Generator.Kiota, null, null)]
+    [Arguments(Generator.Refitter, null, null)]
+    [Arguments(Generator.Kiota, "Resilience", null)]
+    [Arguments(Generator.Refitter, "Resilience", null)]
+    [Arguments(Generator.Kiota, "ServiceDiscovery", null)]
+    [Arguments(Generator.Refitter, "ServiceDiscovery", null)]
+    [Arguments(Generator.Kiota, null, "ClientCredentials")]
+    [Arguments(Generator.Refitter, null, "ClientCredentials")]
+    public async Task Should_Write_The_Registration(Generator generator, string? block, string? authentication)
     {
         using var project = new SdkTestProject(targetFramework);
-        var lib = project.CreateConsumer("Library").OpenApiClient(generator, "rockets.json");
+        var lib = project
+                 .CreateConsumer("Library")
+                 .OpenApiClient(generator, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = authentication });
         if (block is not null)
         {
             // the package whose reference turns the block on
@@ -148,7 +153,10 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         var registration = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientServiceCollectionExtensions.g.cs"));
         var options = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientOptions.g.cs"));
 
-        await project.VerifyResult(new { Registration = registration, Options = options }, block is null ? generator.ToString() : $"{generator}_{block}");
+        await project.VerifyResult(
+            new { Registration = registration, Options = options },
+            $"{generator}{( block is null ? "" : $"_{block}" )}{( authentication is null ? "" : $"_{authentication}" )}"
+        );
     }
 
     /// <summary>
@@ -265,6 +273,36 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         );
 
         await project.VerifyEvaluation("app/app.csproj");
+    }
+
+    /// <summary>
+    /// Evaluation seam: the <c>Authentication</c> metadata of a client adds the package its methods need, Duende.AccessTokenManagement for
+    /// <c>ClientCredentials</c> (written in any case, with spaces around it), in place of Microsoft.Extensions.Http, which it brings. Without
+    /// the metadata, no package is added; with the package referenced by the project, its own reference wins.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota, null, false)]
+    [Arguments(Generator.Kiota, " clientcredentials ", false)]
+    [Arguments(Generator.Refitter, "ClientCredentials", false)]
+    [Arguments(Generator.Kiota, "ClientCredentials", true)]
+    public async Task Should_Add_The_Packages_The_Authentication_Needs(Generator generator, string? authentication, bool referencesDuende)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        var app = project
+                 .CreateConsumer()
+                 .OpenApiClient(generator, "rockets.json", "OtherClient")
+                 .OpenApiClient(generator, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = authentication });
+        if (referencesDuende)
+        {
+            app.ItemPackageReference("Duende.AccessTokenManagement", version: "4.0.0");
+        }
+
+        project.AddProject("app/app.csproj", app);
+
+        await project.VerifyEvaluation(
+            "app/app.csproj",
+            $"{generator}_{authentication?.Trim().ToLowerInvariant() ?? "none"}{( referencesDuende ? "_Referenced" : "" )}"
+        );
     }
 
     /// <summary>

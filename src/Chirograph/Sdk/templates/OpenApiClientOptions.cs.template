@@ -20,7 +20,29 @@ public enum __ClientName__Authentication
 
     /// <summary>A user name and password, <c>Authorization: Basic</c>.</summary>
     Basic,
+    //#if ClientCredentials
+
+    /// <summary>
+    ///     OAuth client credentials: a token from <c>TokenEndpoint</c> (or the token endpoint <c>Authority</c> discovers) for
+    ///     <c>ClientId</c> and <c>ClientSecret</c>, through Duende.AccessTokenManagement, which caches it and fetches a new one before it
+    ///     expires. Needs <c>ClientCredentials</c> in the client's <c>Authentication</c> metadata.
+    /// </summary>
+    ClientCredentials,
+    //#endif
 }
+//#if ClientCredentials
+
+/// <summary>How <c>__ClientName__</c> sends its client credentials to the token endpoint (key <c>ClientCredentialStyle</c>).</summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
+public enum __ClientName__CredentialStyle
+{
+    /// <summary>In the <c>Authorization</c> header, as HTTP Basic authentication (the default).</summary>
+    Header,
+
+    /// <summary>In the body of the token request, as <c>client_id</c> and <c>client_secret</c>.</summary>
+    Body,
+}
+//#endif
 
 /// <summary>
 ///     The options of <c>__ClientName__</c>. <c>Add__ClientName__()</c> fills them, from lowest to highest, from the keys under
@@ -112,6 +134,33 @@ public sealed class __ClientName__Options
     /// </summary>
     public string? CertificateStore { get; set; }
 
+    //#if ClientCredentials
+    /// <summary>The client id of <c>ClientCredentials</c> (key <c>ClientId</c>).</summary>
+    public string? ClientId { get; set; }
+
+    /// <summary>The client secret of <c>ClientCredentials</c> (key <c>ClientSecret</c>).</summary>
+    public string? ClientSecret { get; set; }
+
+    /// <summary>The scope <c>ClientCredentials</c> asks a token for, space-separated (key <c>Scope</c>), if any.</summary>
+    public string? Scope { get; set; }
+
+    /// <summary>The token endpoint of <c>ClientCredentials</c>, an absolute URI (key <c>TokenEndpoint</c>). Not with <see cref="Authority" />.</summary>
+    public global::System.Uri? TokenEndpoint { get; set; }
+
+    /// <summary>
+    ///     The authority of <c>ClientCredentials</c>, an absolute https URI (key <c>Authority</c>), whose discovery document
+    ///     (<c>.well-known/openid-configuration</c>) gives the token endpoint, read on the first token request and cached. Not with
+    ///     <see cref="TokenEndpoint" />.
+    /// </summary>
+    public global::System.Uri? Authority { get; set; }
+
+    /// <summary>The resource <c>ClientCredentials</c> asks a token for (key <c>Resource</c>, RFC 8707), if any.</summary>
+    public string? Resource { get; set; }
+
+    /// <summary>How <c>ClientCredentials</c> sends the client id and secret (key <c>ClientCredentialStyle</c>): <c>Header</c>, the default, or <c>Body</c>.</summary>
+    public global::__Namespace__.__ClientName__CredentialStyle ClientCredentialStyle { get; set; }
+
+    //#endif
     //#if Kiota
     /// <summary>
     ///     Changes or replaces the request adapter of the client. It is given the adapter built over the client's <c>HttpClient</c> with the
@@ -175,6 +224,15 @@ internal sealed class __ClientName__OptionsSetup :
             ["CertificateKeyPath"] = "CertificateKeyPath",
             ["CertificateThumbprint"] = "CertificateThumbprint",
             ["CertificateStore"] = "CertificateStore",
+            //#if ClientCredentials
+            ["ClientId"] = "ClientId",
+            ["ClientSecret"] = "ClientSecret",
+            ["Scope"] = "Scope",
+            ["TokenEndpoint"] = "TokenEndpoint",
+            ["Authority"] = "Authority",
+            ["Resource"] = "Resource",
+            ["ClientCredentialStyle"] = "ClientCredentialStyle",
+            //#endif
         };
 
     // the methods, by the name configuration gives them
@@ -184,14 +242,44 @@ internal sealed class __ClientName__OptionsSetup :
         new("ApiKey", global::__Namespace__.__ClientName__Authentication.ApiKey),
         new("Bearer", global::__Namespace__.__ClientName__Authentication.Bearer),
         new("Basic", global::__Namespace__.__ClientName__Authentication.Basic),
+        //#if ClientCredentials
+        new("ClientCredentials", global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+        //#endif
+    ];
+
+    // every method the OpenApiClient item must declare, by the value of its Authentication metadata: one it didn't declare names it
+    private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
+    [
+        new("ClientCredentials", "ClientCredentials"),
     ];
 
     // the keys, as the messages list them: under Clients:__ClientName__, and in a connection string
-    private const string ObjectKeyList =
-        "ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
-    private const string ConnectionStringKeyList =
-        "BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
+    private static readonly string ObjectKeyList = KeyList(
+        new[]
+        {
+            "ConnectionString", "BaseAddress (or Endpoint)", "Timeout", "Resilience", "DefaultRequestHeaders", "AllowedHosts", "Authentication",
+            "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
+            "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
+            //#if ClientCredentials
+            "ClientId", "ClientSecret", "Scope", "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
+            //#endif
+        }
+    );
+    private static readonly string ConnectionStringKeyList = KeyList(
+        new[]
+        {
+            "BaseAddress (or Endpoint)", "Timeout", "Resilience", "AllowedHosts", "Authentication",
+            "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
+            "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
+            //#if ClientCredentials
+            "ClientId", "ClientSecret", "Scope", "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
+            //#endif
+        }
+    );
     private static readonly string AuthenticationList = string.Join(", ", global::System.Linq.Enumerable.Select(Methods, static z => z.Key));
+
+    // a, b and c
+    private static string KeyList(string[] keys) => string.Join(", ", keys, 0, keys.Length - 1) + " and " + keys[keys.Length - 1];
 
     // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '\''
     private const char SingleQuote = (char)39;
@@ -461,13 +549,40 @@ internal sealed class __ClientName__OptionsSetup :
             ("TokenProvider", options.TokenProvider is not null, global::__Namespace__.__ClientName__Authentication.Bearer),
             ("Username", options.Username is not null, global::__Namespace__.__ClientName__Authentication.Basic),
             ("Password", options.Password is not null, global::__Namespace__.__ClientName__Authentication.Basic),
+            //#if ClientCredentials
+            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("ClientSecret", options.ClientSecret is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("TokenEndpoint", options.TokenEndpoint is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("Authority", options.Authority is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("Resource", options.Resource is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("ClientCredentialStyle", options.ClientCredentialStyle != global::__Namespace__.__ClientName__CredentialStyle.Header, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            //#endif
         };
+        // a key two methods share is listed once, with both
         var others = new global::System.Collections.Generic.List<string>();
+        var seen = new global::System.Collections.Generic.HashSet<string>(global::System.StringComparer.Ordinal);
         foreach (var key in keys)
         {
-            if (key.IsSet && key.Method != method)
+            if (!key.IsSet || !seen.Add(key.Key))
             {
-                others.Add($"{key.Key} ({key.Method})");
+                continue;
+            }
+
+            var owners = new global::System.Collections.Generic.List<string>();
+            var allowed = false;
+            foreach (var owner in keys)
+            {
+                if (owner.Key == key.Key)
+                {
+                    owners.Add(owner.Method.ToString());
+                    allowed |= owner.Method == method;
+                }
+            }
+
+            if (!allowed)
+            {
+                others.Add($"{key.Key} ({string.Join(", ", owners)})");
             }
         }
 
@@ -516,6 +631,11 @@ internal sealed class __ClientName__OptionsSetup :
                 }
 
                 break;
+            //#if ClientCredentials
+            case global::__Namespace__.__ClientName__Authentication.ClientCredentials:
+                global::__Namespace__.__ClientName__ClientCredentials.Validate(options, failures);
+                break;
+            //#endif
             default:
                 failures.Add($"The Authentication of __ClientName__ is not a method it can use: {AuthenticationList}.");
                 return;
@@ -713,6 +833,17 @@ internal sealed class __ClientName__OptionsSetup :
                     }
                 }
 
+                foreach (var declared in DeclaredMethods)
+                {
+                    if (string.Equals(value, declared.Key, global::System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        options.ConfigurationErrors.Add(
+                            $"{where} is {declared.Key}, which the OpenApiClient item of __ClientName__ doesn't declare: add {declared.Value} to its Authentication metadata."
+                        );
+                        return;
+                    }
+                }
+
                 options.ConfigurationErrors.Add($"{where} is not a method __ClientName__ can use: {AuthenticationList}.");
                 break;
             // an empty value leaves a key unset
@@ -749,6 +880,53 @@ internal sealed class __ClientName__OptionsSetup :
             case "CertificateStore":
                 options.CertificateStore = value.Length > 0 ? value : null;
                 break;
+            //#if ClientCredentials
+            case "ClientId":
+                options.ClientId = value.Length > 0 ? value : null;
+                break;
+            case "ClientSecret":
+                options.ClientSecret = value.Length > 0 ? value : null;
+                break;
+            case "Scope":
+                options.Scope = value.Length > 0 ? value : null;
+                break;
+            case "Resource":
+                options.Resource = value.Length > 0 ? value : null;
+                break;
+            case "TokenEndpoint":
+            case "Authority":
+                global::System.Uri? uri = null;
+                if (value.Length > 0 && !global::System.Uri.TryCreate(value, global::System.UriKind.Absolute, out uri))
+                {
+                    options.ConfigurationErrors.Add($"{where} is not an absolute URI.");
+                }
+
+                if (name == "TokenEndpoint")
+                {
+                    options.TokenEndpoint = uri;
+                }
+                else
+                {
+                    options.Authority = uri;
+                }
+
+                break;
+            case "ClientCredentialStyle":
+                if (string.Equals(value, "Header", global::System.StringComparison.OrdinalIgnoreCase))
+                {
+                    options.ClientCredentialStyle = global::__Namespace__.__ClientName__CredentialStyle.Header;
+                }
+                else if (string.Equals(value, "Body", global::System.StringComparison.OrdinalIgnoreCase))
+                {
+                    options.ClientCredentialStyle = global::__Namespace__.__ClientName__CredentialStyle.Body;
+                }
+                else
+                {
+                    options.ConfigurationErrors.Add($"{where} is not Header or Body.");
+                }
+
+                break;
+            //#endif
         }
     }
 }
@@ -889,6 +1067,14 @@ internal sealed class __ClientName__AuthenticationHandler : global::System.Net.H
                     global::System.Convert.ToBase64String(global::System.Text.Encoding.UTF8.GetBytes(_options.Username + ":" + _options.Password))
                 );
                 break;
+            //#if ClientCredentials
+            case global::__Namespace__.__ClientName__Authentication.ClientCredentials:
+                request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer",
+                    await global::__Namespace__.__ClientName__ClientCredentials.GetAccessTokenAsync(_services, _options, cancellationToken).ConfigureAwait(false)
+                );
+                break;
+            //#endif
         }
     }
 
@@ -1189,3 +1375,227 @@ internal static class __ClientName__Certificate
         new global::System.Security.Cryptography.X509Certificates.X509Certificate2(data, password);
 #endif
 }
+//#if ClientCredentials
+
+/// <summary>
+///     The <c>ClientCredentials</c> authentication of <c>__ClientName__</c>, through Duende.AccessTokenManagement: a client-credentials
+///     client named <c>__ClientName__</c>, configured from <see cref="__ClientName__Options" />, whose token the authentication handler sets
+///     (so the host check applies to it). Duende caches the token in its <c>HybridCache</c> (keyed
+///     <c>ServiceProviderKeys.ClientCredentialsTokenCache</c>, else the application's) and fetches a new one before it expires. With
+///     <c>Authority</c>, the token endpoint comes from the discovery document, read on the first token request and cached.
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
+internal sealed class __ClientName__ClientCredentials :
+    global::Microsoft.Extensions.Options.IConfigureNamedOptions<global::Duende.AccessTokenManagement.ClientCredentialsClient>,
+    global::Microsoft.Extensions.Options.IOptionsChangeTokenSource<global::Duende.AccessTokenManagement.ClientCredentialsClient>
+{
+    /// <summary>The name of the client-credentials client, and of the options Duende reads for it.</summary>
+    internal const string ClientName = "__ClientName__";
+
+    private readonly global::System.IServiceProvider _services;
+    private readonly object _gate = new object();
+    private global::System.Uri? _authority;
+    private global::Duende.IdentityModel.Client.DiscoveryCache? _discovery;
+    private global::System.Uri? _discoveredTokenEndpoint;
+
+    public __ClientName__ClientCredentials(global::System.IServiceProvider services) => _services = services;
+
+    /// <summary>Registers Duende's client-credentials token management and the client, once.</summary>
+    internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(global::__Namespace__.__ClientName__ClientCredentials))
+            {
+                return;
+            }
+        }
+
+        global::Duende.AccessTokenManagement.ServiceCollectionExtensions.AddClientCredentialsTokenManagement(services);
+        services.Add(
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::__Namespace__.__ClientName__ClientCredentials, global::__Namespace__.__ClientName__ClientCredentials>()
+        );
+        services.Add(
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IConfigureOptions<global::Duende.AccessTokenManagement.ClientCredentialsClient>>(
+                static provider => global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::__Namespace__.__ClientName__ClientCredentials>(provider)
+            )
+        );
+        services.Add(
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::Microsoft.Extensions.Options.IOptionsChangeTokenSource<global::Duende.AccessTokenManagement.ClientCredentialsClient>>(
+                static provider => global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::__Namespace__.__ClientName__ClientCredentials>(provider)
+            )
+        );
+    }
+
+    /// <summary>
+    ///     Checks the keys of <c>ClientCredentials</c>: ClientId and ClientSecret, and TokenEndpoint (absolute http or https) or Authority
+    ///     (absolute https), not both. Startup reads no discovery document.
+    /// </summary>
+    internal static void Validate(global::__Namespace__.__ClientName__Options options, global::System.Collections.Generic.List<string> failures)
+    {
+        if (options.ClientId is not { Length: > 0 } || options.ClientSecret is not { Length: > 0 })
+        {
+            failures.Add("The Authentication of __ClientName__ is ClientCredentials, which needs ClientId and ClientSecret.");
+        }
+
+        if (options.TokenEndpoint is null == (options.Authority is null))
+        {
+            failures.Add("The Authentication of __ClientName__ is ClientCredentials, which takes TokenEndpoint or Authority, one of them.");
+        }
+
+        if (options.TokenEndpoint is { } tokenEndpoint
+         && !(tokenEndpoint.IsAbsoluteUri && (tokenEndpoint.Scheme == global::System.Uri.UriSchemeHttps || tokenEndpoint.Scheme == global::System.Uri.UriSchemeHttp)))
+        {
+            failures.Add("The TokenEndpoint of __ClientName__ is not an absolute http or https URI.");
+        }
+
+        if (options.Authority is { } authority && !(authority.IsAbsoluteUri && authority.Scheme == global::System.Uri.UriSchemeHttps))
+        {
+            failures.Add("The Authority of __ClientName__ is not an absolute https URI.");
+        }
+
+        // what Duende takes: it would throw on the first token request otherwise
+        Check(options.ClientId, static z => global::Duende.AccessTokenManagement.ClientId.Parse(z), "ClientId", failures);
+        Check(options.ClientSecret, static z => global::Duende.AccessTokenManagement.ClientSecret.Parse(z), "ClientSecret", failures);
+        Check(options.Scope, static z => global::Duende.AccessTokenManagement.Scope.Parse(z), "Scope", failures);
+        Check(options.Resource, static z => global::Duende.AccessTokenManagement.Resource.Parse(z), "Resource", failures);
+    }
+
+    // a value Duende's parser rejects fails validation, without repeating it
+    private static void Check(string? value, global::System.Action<string> parse, string key, global::System.Collections.Generic.List<string> failures)
+    {
+        if (value is not { Length: > 0 })
+        {
+            return;
+        }
+
+        try
+        {
+            parse(value);
+        }
+        catch (global::System.Exception)
+        {
+            failures.Add($"The {key} of __ClientName__ is not one Duende.AccessTokenManagement takes.");
+        }
+    }
+
+    /// <summary>
+    ///     The access token for a request: Duende's cached token, or a new one from the token endpoint (which the discovery document of
+    ///     <c>Authority</c> gives, read on the first request and cached).
+    /// </summary>
+    /// <exception cref="global::System.Net.Http.HttpRequestException">No token: the token endpoint or the discovery document said why.</exception>
+    internal static async global::System.Threading.Tasks.Task<string> GetAccessTokenAsync(
+        global::System.IServiceProvider services,
+        global::__Namespace__.__ClientName__Options options,
+        global::System.Threading.CancellationToken cancellationToken
+    )
+    {
+        if (options.TokenEndpoint is null && options.Authority is { } authority)
+        {
+            await global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                 .GetRequiredService<global::__Namespace__.__ClientName__ClientCredentials>(services)
+                 .DiscoverAsync(authority)
+                 .ConfigureAwait(false);
+        }
+
+        var result = await global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                          .GetRequiredService<global::Duende.AccessTokenManagement.IClientCredentialsTokenManager>(services)
+                          .GetAccessTokenAsync(global::Duende.AccessTokenManagement.ClientCredentialsClientName.Parse(ClientName), ct: cancellationToken)
+                          .ConfigureAwait(false);
+        if (result.WasSuccessful(out var token, out var failure))
+        {
+            return token.AccessToken.ToString();
+        }
+
+        throw new global::System.Net.Http.HttpRequestException($"__ClientName__ got no access token from its token endpoint: {failure.Error}.");
+    }
+
+    // reads the token endpoint from the discovery document of the authority, cached by Duende.IdentityModel's DiscoveryCache; when it
+    // changes, Duende configures the client again
+    private async global::System.Threading.Tasks.Task DiscoverAsync(global::System.Uri authority)
+    {
+        global::Duende.IdentityModel.Client.DiscoveryCache discovery;
+        lock (_gate)
+        {
+            if (_discovery is null || _authority != authority)
+            {
+                var factory = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                   .GetRequiredService<global::System.Net.Http.IHttpClientFactory>(_services);
+                // the back-channel client Duende sends the token request with, so what the application configures on it applies to both
+                _discovery = new global::Duende.IdentityModel.Client.DiscoveryCache(
+                    authority.ToString(),
+                    () => factory.CreateClient(global::Duende.AccessTokenManagement.ClientCredentialsTokenManagementDefaults.BackChannelHttpClientName),
+                    new global::Duende.IdentityModel.Client.DiscoveryPolicy { RequireKeySet = false }
+                );
+                _authority = authority;
+            }
+
+            discovery = _discovery;
+        }
+
+        var document = await discovery.GetAsync().ConfigureAwait(false);
+        if (document.IsError || !global::System.Uri.TryCreate(document.TokenEndpoint, global::System.UriKind.Absolute, out var tokenEndpoint))
+        {
+            throw new global::System.Net.Http.HttpRequestException(
+                $"__ClientName__ could not read the token endpoint from the discovery document of its Authority: {document.Error ?? "it has no token_endpoint"}."
+            );
+        }
+
+        if (tokenEndpoint != _discoveredTokenEndpoint)
+        {
+            _discoveredTokenEndpoint = tokenEndpoint;
+            global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+               .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitorCache<global::Duende.AccessTokenManagement.ClientCredentialsClient>>(_services)
+               .TryRemove(ClientName);
+        }
+    }
+
+    /// <summary>The name of the options this configures, the client's.</summary>
+    public string Name => ClientName;
+
+    /// <summary>Changes when configuration reloads, so Duende configures the client again.</summary>
+    public global::Microsoft.Extensions.Primitives.IChangeToken GetChangeToken() =>
+        ((global::Microsoft.Extensions.Configuration.IConfiguration?)_services.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration)))?.GetReloadToken()
+        ?? new global::Microsoft.Extensions.Primitives.CancellationChangeToken(global::System.Threading.CancellationToken.None);
+
+    /// <summary>Configures Duende's client <c>__ClientName__</c> from the options as they are now.</summary>
+    public void Configure(string? name, global::Duende.AccessTokenManagement.ClientCredentialsClient client)
+    {
+        if (name != ClientName)
+        {
+            return;
+        }
+
+        var options = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                     .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::__Namespace__.__ClientName__Options>>(_services)
+                     .CurrentValue;
+        client.TokenEndpoint = options.TokenEndpoint ?? _discoveredTokenEndpoint;
+        client.ClientCredentialStyle = options.ClientCredentialStyle == global::__Namespace__.__ClientName__CredentialStyle.Body
+            ? global::Duende.IdentityModel.Client.ClientCredentialStyle.PostBody
+            : global::Duende.IdentityModel.Client.ClientCredentialStyle.AuthorizationHeader;
+        if (options.ClientId is { Length: > 0 } clientId)
+        {
+            client.ClientId = global::Duende.AccessTokenManagement.ClientId.Parse(clientId);
+        }
+
+        if (options.ClientSecret is { Length: > 0 } clientSecret)
+        {
+            client.ClientSecret = global::Duende.AccessTokenManagement.ClientSecret.Parse(clientSecret);
+        }
+
+        if (options.Scope is { Length: > 0 } scope)
+        {
+            client.Scope = global::Duende.AccessTokenManagement.Scope.Parse(scope);
+        }
+
+        if (options.Resource is { Length: > 0 } resource)
+        {
+            client.Resource = global::Duende.AccessTokenManagement.Resource.Parse(resource);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Configure(global::Duende.AccessTokenManagement.ClientCredentialsClient options) =>
+        Configure(global::Microsoft.Extensions.Options.Options.DefaultName, options);
+}
+//#endif

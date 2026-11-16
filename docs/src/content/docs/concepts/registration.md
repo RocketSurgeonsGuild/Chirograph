@@ -217,6 +217,8 @@ handler sends them. With `None`, the default, the container gives the client its
 | `Bearer`         | `Token`, or `TokenProvider` in code                                                                        | `Authorization: Bearer <token>`.          |
 | `Basic`          | `Username`, `Password`                                                                                     | `Authorization: Basic`, the two in UTF-8. |
 
+`ClientCredentials` is one more method, which the `OpenApiClient` item declares: see [Client credentials](#client-credentials).
+
 ```json
 {
     "ConnectionStrings": {
@@ -258,6 +260,81 @@ A redirect to another host still goes without them.
 
 A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`. With service discovery,
 the default `https+http://<ClientName>` is one.
+
+### Client credentials
+
+`ClientCredentials` gets an OAuth access token with the client-credentials grant and sends it as `Authorization: Bearer <token>`, through
+[Duende.AccessTokenManagement](https://docs.duendesoftware.com/accesstokenmanagement/) 4.x. It is the one method the `OpenApiClient` item
+must declare, because it needs that package:
+
+```xml
+<OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Authentication="ClientCredentials" />
+```
+
+The metadata adds a reference to `Duende.AccessTokenManagement` (the version of
+[`ChirographDuendeAccessTokenManagementVersion`](../../reference/properties/), unless the project references the package itself) and
+writes the code that uses it. Without it, there is neither, and configuration that names the method fails
+[validation](#validation) with a message that names the metadata to set.
+
+| Key                     | Meaning                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `TokenEndpoint`         | The token endpoint, an absolute `http` or `https` URI. Or:                                                           |
+| `Authority`             | An absolute `https` URI whose discovery document (`/.well-known/openid-configuration`) gives the token endpoint.     |
+| `ClientId`              | The client id. Required.                                                                                             |
+| `ClientSecret`          | The client secret. Required. Keep it in user secrets or a vault, not in `appsettings.json`.                          |
+| `Scope`                 | The scopes to ask for, space-separated. Optional.                                                                    |
+| `Resource`              | The resource to ask for (RFC 8707). Optional.                                                                        |
+| `ClientCredentialStyle` | `Header` (the default) sends the id and secret as HTTP Basic authentication; `Body` sends them in the token request. |
+
+```json
+{
+    "ConnectionStrings": {
+        "RocketsClient": "Endpoint=https://rockets.example.com/;Authentication=ClientCredentials;Authority=https://login.example.com/;ClientId=rockets-app;ClientSecret=…;Scope=rockets.read"
+    }
+}
+```
+
+The registration configures a Duende client-credentials client named after the client (`RocketsClient`) from the options, and the
+authentication handler sets its token, so the [host check](#which-hosts-get-the-credentials) applies to it as to the other methods.
+Duende caches the token and fetches a new one shortly before it expires (its `CacheLifetimeBuffer`, 60 seconds by default), so one
+token serves every request until then. A `refresh_token` in the response isn't used: RFC 6749 §4.4.3 says the server shouldn't send
+one.
+
+With `Authority`, the discovery document is read on the first token request, not at startup, and cached
+(Duende.IdentityModel's `DiscoveryCache`). Startup only checks that `Authority` is an absolute `https` URI, so a host starts without
+the network. The discovery document and the token request go through Duende's back-channel `HttpClient`
+(`ClientCredentialsTokenManagementDefaults.BackChannelHttpClientName`): configure a proxy or a certificate for both there.
+
+A token request that fails fails the call with an `HttpRequestException` that gives the server's error, such as `invalid_client`.
+
+#### The token cache
+
+Duende keeps tokens in a `HybridCache`. Chirograph registers none: Duende's registration adds the default one, in memory. To keep them
+in [FusionCache](https://github.com/ZiggyCreatures/FusionCache) (2.x, which adapts itself to `HybridCache`), register it for the whole
+application:
+
+```csharp
+using ZiggyCreatures.Caching.Fusion;
+
+builder.Services.AddFusionCache().AsHybridCache();
+```
+
+or for the tokens only, keyed with Duende's `ServiceProviderKeys.ClientCredentialsTokenCache`:
+
+```csharp
+using Duende.AccessTokenManagement;
+using ZiggyCreatures.Caching.Fusion;
+
+builder.Services.AddFusionCache().AsKeyedHybridCache(ServiceProviderKeys.ClientCredentialsTokenCache);
+```
+
+The cache key is Duende's: `<CacheKeyPrefix>::RocketsClient::<hashed scope>::<hashed resource>`. A distributed cache behind
+`HybridCache` shares the tokens across instances; encrypt them there if the cache is shared (see Duende's
+[client credentials](https://docs.duendesoftware.com/accesstokenmanagement/advanced/client-credentials/) docs).
+
+Duende doesn't claim compatibility with native AOT: a native publish of a client that declares `ClientCredentials` warns about
+`Microsoft.Extensions.Caching.Hybrid`'s default JSON serializer (its token cache), and works. A client that doesn't declare it adds no
+package and no warning.
 
 ### From the container
 

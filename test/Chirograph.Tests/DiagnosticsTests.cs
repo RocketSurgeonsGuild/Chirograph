@@ -43,6 +43,27 @@ public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(T
         await project.VerifyResult(await project.BuildDiagnostics("app"));
     }
 
+    /// <summary>
+    /// <c>CHIRO109</c>: a client's <c>Authentication</c> metadata names values that aren't among those the SDK knows, all of them in one
+    /// error; the values it knows are left alone, in any case.
+    /// </summary>
+    [Test]
+    public async Task Should_Fail_When_A_Client_Has_An_Unknown_Authentication()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddProject(
+                "app/app.csproj",
+                project
+                   .CreateConsumer("Library")
+                   .OpenApiClient(Generator.Kiota, "rockets.json", metadata: new Dictionary<string, string?> { ["Authentication"] = "clientcredentials; Bearer;Kerberos" })
+                   .OpenApiClient(Generator.Refitter, "rockets.json", "OtherClient", new Dictionary<string, string?> { ["Authentication"] = "ClientCredentials" })
+            )
+           .AddFile("app/rockets.json", RocketsApi.Document);
+
+        await project.VerifyResult(await project.BuildDiagnostics("app"));
+    }
+
     /// <summary><c>CHIRO102</c>: the document file does not exist.</summary>
     [Test]
     public async Task Should_Fail_When_The_Document_Does_Not_Exist()

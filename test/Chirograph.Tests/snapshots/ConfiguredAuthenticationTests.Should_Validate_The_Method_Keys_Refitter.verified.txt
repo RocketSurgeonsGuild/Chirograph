@@ -26,6 +26,12 @@ OptionsValidationException:
   Bearer without a token:
 OptionsValidationException:
   The Authentication of RocketsClient is Bearer, which needs Token, or TokenProvider in code.,
+  ClientCredentials, not declared:
+OptionsValidationException:
+  Clients:RocketsClient:Authentication is ClientCredentials, which the OpenApiClient item of RocketsClient doesn't declare: add ClientCredentials to its Authentication metadata.,
+  ClientId, not declared:
+OptionsValidationException:
+  Clients:RocketsClient has an unknown key, ClientId. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.,
   Connection string with the keys of another method:
 OptionsValidationException:
   The Authentication of RocketsClient is Basic, and keys of another method are set: Token (Bearer).,

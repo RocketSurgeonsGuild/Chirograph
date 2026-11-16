@@ -26,6 +26,8 @@
         - Options: more arguments for the generator's command line (kiota generate, or refitter after its settings file).
         - DocumentName (a project): the document the client is generated from, when the project writes several (v1 is ASP.NET Core's
           default).
+        - Authentication: a ;-separated list of the authentication methods the client may use beyond those it always can (None, ApiKey,
+          Bearer, Basic): ClientCredentials, which adds Duende.AccessTokenManagement. An unknown value is CHIRO109.
 
       Each generator is a .NET tool package (Microsoft.OpenApi.Kiota, Refitter), which restore downloads (PackageDownload) and the build
       runs from the packages folder: nothing is installed, and a file source needs no network once the packages are restored. The packages
@@ -69,6 +71,15 @@
     <!-- the reference page of the diagnostics, each error and warning links to the heading of its code -->
     <_ChirographDiagnosticsUrl>$(_ChirographDocsUrl)reference/diagnostics/</_ChirographDiagnosticsUrl>
   </PropertyGroup>
+
+  <!--
+      The values the Authentication metadata of a client can list, each the name of the //#if block of the templates it keeps. A value
+      that needs a package also adds it (see _ChirographOpenApiAuthenticationValues below).
+        - ClientCredentials: OAuth client credentials, through Duende.AccessTokenManagement.
+  -->
+  <ItemGroup>
+    <_ChirographOpenApiAuthenticationMethod Include="ClientCredentials" />
+  </ItemGroup>
 
   <!--
       The generators: each is the tool package restore downloads, at the version the SDK was packed with (Version), the tool in it
@@ -139,15 +150,29 @@
       Version="$(ChirographRefitVersion)"
       Condition="'$(ChirographRefitVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) == 'true'"
     />
+
     <!--
-        Not with a Refitter client, nor beside Microsoft.Extensions.Http.Resilience or Microsoft.Extensions.ServiceDiscovery:
-        Refit.HttpClientFactory and those packages bring Microsoft.Extensions.Http themselves, at a version that can be newer than the one packed here (NU1605, a downgrade, on
-        net11.0).
+        The Authentication values of every client, as one item, |<value>|<value>|…, lowercase and without spaces, for the conditions of the
+        packages they need. Evaluation can neither split a metadata value on ; nor batch on it: the targets check each value of each client
+        (CHIRO109) and turn its template blocks on when it builds. Each value that needs a package adds one here, its condition looking for
+        |<value>| in this item.
+    -->
+    <_ChirographOpenApiAuthenticationValues Include="@(_ChirographOpenApiClient->'|%(Authentication)|', '')" />
+    <_ChirographImplicitPackageReference
+      Include="Duende.AccessTokenManagement"
+      Version="$(ChirographDuendeAccessTokenManagementVersion)"
+      Condition="'$(ChirographDuendeAccessTokenManagementVersion)' != '' and @(_ChirographOpenApiAuthenticationValues->Replace(';', '|')->Replace(' ', '')->ToLowerInvariant()->Contains('|clientcredentials|')) == 'true'"
+    />
+
+    <!--
+        Not with a Refitter client, nor beside Microsoft.Extensions.Http.Resilience, Microsoft.Extensions.ServiceDiscovery or
+        Duende.AccessTokenManagement: Refit.HttpClientFactory and those packages bring Microsoft.Extensions.Http themselves, at a version
+        that can be newer than the one packed here (NU1605, a downgrade, on net11.0).
     -->
     <_ChirographImplicitPackageReference
       Include="Microsoft.Extensions.Http"
       Version="$(ChirographMicrosoftExtensionsHttpVersion)"
-      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Http.Resilience')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.ServiceDiscovery')) != 'true'"
+      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Http.Resilience')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.ServiceDiscovery')) != 'true' and @(_ChirographImplicitPackageReference->AnyHaveMetadataValue('Identity', 'Duende.AccessTokenManagement')) != 'true'"
     />
   </ItemGroup>
 
@@ -241,6 +266,26 @@
       HelpLink="$(_ChirographDiagnosticsUrl)#chiro102"
       Text="The OpenAPI document '%(_ChirographOpenApiClient.Identity)' of the OpenApiClient '%(_ChirographOpenApiClient.ClientName)' does not exist."
     />
+    <!--
+        Each value of each client's Authentication (batching splits the ; list), checked against the values the SDK knows,
+        @(_ChirographOpenApiAuthenticationMethod) (item identities compare case-insensitively). The error is batched on the client.
+    -->
+    <ItemGroup>
+      <_ChirographOpenApiClientAuthentication Remove="@(_ChirographOpenApiClientAuthentication)" />
+      <_ChirographOpenApiClientAuthentication Include="%(_ChirographOpenApiClient.Authentication)" ClientName="%(_ChirographOpenApiClient.ClientName)" />
+      <_ChirographOpenApiUnknownAuthentication Remove="@(_ChirographOpenApiUnknownAuthentication)" />
+      <_ChirographOpenApiUnknownAuthentication Include="@(_ChirographOpenApiClientAuthentication)" Exclude="@(_ChirographOpenApiAuthenticationMethod)" />
+    </ItemGroup>
+    <Error
+      Condition="'@(_ChirographOpenApiUnknownAuthentication)' != ''"
+      Code="CHIRO109"
+      HelpLink="$(_ChirographDiagnosticsUrl)#chiro109"
+      Text="The OpenApiClient '%(_ChirographOpenApiUnknownAuthentication.ClientName)' has Authentication values Chirograph doesn't know (@(_ChirographOpenApiUnknownAuthentication, ', ')): set it to a ;-separated list of @(_ChirographOpenApiAuthenticationMethod, ', '), or leave it out."
+    />
+    <ItemGroup>
+      <_ChirographOpenApiClientAuthentication Remove="@(_ChirographOpenApiClientAuthentication)" />
+      <_ChirographOpenApiUnknownAuthentication Remove="@(_ChirographOpenApiUnknownAuthentication)" />
+    </ItemGroup>
     <MakeDir Directories="@(_ChirographOpenApiClient->'%(ClientDirectory)')" />
   </Target>
 
@@ -412,13 +457,16 @@
     />
     <!--
         A template's code between //#if <Block> and //#endif is kept, without those two lines, only when the block is on for the client;
-        otherwise it is cut out. Blocks don't nest. The blocks:
+        otherwise it is cut out. //#if <Block>|<Block> keeps the code when either block is on (keys two methods share, say). Blocks don't
+        nest, and their names compare case-insensitively. The blocks:
           - Kiota, Refitter: the client's generator.
           - Resilience: the standard resilience handler, when the resolved references of the project include
             Microsoft.Extensions.Http.Resilience. Chirograph doesn't add it.
           - ServiceDiscovery: service discovery (and the default address https+http://<ClientName>), when the resolved references of the
             project include Microsoft.Extensions.ServiceDiscovery; NoServiceDiscovery otherwise. Chirograph doesn't add it.
-        _ChirographOpenApiTemplateBlocks lists the project's blocks (with |), and the generator is added for each client.
+          - each value of the client's Authentication metadata (ClientCredentials): the methods it declares.
+        _ChirographOpenApiTemplateBlocks lists the project's blocks (with |), and the client's generator and AuthenticationBlocks are added
+        for each client.
     -->
     <ItemGroup>
       <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
@@ -432,10 +480,14 @@
       <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographServiceDiscoveryReference)' != ''">$(_ChirographOpenApiTemplateBlocks)|ServiceDiscovery</_ChirographOpenApiTemplateBlocks>
       <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographServiceDiscoveryReference)' == ''">$(_ChirographOpenApiTemplateBlocks)|NoServiceDiscovery</_ChirographOpenApiTemplateBlocks>
       <!-- {0} is the client's blocks: a block not among them is cut out, then the markers of the blocks kept are -->
-      <_ChirographOpenApiTemplateCut>(?s)[ \t]*//#if (?!(?:{0})\r?\n)[A-Za-z]+\r?\n.*?//#endif\r?\n</_ChirographOpenApiTemplateCut>
-      <_ChirographOpenApiTemplateMarkers>[ \t]*//#(if [A-Za-z]+|endif)\r?\n</_ChirographOpenApiTemplateMarkers>
+      <_ChirographOpenApiTemplateCut>(?si)[ \t]*//#if (?!(?:[A-Za-z]+\|)*(?:{0})(?:\|[A-Za-z]+)*\r?\n)[A-Za-z|]+\r?\n.*?//#endif\r?\n</_ChirographOpenApiTemplateCut>
+      <_ChirographOpenApiTemplateMarkers>[ \t]*//#(if [A-Za-z|]+|endif)\r?\n</_ChirographOpenApiTemplateMarkers>
     </PropertyGroup>
     <ItemGroup>
+      <!-- |<value>|<value>…, from the ;-separated values, or nothing -->
+      <_ChirographOpenApiClient>
+        <AuthenticationBlocks>$([System.Text.RegularExpressions.Regex]::Replace(';%(_ChirographOpenApiClient.Authentication)', '[\s;]+', '|').TrimEnd('|'))</AuthenticationBlocks>
+      </_ChirographOpenApiClient>
       <_ChirographOpenApiClientRegistration Remove="@(_ChirographOpenApiClientRegistration)" />
       <_ChirographOpenApiClientRegistration
         Include="@(_ChirographOpenApiClient->'%(GeneratedRegistrationFile)')"
@@ -446,7 +498,7 @@
         Template="$(MSBuildThisFileDirectory)templates/OpenApiClientOptions.cs.template"
       />
       <_ChirographOpenApiClientRegistration>
-        <Text>$([System.Text.RegularExpressions.Regex]::Replace($([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('%(Template)')), $([System.String]::Format('$(_ChirographOpenApiTemplateCut)', '%(Generator)$(_ChirographOpenApiTemplateBlocks)')), '')), '$(_ChirographOpenApiTemplateMarkers)', '').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))</Text>
+        <Text>$([System.Text.RegularExpressions.Regex]::Replace($([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('%(Template)')), $([System.String]::Format('$(_ChirographOpenApiTemplateCut)', '%(Generator)$(_ChirographOpenApiTemplateBlocks)%(AuthenticationBlocks)')), '')), '$(_ChirographOpenApiTemplateMarkers)', '').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))</Text>
       </_ChirographOpenApiClientRegistration>
       <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
       <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />

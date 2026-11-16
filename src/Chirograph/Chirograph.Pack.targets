@@ -2,9 +2,9 @@
   <!--
       Writes Sdk/Packages.props into the package, which Sdk/Sdk.props imports: ChirographVersion, the version of the SDK, and the versions
       Directory.Packages.props pins for the two generator tools (Microsoft.OpenApi.Kiota and Refitter, downloaded with PackageDownload)
-      and the three packages their clients need (Microsoft.Kiota.Bundle, Refit.HttpClientFactory and Microsoft.Extensions.Http). The
-      versions are only known when the SDK is packed, so the file is generated then rather than kept in the repository. A consumer can set
-      any of them first to choose another.
+      and the packages their clients need (Microsoft.Kiota.Bundle, Refit.HttpClientFactory and Microsoft.Extensions.Http, and
+      Duende.AccessTokenManagement for the ClientCredentials authentication). The versions are only known when the SDK is packed, so the
+      file is generated then rather than kept in the repository. A consumer can set any of them first to choose another.
 
       This project targets netstandard2.0, so a pin split per release train (Microsoft.Extensions.Http) resolves to the one below net11.0,
       which every supported target framework can use.
@@ -16,13 +16,14 @@
       <_ChirographPinnedPackage Include="@(PackageVersion)" Condition="'%(Identity)' == 'Microsoft.Kiota.Bundle'" Property="ChirographKiotaBundleVersion" />
       <_ChirographPinnedPackage Include="@(PackageVersion)" Condition="'%(Identity)' == 'Refit.HttpClientFactory'" Property="ChirographRefitVersion" />
       <_ChirographPinnedPackage Include="@(PackageVersion)" Condition="'%(Identity)' == 'Microsoft.Extensions.Http'" Property="ChirographMicrosoftExtensionsHttpVersion" />
+      <_ChirographPinnedPackage Include="@(PackageVersion)" Condition="'%(Identity)' == 'Duende.AccessTokenManagement'" Property="ChirographDuendeAccessTokenManagementVersion" />
     </ItemGroup>
     <PropertyGroup>
       <_ChirographPackagesProps>$(IntermediateOutputPath)Packages.props</_ChirographPackagesProps>
     </PropertyGroup>
     <Error
-      Condition="'@(_ChirographPinnedPackage->Count())' != '5'"
-      Text="Directory.Packages.props pins one version of each of Microsoft.OpenApi.Kiota, Refitter, Microsoft.Kiota.Bundle, Refit.HttpClientFactory and Microsoft.Extensions.Http, which $(PackageId) writes into Sdk/Packages.props: found @(_ChirographPinnedPackage)."
+      Condition="'@(_ChirographPinnedPackage->Count())' != '6'"
+      Text="Directory.Packages.props pins one version of each of Microsoft.OpenApi.Kiota, Refitter, Microsoft.Kiota.Bundle, Refit.HttpClientFactory, Microsoft.Extensions.Http and Duende.AccessTokenManagement, which $(PackageId) writes into Sdk/Packages.props: found @(_ChirographPinnedPackage)."
     />
     <ItemGroup>
       <!-- %24 is $ and %27 is ': the file reads the consumer's properties, which must not be expanded here -->

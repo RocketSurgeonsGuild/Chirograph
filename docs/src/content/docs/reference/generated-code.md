@@ -147,7 +147,17 @@ constants and the return type are public API. The body can change between releas
 - `RocketsClientCertificate`, internal: it loads the certificate the certificate keys give (a PKCS#12 or PEM file, or a store),
   checks those keys, and sets the certificate on the primary handler for mutual TLS.
 
-The two public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
+With `Authentication="ClientCredentials"` on the item, and only then, the file also has:
+
+- `ClientCredentials` in `RocketsClientAuthentication`, and its keys on `RocketsClientOptions`: `ClientId`, `ClientSecret`, `Scope`,
+  `TokenEndpoint`, `Authority`, `Resource` and `ClientCredentialStyle`.
+- `RocketsClientCredentialStyle`, public: `Header` or `Body`.
+- `RocketsClientClientCredentials`, internal: it configures Duende's client-credentials client `RocketsClient` from the options,
+  reads the token endpoint from the `Authority`'s discovery document, and gives the handler the token (see
+  [Client credentials](../../concepts/registration/#client-credentials)). The registration calls Duende's
+  `AddClientCredentialsTokenManagement()`.
+
+The public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
 the sources and [Validation](../../concepts/registration/#validation) for what fails.
 
 ## The Dovetail joint

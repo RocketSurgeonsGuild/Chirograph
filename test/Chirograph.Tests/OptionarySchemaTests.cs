@@ -40,13 +40,16 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
     /// <summary>
     /// Build seam: each client's schema is written into its folder in <c>obj</c>, with or without Optionary: the keys of the section,
     /// <c>Authentication</c> as an enum of the methods the client allows, and a rule per method that requires its keys and forbids the
-    /// keys of the other methods. The result is each client's schema, by client.
+    /// keys of the other methods. The result is each client's schema, by client. A method the item's <c>Authentication</c> metadata
+    /// declares (<c>ClientCredentials</c>, written in any case) adds its value and its keys; without it, they are not there.
     /// </summary>
     [Test]
-    public async Task Should_Write_The_Schema_Of_Each_Client()
+    [Arguments(null)]
+    [Arguments(" clientcredentials ")]
+    public async Task Should_Write_The_Schema_Of_Each_Client(string? authentication)
     {
         using var project = new SdkTestProject(targetFramework);
-        AddClientsApp(project, optionaryVersion: null);
+        AddClientsApp(project, optionaryVersion: null, authentication: authentication);
 
         await project.Build("app");
 
@@ -59,7 +62,10 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
             )
         );
 
-        await project.VerifyResult(clients.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+        await project.VerifyResult(
+            clients.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }),
+            authentication is null ? null : "ClientCredentials"
+        );
     }
 
     /// <summary>
@@ -154,21 +160,22 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
         );
     }
 
-    private static void AddClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema = "") =>
+    private static void AddClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema = "", string? authentication = null) =>
         project
-           .AddProject("app/app.csproj", ClientsApp(project, optionaryVersion, optionarySchema))
+           .AddProject("app/app.csproj", ClientsApp(project, optionaryVersion, optionarySchema, authentication))
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", "System.Console.WriteLine();\n");
 
     // An application with a Kiota client (KiotaClient) and a Refitter client (RefitterClient), referencing Optionary at
-    // optionaryVersion (none when null).
-    private static ProjectCreator ClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema)
+    // optionaryVersion (none when null), both with the Authentication metadata authentication.
+    private static ProjectCreator ClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema, string? authentication = null)
     {
+        var metadata = new Dictionary<string, string?> { ["Authentication"] = authentication };
         var app = project
                  .CreateConsumer()
                  .Property("ChirographOptionarySchema", optionarySchema == "" ? null : optionarySchema)
-                 .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient")
-                 .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient");
+                 .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient", metadata)
+                 .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient", metadata);
         return optionaryVersion is null ? app : app.ItemPackageReference("Optionary", optionaryVersion);
     }
 }

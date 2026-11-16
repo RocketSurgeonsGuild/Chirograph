@@ -108,9 +108,11 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
                                   .Distinct()
                                   .Order(StringComparer.Ordinal)
                                   .ToArray();
+        // every key of the list, whichever //#if block it is in
         var optionsKeys = ObjectKeyList()
                          .Matches(ReadFile(OptionsTemplate))
-                         .SelectMany(z => KeyListEntry().Matches(z.Groups["list"].Value))
+                         .SelectMany(z => StringLiteral().Matches(z.Groups["list"].Value))
+                         .SelectMany(z => KeyListEntry().Matches(z.Groups["value"].Value))
                          .SelectMany(z => z.Groups["key"].Captures.Select(c => c.Value))
                          .Where(z => z != "and")
                          .Distinct()
@@ -129,9 +131,12 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
 
     private static IEnumerable<string> TableRows(string path, string heading) => TableRow().Matches(Section(ReadFile(path), heading)).Select(z => z.Groups["name"].Value);
 
-    // the keys of the object in the options class, a C# string literal: "A, B (or C), D and E"
-    [GeneratedRegex(@"ObjectKeyList\s*=\s*""(?<list>[^""]*)""")]
+    // the keys of the object in the options class, string literals in an array, some in //#if blocks: KeyList(new[] { "A", "B (or C)", … })
+    [GeneratedRegex(@"ObjectKeyList\s*=\s*KeyList\(\s*new\[\]\s*\{(?<list>[^}]*)\}")]
     private static partial Regex ObjectKeyList();
+
+    [GeneratedRegex(@"""(?<value>[^""]*)""")]
+    private static partial Regex StringLiteral();
 
     // an entry of that list: a key, with its alias if it has one
     [GeneratedRegex(@"(?<key>[A-Za-z]\w*)(?: \(or (?<key>[A-Za-z]\w*)\))?")]

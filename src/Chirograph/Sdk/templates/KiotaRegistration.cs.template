@@ -51,6 +51,9 @@ public static class __ClientName__ServiceCollectionExtensions
     )
     {
         global::__Namespace__.__ClientName__OptionsSetup.Register(services);
+        //#if ClientCredentials
+        global::__Namespace__.__ClientName__ClientCredentials.Register(services);
+        //#endif
         if (configure is not null)
         {
             global::Microsoft.Extensions.DependencyInjection.OptionsServiceCollectionExtensions.Configure(services, configure);

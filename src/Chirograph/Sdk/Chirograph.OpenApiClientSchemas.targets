@@ -80,6 +80,7 @@
       <_ChirographOpenApiClientMethod Include="ApiKey" />
       <_ChirographOpenApiClientMethod Include="Bearer" />
       <_ChirographOpenApiClientMethod Include="Basic" Requires="Username" />
+      <_ChirographOpenApiClientMethod Include="ClientCredentials" Feature="ClientCredentials" Requires="ClientId;TokenEndpoint|Authority" />
 
       <_ChirographOpenApiClientKey Remove="@(_ChirographOpenApiClientKey)" />
       <_ChirographOpenApiClientKey Include="ConnectionString">
@@ -158,12 +159,37 @@
         <Schema>"type": "string", "pattern": "^[A-Za-z]+/[^/]+$"</Schema>
         <Description>The store CertificateThumbprint is in, as &lt;location&gt;/&lt;name&gt;: CurrentUser/My (the default) or LocalMachine/My, say.</Description>
       </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ClientId" Methods="ClientCredentials">
+        <Description>The client id of ClientCredentials.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ClientSecret" Methods="ClientCredentials" Secret="true">
+        <Description>The client secret of ClientCredentials.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Scope" Methods="ClientCredentials">
+        <Description>The scopes ClientCredentials asks a token for, space-separated.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="TokenEndpoint" Methods="ClientCredentials">
+        <Schema>"type": "string", "format": "uri"</Schema>
+        <Description>The token endpoint of ClientCredentials, an absolute http or https URI. Not with Authority.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Authority" Methods="ClientCredentials">
+        <Schema>"type": "string", "format": "uri", "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"</Schema>
+        <Description>The authority of ClientCredentials, an absolute https URI whose discovery document gives the token endpoint, read on the first token request. Not with TokenEndpoint.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Resource" Methods="ClientCredentials">
+        <Description>The resource ClientCredentials asks a token for (RFC 8707).</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="ClientCredentialStyle" Methods="ClientCredentials">
+        <Schema>"type": "string", "enum": ["Header", "Body"]</Schema>
+        <Description>How ClientCredentials sends the client id and secret: in the Authorization header (Header, the default), or in the body of the token request (Body).</Description>
+      </_ChirographOpenApiClientKey>
     </ItemGroup>
 
     <PropertyGroup>
       <_ChirographOpenApiClientSchemaClientName>%(_ChirographOpenApiClientSchemaFile.ClientName)</_ChirographOpenApiClientSchemaClientName>
       <_ChirographOpenApiClientSchemaGenerator>%(_ChirographOpenApiClientSchemaFile.Generator)</_ChirographOpenApiClientSchemaGenerator>
-      <_ChirographOpenApiClientSchemaFeatures>;%(_ChirographOpenApiClientSchemaFile.Authentication);</_ChirographOpenApiClientSchemaFeatures>
+      <!-- the values of Authentication, without spaces and in lowercase: ;clientcredentials; -->
+      <_ChirographOpenApiClientSchemaFeatures>;$([System.Text.RegularExpressions.Regex]::Replace('%(_ChirographOpenApiClientSchemaFile.Authentication)', '\s+', '').ToLowerInvariant());</_ChirographOpenApiClientSchemaFeatures>
     </PropertyGroup>
     <ItemGroup>
       <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
@@ -181,7 +207,7 @@
       <_ChirographOpenApiClientSchemaMethod Include="@(_ChirographOpenApiClientMethod)" />
       <_ChirographOpenApiClientSchemaMethod
         Remove="@(_ChirographOpenApiClientSchemaMethod)"
-        Condition="'%(_ChirographOpenApiClientSchemaMethod.Feature)' != '' and !$(_ChirographOpenApiClientSchemaFeatures.Contains(';%(_ChirographOpenApiClientSchemaMethod.Feature);'))"
+        Condition="'%(_ChirographOpenApiClientSchemaMethod.Feature)' != '' and !$(_ChirographOpenApiClientSchemaFeatures.Contains($([System.String]::Copy(';%(_ChirographOpenApiClientSchemaMethod.Feature);').ToLowerInvariant())))"
       />
       <_ChirographOpenApiClientSchemaKey Remove="@(_ChirographOpenApiClientSchemaKey)" />
       <_ChirographOpenApiClientSchemaKey Include="@(_ChirographOpenApiClientKey)" />
