@@ -1,0 +1,23 @@
+<!--
+    A Kiota client generated from a URL: the document the running Rockets.Api serves (mise run sample:run starts it on port 5179).
+
+    DocumentCache keeps the downloaded document in rockets.openapi.json, which is committed, and UpdateDocumentCache="false" makes the
+    build use that copy whenever it exists instead of downloading it again. So the sample builds offline, and in CI without a server at
+    build time, and a change to the API reaches this client only when the cache is updated on purpose: delete rockets.openapi.json (or
+    set UpdateDocumentCache to true) and build with Rockets.Api running.
+
+    The build writes the class RocketsUrlClient (Kiota) and the registration AddRocketsUrlClient(), both in Rockets.Client.Url.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="0.0.0-sample" />
+  <ItemGroup>
+    <OpenApiClient
+      Include="http://localhost:5179/openapi/v1.json"
+      Generator="Kiota"
+      ClientName="RocketsUrlClient"
+      Namespace="Rockets.Client.Url"
+      DocumentCache="rockets.openapi.json"
+      UpdateDocumentCache="false"
+    />
+  </ItemGroup>
+</Project>

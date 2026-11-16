@@ -1,8 +1,10 @@
 <!--
-    A console app that uses both clients, without Dovetail: Program.cs calls the generated Add<ClientName>() registrations on a
-    plain Host.CreateApplicationBuilder. It declares no OpenApiClient itself, so it doesn't need Chirograph.
+    A console app that calls a running Rockets.Api through all three clients, without Dovetail: Program.cs calls the generated
+    Add<ClientName>() registrations on a plain Host.CreateApplicationBuilder. It declares no OpenApiClient itself, but it uses
+    Chirograph like every project here; with no clients, the SDK adds nothing.
 -->
 <Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Chirograph" Version="0.0.0-sample" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
@@ -10,5 +12,6 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <ProjectReference Include="../Rockets.Client.Kiota/Rockets.Client.Kiota.csproj" />
     <ProjectReference Include="../Rockets.Client.Refitter/Rockets.Client.Refitter.csproj" />
+    <ProjectReference Include="../Rockets.Client.Url/Rockets.Client.Url.csproj" />
   </ItemGroup>
 </Project>

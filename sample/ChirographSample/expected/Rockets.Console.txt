@@ -1,0 +1,13 @@
+RocketsClient (Kiota, generated from the Rockets.Api project)
+  listed 4c1e2a8e-5c0b-4c1f-9a43-1f4a9a2f0d11 FALCON-9 Falcon9
+  listed 7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
+  got    7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
+IRocketsRefitClient (Refitter, generated from rockets.json)
+  listed 4c1e2a8e-5c0b-4c1f-9a43-1f4a9a2f0d11 FALCON-9 Falcon9
+  listed 7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
+  got    7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
+RocketsUrlClient (Kiota, generated from http://localhost:5179/openapi/v1.json, cached in rockets.openapi.json)
+  listed 4c1e2a8e-5c0b-4c1f-9a43-1f4a9a2f0d11 FALCON-9 Falcon9
+  listed 7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
+  got    7b2d3f5a-9e1c-4d2b-8f6a-2e5b8c3d1a22 FALCON-HEAVY FalconHeavy
+The three clients agree.
