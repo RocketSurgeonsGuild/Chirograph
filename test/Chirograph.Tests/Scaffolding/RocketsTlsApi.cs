@@ -29,7 +29,7 @@ internal sealed class RocketsTlsApi : IAsyncDisposable
     /// <summary>
     ///     A C# lambda for a test application's <c>Program.cs</c>, to pass to <c>ConfigurePrimaryHttpMessageHandler</c> on the builder
     ///     <c>AddRocketsClient()</c> returns: it makes the client trust only the server certificate whose SHA-256 hash is in
-    ///     <see cref="ServerCertificateHashVariable" />. It changes the primary handler instead of replacing it, so the client certificate
+    ///     <see cref="ServerCertificateHashVariable" /> (a comma-separated list, to trust more than one server). It changes the primary handler instead of replacing it, so the client certificate
     ///     the registration set stays. (Not through <c>ConfigureHttpClientDefaults</c>: Refit replaces the primary handler after the defaults.)
     /// </summary>
     public const string TrustServerCertificate = $$"""
@@ -37,7 +37,10 @@ internal sealed class RocketsTlsApi : IAsyncDisposable
         {
             var pin = System.Environment.GetEnvironmentVariable("{{ServerCertificateHashVariable}}");
             System.Net.Security.RemoteCertificateValidationCallback trust = (_, certificate, _, _) =>
-                certificate is not null && pin is not null && string.Equals(certificate.GetCertHashString(System.Security.Cryptography.HashAlgorithmName.SHA256), pin, System.StringComparison.OrdinalIgnoreCase);
+                certificate is not null && pin is not null && System.Array.Exists(
+                    pin.Split(','),
+                    z => string.Equals(certificate.GetCertHashString(System.Security.Cryptography.HashAlgorithmName.SHA256), z, System.StringComparison.OrdinalIgnoreCase)
+                );
             switch (handler)
             {
                 case System.Net.Http.SocketsHttpHandler sockets:

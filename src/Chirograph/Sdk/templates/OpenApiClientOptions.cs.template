@@ -28,6 +28,13 @@ public enum __ClientName__Authentication
     ///     expires. Needs <c>ClientCredentials</c> in the client's <c>Authentication</c> metadata.
     /// </summary>
     ClientCredentials,
+
+    /// <summary>
+    ///     OAuth client credentials with a client assertion (<c>private_key_jwt</c>, RFC 7523) in place of a secret: a short-lived JWT for
+    ///     <c>ClientId</c>, signed with the client certificate (the <c>Certificate*</c> keys), which is then not presented for mutual TLS.
+    ///     Needs <c>ClientCredentials</c> in the client's <c>Authentication</c> metadata.
+    /// </summary>
+    PrivateKeyJwt,
     //#endif
 }
 //#if ClientCredentials
@@ -131,26 +138,29 @@ public sealed class __ClientName__Options
     public string? CertificateStore { get; set; }
 
     //#if ClientCredentials
-    /// <summary>The client id of <c>ClientCredentials</c> (key <c>ClientId</c>).</summary>
+    /// <summary>The client id of <c>ClientCredentials</c> and <c>PrivateKeyJwt</c> (key <c>ClientId</c>).</summary>
     public string? ClientId { get; set; }
 
-    /// <summary>The client secret of <c>ClientCredentials</c> (key <c>ClientSecret</c>).</summary>
+    /// <summary>The client secret of <c>ClientCredentials</c> (key <c>ClientSecret</c>). Not with <c>PrivateKeyJwt</c>, which signs instead.</summary>
     public string? ClientSecret { get; set; }
 
-    /// <summary>The scope <c>ClientCredentials</c> asks a token for, space-separated (key <c>Scope</c>), if any.</summary>
+    /// <summary>The scope <c>ClientCredentials</c> and <c>PrivateKeyJwt</c> ask a token for, space-separated (key <c>Scope</c>), if any.</summary>
     public string? Scope { get; set; }
 
-    /// <summary>The token endpoint of <c>ClientCredentials</c>, an absolute URI (key <c>TokenEndpoint</c>). Not with <see cref="Authority" />.</summary>
+    /// <summary>
+    ///     The token endpoint of <c>ClientCredentials</c> and <c>PrivateKeyJwt</c>, an absolute URI (key <c>TokenEndpoint</c>). Not with
+    ///     <see cref="Authority" />.
+    /// </summary>
     public global::System.Uri? TokenEndpoint { get; set; }
 
     /// <summary>
-    ///     The authority of <c>ClientCredentials</c>, an absolute https URI (key <c>Authority</c>), whose discovery document
-    ///     (<c>.well-known/openid-configuration</c>) gives the token endpoint, read on the first token request and cached. Not with
-    ///     <see cref="TokenEndpoint" />.
+    ///     The authority of <c>ClientCredentials</c> and <c>PrivateKeyJwt</c>, an absolute https URI (key <c>Authority</c>), whose
+    ///     discovery document (<c>.well-known/openid-configuration</c>) gives the token endpoint, read on the first token request and
+    ///     cached. Not with <see cref="TokenEndpoint" />.
     /// </summary>
     public global::System.Uri? Authority { get; set; }
 
-    /// <summary>The resource <c>ClientCredentials</c> asks a token for (key <c>Resource</c>, RFC 8707), if any.</summary>
+    /// <summary>The resource <c>ClientCredentials</c> and <c>PrivateKeyJwt</c> ask a token for (key <c>Resource</c>, RFC 8707), if any.</summary>
     public string? Resource { get; set; }
 
     /// <summary>How <c>ClientCredentials</c> sends the client id and secret (key <c>ClientCredentialStyle</c>): <c>Header</c>, the default, or <c>Body</c>.</summary>
@@ -235,6 +245,7 @@ internal sealed class __ClientName__OptionsSetup :
         new("Basic", global::__Namespace__.__ClientName__Authentication.Basic),
         //#if ClientCredentials
         new("ClientCredentials", global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+        new("PrivateKeyJwt", global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
         //#endif
     ];
 
@@ -242,6 +253,7 @@ internal sealed class __ClientName__OptionsSetup :
     private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
     [
         new("ClientCredentials", "ClientCredentials"),
+        new("PrivateKeyJwt", "ClientCredentials"),
     ];
 
     // the keys, as the messages list them: under Clients:__ClientName__, and in a connection string
@@ -501,6 +513,11 @@ internal sealed class __ClientName__OptionsSetup :
             ("Authority", options.Authority is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
             ("Resource", options.Resource is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
             ("ClientCredentialStyle", options.ClientCredentialStyle != global::__Namespace__.__ClientName__CredentialStyle.Header, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
+            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
+            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
+            ("TokenEndpoint", options.TokenEndpoint is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
+            ("Authority", options.Authority is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
+            ("Resource", options.Resource is not null, global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt),
             //#endif
         };
         // a key two methods share is listed once, with both
@@ -577,6 +594,7 @@ internal sealed class __ClientName__OptionsSetup :
                 break;
             //#if ClientCredentials
             case global::__Namespace__.__ClientName__Authentication.ClientCredentials:
+            case global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt:
                 global::__Namespace__.__ClientName__ClientCredentials.Validate(options, failures);
                 break;
             //#endif
@@ -1013,6 +1031,7 @@ internal sealed class __ClientName__AuthenticationHandler : global::System.Net.H
                 break;
             //#if ClientCredentials
             case global::__Namespace__.__ClientName__Authentication.ClientCredentials:
+            case global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt:
                 request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue(
                     "Bearer",
                     await global::__Namespace__.__ClientName__ClientCredentials.GetAccessTokenAsync(_services, _options, cancellationToken).ConfigureAwait(false)
@@ -1111,6 +1130,10 @@ internal static class __ClientName__Certificate
         switch (options.Authentication)
         {
             // a method that signs with the certificate returns true here
+            //#if ClientCredentials
+            case global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt:
+                return true;
+            //#endif
             default:
                 return false;
         }
@@ -1369,22 +1392,37 @@ internal sealed class __ClientName__ClientCredentials :
                 static provider => global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::__Namespace__.__ClientName__ClientCredentials>(provider)
             )
         );
+        global::__Namespace__.__ClientName__ClientAssertion.Register(services);
     }
 
     /// <summary>
-    ///     Checks the keys of <c>ClientCredentials</c>: ClientId and ClientSecret, and TokenEndpoint (absolute http or https) or Authority
-    ///     (absolute https), not both. Startup reads no discovery document.
+    ///     Checks the keys of <c>ClientCredentials</c> and <c>PrivateKeyJwt</c>: ClientId, with ClientSecret (<c>ClientCredentials</c>) or a
+    ///     certificate to sign with (<c>PrivateKeyJwt</c>), and TokenEndpoint (absolute http or https) or Authority (absolute https), not
+    ///     both. Startup reads no discovery document.
     /// </summary>
     internal static void Validate(global::__Namespace__.__ClientName__Options options, global::System.Collections.Generic.List<string> failures)
     {
-        if (options.ClientId is not { Length: > 0 } || options.ClientSecret is not { Length: > 0 })
+        var method = options.Authentication;
+        if (method == global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt)
+        {
+            if (options.ClientId is not { Length: > 0 })
+            {
+                failures.Add("The Authentication of __ClientName__ is PrivateKeyJwt, which needs ClientId.");
+            }
+
+            if (!global::__Namespace__.__ClientName__Certificate.IsSet(options))
+            {
+                failures.Add("The Authentication of __ClientName__ is PrivateKeyJwt, which needs a certificate to sign with: CertificatePath or CertificateThumbprint.");
+            }
+        }
+        else if (options.ClientId is not { Length: > 0 } || options.ClientSecret is not { Length: > 0 })
         {
             failures.Add("The Authentication of __ClientName__ is ClientCredentials, which needs ClientId and ClientSecret.");
         }
 
         if (options.TokenEndpoint is null == (options.Authority is null))
         {
-            failures.Add("The Authentication of __ClientName__ is ClientCredentials, which takes TokenEndpoint or Authority, one of them.");
+            failures.Add($"The Authentication of __ClientName__ is {method}, which takes TokenEndpoint or Authority, one of them.");
         }
 
         if (options.TokenEndpoint is { } tokenEndpoint
@@ -1541,5 +1579,199 @@ internal sealed class __ClientName__ClientCredentials :
     /// <inheritdoc />
     public void Configure(global::Duende.AccessTokenManagement.ClientCredentialsClient options) =>
         Configure(global::Microsoft.Extensions.Options.Options.DefaultName, options);
+}
+
+/// <summary>
+///     The client assertion of <c>__ClientName__</c> for <c>PrivateKeyJwt</c> (<c>private_key_jwt</c>, RFC 7523), registered as the
+///     <c>IClientAssertionService</c> keyed with the client's name: a JWT with <c>iss</c> and <c>sub</c> set to <c>ClientId</c>, <c>aud</c>
+///     set to the token endpoint, a random <c>jti</c>, and <c>exp</c> five minutes ahead, signed with the client certificate (RS256 for an
+///     RSA key; ES256, ES384 or ES512 for an EC key). The certificate is loaded for each assertion, so a renewed file is read; Duende asks
+///     for one only when it requests a token. With another method, there is no assertion, and Duende sends the client secret.
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
+internal sealed class __ClientName__ClientAssertion : global::Duende.AccessTokenManagement.IClientAssertionService
+{
+    /// <summary>How long an assertion is valid.</summary>
+    internal static readonly global::System.TimeSpan Lifetime = global::System.TimeSpan.FromMinutes(5);
+
+    private readonly global::System.IServiceProvider _services;
+
+    public __ClientName__ClientAssertion(global::System.IServiceProvider services) => _services = services;
+
+    /// <summary>
+    ///     Registers the assertion, keyed with the name of the client, and makes the <c>IClientAssertionService</c> Duende asks a
+    ///     <see cref="__ClientName__ClientAssertions" />, which hands each client to the one keyed with its name, and every other to the
+    ///     service registered before it (Duende's, which makes none, or the application's).
+    /// </summary>
+    internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        services.Add(
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.KeyedSingleton<global::Duende.AccessTokenManagement.IClientAssertionService, global::__Namespace__.__ClientName__ClientAssertion>(
+                global::__Namespace__.__ClientName__ClientCredentials.ClientName
+            )
+        );
+
+        global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor? previous = null;
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(global::Duende.AccessTokenManagement.IClientAssertionService) && !descriptor.IsKeyedService)
+            {
+                previous = descriptor;
+            }
+        }
+
+        var lifetime = global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient;
+        if (previous is not null)
+        {
+            // the service registered before, kept under a key of this client's own, so the one Duende asks can hand it the other clients
+            services.Remove(previous);
+            services.Add(Rekey(previous, typeof(global::__Namespace__.__ClientName__ClientAssertions)));
+            lifetime = previous.Lifetime;
+        }
+
+        services.Add(
+            new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(
+                typeof(global::Duende.AccessTokenManagement.IClientAssertionService),
+                provider => new global::__Namespace__.__ClientName__ClientAssertions(
+                    provider,
+                    previous is null
+                        ? null
+                        : global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetRequiredKeyedService<global::Duende.AccessTokenManagement.IClientAssertionService>(
+                            provider,
+                            typeof(global::__Namespace__.__ClientName__ClientAssertions)
+                        )
+                ),
+                lifetime
+            )
+        );
+    }
+
+    // the same registration, keyed
+    private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor Rekey(global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor descriptor, object key)
+    {
+        if (descriptor.ImplementationInstance is { } instance)
+        {
+            return new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(descriptor.ServiceType, key, instance);
+        }
+
+        if (descriptor.ImplementationFactory is { } factory)
+        {
+            return new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(descriptor.ServiceType, key, (provider, _) => factory(provider), descriptor.Lifetime);
+        }
+
+        return new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(descriptor.ServiceType, key, descriptor.ImplementationType!, descriptor.Lifetime);
+    }
+
+    /// <summary>The assertion for a token request of <c>__ClientName__</c>, when its method is <c>PrivateKeyJwt</c>; otherwise none.</summary>
+    /// <exception cref="global::System.InvalidOperationException">The certificate can't be loaded, or has no key it can sign with.</exception>
+    public global::System.Threading.Tasks.Task<global::Duende.IdentityModel.Client.ClientAssertion?> GetClientAssertionAsync(
+        global::Duende.AccessTokenManagement.ClientCredentialsClientName? clientName = null,
+        global::Duende.AccessTokenManagement.TokenRequestParameters? parameters = null,
+        global::System.Threading.CancellationToken ct = default
+    )
+    {
+        var options = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                     .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::__Namespace__.__ClientName__Options>>(_services)
+                     .CurrentValue;
+        if (options.Authentication != global::__Namespace__.__ClientName__Authentication.PrivateKeyJwt)
+        {
+            return global::System.Threading.Tasks.Task.FromResult<global::Duende.IdentityModel.Client.ClientAssertion?>(null);
+        }
+
+        // the token endpoint Duende sends the request to: the configured one, or the one the discovery document gave
+        var tokenEndpoint = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                           .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::Duende.AccessTokenManagement.ClientCredentialsClient>>(_services)
+                           .Get(global::__Namespace__.__ClientName__ClientCredentials.ClientName)
+                           .TokenEndpoint
+                         ?? throw new global::System.InvalidOperationException("__ClientName__ has no token endpoint to sign an assertion for.");
+        var time = (global::System.TimeProvider?)_services.GetService(typeof(global::System.TimeProvider)) ?? global::System.TimeProvider.System;
+        var now = time.GetUtcNow().UtcDateTime;
+        using var certificate = global::__Namespace__.__ClientName__Certificate.Load(options);
+        using var rsa = global::System.Security.Cryptography.X509Certificates.RSACertificateExtensions.GetRSAPrivateKey(certificate);
+        using var ecdsa = rsa is null ? global::System.Security.Cryptography.X509Certificates.ECDsaCertificateExtensions.GetECDsaPrivateKey(certificate) : null;
+        global::Microsoft.IdentityModel.Tokens.SigningCredentials credentials;
+        if (rsa is not null)
+        {
+            credentials = new global::Microsoft.IdentityModel.Tokens.SigningCredentials(
+                new global::Microsoft.IdentityModel.Tokens.RsaSecurityKey(rsa) { KeyId = certificate.Thumbprint },
+                global::Microsoft.IdentityModel.Tokens.SecurityAlgorithms.RsaSha256
+            );
+        }
+        else if (ecdsa is not null)
+        {
+            credentials = new global::Microsoft.IdentityModel.Tokens.SigningCredentials(
+                new global::Microsoft.IdentityModel.Tokens.ECDsaSecurityKey(ecdsa) { KeyId = certificate.Thumbprint },
+                ecdsa.KeySize switch
+                {
+                    > 384 => global::Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha512,
+                    > 256 => global::Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha384,
+                    _ => global::Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha256,
+                }
+            );
+        }
+        else
+        {
+            throw new global::System.InvalidOperationException("The certificate of __ClientName__ has no RSA or EC key to sign its assertion with.");
+        }
+
+        var token = new global::Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler().CreateToken(
+            new global::Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
+            {
+                Issuer = options.ClientId,
+                Audience = tokenEndpoint.AbsoluteUri,
+                IssuedAt = now,
+                NotBefore = now,
+                Expires = now.Add(Lifetime),
+                Claims = new global::System.Collections.Generic.Dictionary<string, object>
+                {
+                    ["sub"] = options.ClientId!,
+                    ["jti"] = global::System.Guid.NewGuid().ToString("N"),
+                },
+                SigningCredentials = credentials,
+            }
+        );
+        return global::System.Threading.Tasks.Task.FromResult<global::Duende.IdentityModel.Client.ClientAssertion?>(
+            new global::Duende.IdentityModel.Client.ClientAssertion
+            {
+                Type = global::Duende.IdentityModel.OidcConstants.ClientAssertionTypes.JwtBearer,
+                Value = token,
+            }
+        );
+    }
+}
+
+/// <summary>
+///     The <c>IClientAssertionService</c> Duende asks, once <c>Add__ClientName__()</c> has run: it hands a client to the
+///     <c>IClientAssertionService</c> keyed with the client's name (<see cref="__ClientName__ClientAssertion" /> for <c>__ClientName__</c>),
+///     and a client without one to the service registered before (Duende's, which makes no assertion, or the application's).
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
+internal sealed class __ClientName__ClientAssertions : global::Duende.AccessTokenManagement.IClientAssertionService
+{
+    private readonly global::System.IServiceProvider _services;
+    private readonly global::Duende.AccessTokenManagement.IClientAssertionService? _next;
+
+    public __ClientName__ClientAssertions(global::System.IServiceProvider services, global::Duende.AccessTokenManagement.IClientAssertionService? next)
+    {
+        _services = services;
+        _next = next;
+    }
+
+    /// <inheritdoc />
+    public global::System.Threading.Tasks.Task<global::Duende.IdentityModel.Client.ClientAssertion?> GetClientAssertionAsync(
+        global::Duende.AccessTokenManagement.ClientCredentialsClientName? clientName = null,
+        global::Duende.AccessTokenManagement.TokenRequestParameters? parameters = null,
+        global::System.Threading.CancellationToken ct = default
+    )
+    {
+        var keyed = clientName is { } name
+            ? global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetKeyedService<global::Duende.AccessTokenManagement.IClientAssertionService>(
+                _services,
+                name.ToString()
+            )
+            : null;
+        return (keyed ?? _next)?.GetClientAssertionAsync(clientName, parameters, ct)
+            ?? global::System.Threading.Tasks.Task.FromResult<global::Duende.IdentityModel.Client.ClientAssertion?>(null);
+    }
 }
 //#endif

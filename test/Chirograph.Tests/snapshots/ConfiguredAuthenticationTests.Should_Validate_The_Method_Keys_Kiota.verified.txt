@@ -43,5 +43,8 @@ OptionsValidationException:
   The Authentication of RocketsClient is None, and keys of another method are set: Token (Bearer).,
   None with TokenProvider:
 OptionsValidationException:
-  The Authentication of RocketsClient is None, and keys of another method are set: TokenProvider (Bearer).
+  The Authentication of RocketsClient is None, and keys of another method are set: TokenProvider (Bearer).,
+  PrivateKeyJwt, not declared:
+OptionsValidationException:
+  Clients:RocketsClient:Authentication is PrivateKeyJwt, which the OpenApiClient item of RocketsClient doesn't declare: add ClientCredentials to its Authentication metadata.
 }

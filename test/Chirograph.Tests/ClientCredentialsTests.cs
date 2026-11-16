@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using Chirograph.Tests.Scaffolding;
 
 namespace Chirograph.Tests;
@@ -129,6 +130,140 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
         await project.VerifyResult(results, generator.ToString());
     }
 
+    /// <summary>
+    /// <c>Authentication=PrivateKeyJwt</c> authenticates the client with an assertion (RFC 7523) signed by the configured certificate,
+    /// which <see cref="TokenServer" /> checks against the certificate it knows for <see cref="TokenServer.AssertionClientId" />, with its
+    /// <c>iss</c>, <c>sub</c>, <c>aud</c>, <c>jti</c> and <c>exp</c>. One token serves several calls. The certificate is a PKCS#12 file or
+    /// a PEM pair, from the keys or the connection string, with <c>TokenEndpoint</c> or <c>Authority</c>. An assertion signed by another
+    /// certificate is refused. The signing certificate is not also presented for mutual TLS: <see cref="RocketsTlsApi" /> gets none, and
+    /// answers <c>403</c>.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota)]
+    [Arguments(Generator.Refitter)]
+    public async Task Should_Authenticate_With_An_Assertion_Signed_By_The_Certificate(Generator generator)
+    {
+        await using var tokens = await TokenServer.Start();
+        await using var api = RocketsApi.Start();
+        await using var tlsApi = await RocketsTlsApi.Start();
+        api.BearerTokens = tokens.IsValid;
+        using var project = new SdkTestProject(targetFramework);
+        var certificates = Path.Combine(project.Directory, "certificates");
+        TestCertificates.WriteClientCertificate(certificates);
+        tokens.AssertionCertificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(certificates, "client.crt")));
+        var unknown = Path.Combine(project.Directory, "unknown");
+        TestCertificates.WriteClientCertificate(unknown);
+        var pfx = Path.Combine(certificates, "client.pfx");
+
+        var results = await RunScenarios(
+            project,
+            generator,
+            tokens,
+            new()
+            {
+                ["TokenEndpoint, PKCS#12 file"] = AssertionKeys(api, tokens, 3, pfx, ("TokenEndpoint", tokens.TokenEndpoint.ToString())),
+                ["Authority, PEM certificate and key, Scope and Resource"] = AssertionKeys(
+                    api,
+                    tokens,
+                    2,
+                    Path.Combine(certificates, "client.crt"),
+                    ("Authority", tokens.BaseAddress.ToString()),
+                    ("CertificatePassword", ""),
+                    ("CertificateKeyPath", Path.Combine(certificates, "client.key")),
+                    ("Scope", "rockets.read"),
+                    ("Resource", "urn:rockets")
+                ),
+                ["Connection string"] = With(
+                    tokens.Environment(),
+                    new()
+                    {
+                        ["ConnectionStrings__RocketsClient"] =
+                            $"Endpoint={api.BaseAddress};Authentication=PrivateKeyJwt;TokenEndpoint={tokens.TokenEndpoint};ClientId={TokenServer.AssertionClientId};CertificatePath='{pfx}';CertificatePassword={TestCertificates.Password}",
+                    }
+                ),
+                ["A certificate the server doesn't know"] = AssertionKeys(
+                    api,
+                    tokens,
+                    1,
+                    Path.Combine(unknown, "client.pfx"),
+                    ("TokenEndpoint", tokens.TokenEndpoint.ToString())
+                ),
+                ["The signing certificate is not presented for mutual TLS"] = With(
+                    AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", tokens.TokenEndpoint.ToString()), ("BaseAddress", tlsApi.BaseAddress.ToString())),
+                    new() { [RocketsTlsApi.ServerCertificateHashVariable] = $"{tokens.ServerCertificateHash},{tlsApi.ServerCertificateHash}" }
+                ),
+            }
+        );
+
+        await project.VerifyResult(
+            results.ToDictionary(
+                z => z.Key,
+                z => z.Value.Replace(tlsApi.BaseAddress.ToString(), "{rockets-tls-api}/", StringComparison.Ordinal)
+            ),
+            generator.ToString()
+        );
+    }
+
+    /// <summary>
+    /// <c>PrivateKeyJwt</c> needs <c>ClientId</c>, <c>TokenEndpoint</c> or <c>Authority</c>, and a certificate, and takes neither a
+    /// <c>ClientSecret</c> nor a <c>ClientCredentialStyle</c>. A certificate that can't be loaded fails too. No failure repeats a value.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota)]
+    [Arguments(Generator.Refitter)]
+    public async Task Should_Validate_The_Private_Key_Jwt_Keys(Generator generator)
+    {
+        await using var tokens = await TokenServer.Start();
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        var certificates = Path.Combine(project.Directory, "certificates");
+        TestCertificates.WriteClientCertificate(certificates);
+        var pfx = Path.Combine(certificates, "client.pfx");
+        var results = await RunScenarios(
+            project,
+            generator,
+            tokens,
+            new()
+            {
+                ["Without a certificate"] = AssertionKeys(api, tokens, 1, "", ("TokenEndpoint", "https://s3cr3t.example/token"), ("CertificatePassword", "")),
+                ["With a ClientSecret"] = AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", "https://s3cr3t.example/token"), ("ClientSecret", "s3cr3t")),
+                ["With a ClientCredentialStyle"] = AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", "https://s3cr3t.example/token"), ("ClientCredentialStyle", "Body")),
+                ["Without a client id or token endpoint"] = AssertionKeys(api, tokens, 1, pfx, ("ClientId", "")),
+                ["A certificate file that doesn't exist"] = AssertionKeys(
+                    api,
+                    tokens,
+                    1,
+                    Path.Combine(certificates, "s3cr3t.pfx"),
+                    ("TokenEndpoint", "https://s3cr3t.example/token")
+                ),
+            }
+        );
+
+        await project.VerifyResult(results, generator.ToString());
+    }
+
+    // the keys under Clients:RocketsClient for PrivateKeyJwt, with the BaseAddress of the API, the client id the token server knows the
+    // certificate of, the certificate file (with the password of a PKCS#12 file), and the trust of the token server's certificate
+    private static Dictionary<string, string> AssertionKeys(
+        RocketsApi api,
+        TokenServer tokens,
+        int calls,
+        string certificatePath,
+        params (string Key, string Value)[] keys
+    ) => Keys(
+        api,
+        tokens,
+        calls,
+        [
+            ("Authentication", "PrivateKeyJwt"),
+            ("ClientId", TokenServer.AssertionClientId),
+            ("ClientSecret", ""),
+            ("CertificatePath", certificatePath),
+            ("CertificatePassword", TestCertificates.Password),
+            .. keys,
+        ]
+    );
+
     // the keys under Clients:RocketsClient for ClientCredentials, with the BaseAddress of the API, the client credentials (which the
     // keys can replace, or remove with an empty value), the number of calls, and the trust of the token server's certificate
     private static Dictionary<string, string> Keys(RocketsApi api, TokenServer tokens, int calls, params (string Key, string Value)[] keys)
@@ -223,7 +358,7 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
             builder.Logging.ClearProviders();
             // every HttpClient trusts the token server's certificate, Duende's back-channel client among them
             builder.Services.ConfigureHttpClientDefaults(http => http.ConfigurePrimaryHttpMessageHandler({{RocketsTlsApi.TrustServerCertificate}}));
-            builder.Services.AddRocketsClient();
+            builder.Services.AddRocketsClient().ConfigurePrimaryHttpMessageHandler({{RocketsTlsApi.TrustServerCertificate}});
             {{addFusionCache}}
             using var host = builder.Build();
             {{countFusionCache}}
