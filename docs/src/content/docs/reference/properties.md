@@ -24,6 +24,7 @@ wins.
 | `ChirographRefitVersion`                       | the packed version                  | The version of `Refit.HttpClientFactory` added to a project with a Refitter client.                                                                                                |
 | `ChirographMicrosoftExtensionsHttpVersion`     | the packed version                  | The version of `Microsoft.Extensions.Http` added to a project with a Kiota client and no Refitter client.                                                                          |
 | `ChirographDuendeAccessTokenManagementVersion` | the packed version                  | The version of `Duende.AccessTokenManagement` added to a project with a client whose `Authentication` declares `ClientCredentials`. Only 4.x works with the generated code.        |
+| `ChirographAzureIdentityVersion`               | the packed version                  | The version of `Azure.Identity` added to a project with a client whose `Authentication` declares `Azure`.                                                                          |
 | `ChirographVersion`                            | the SDK's version                   | Stamped into the registration's `[GeneratedCode]`. Read it; don't set it.                                                                                                          |
 
 The packed versions are the ones Chirograph's own repository pinned when the SDK was packed: they are in the package's

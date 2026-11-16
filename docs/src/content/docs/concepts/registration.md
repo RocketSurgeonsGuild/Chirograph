@@ -217,8 +217,8 @@ handler sends them. With `None`, the default, the container gives the client its
 | `Bearer`         | `Token`, or `TokenProvider` in code                                                                        | `Authorization: Bearer <token>`.          |
 | `Basic`          | `Username`, `Password`                                                                                     | `Authorization: Basic`, the two in UTF-8. |
 
-`ClientCredentials` and `PrivateKeyJwt` are two more methods, which the `OpenApiClient` item declares: see
-[Client credentials](#client-credentials) and [Private key JWT](#private-key-jwt).
+`ClientCredentials` and `PrivateKeyJwt`, and the four Azure methods, are more methods, which the `OpenApiClient` item declares: see
+[Client credentials](#client-credentials), [Private key JWT](#private-key-jwt) and [Azure](#azure).
 
 ```json
 {
@@ -373,6 +373,53 @@ unkeyed `IClientAssertionService` for the assertion of each of its clients; the 
 service keyed with its name, and any other to the service registered before it (Duende's, which makes none, or the application's).
 An `IClientAssertionService` of the application's own registered after `AddRocketsClient()` replaces that one: register it before.
 
+### Azure
+
+The Azure methods get a Microsoft Entra ID token from an [Azure.Identity](https://learn.microsoft.com/dotnet/api/overview/azure/identity-readme)
+credential and send it as `Authorization: Bearer <token>`. The `OpenApiClient` item declares them with `Azure`, which adds a reference
+to `Azure.Identity` (the version of [`ChirographAzureIdentityVersion`](../../reference/properties/), unless the project references the
+package itself) and writes the code that uses it:
+
+```xml
+<OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Authentication="Azure" />
+```
+
+| `Authentication`        | Credential                                                 | Keys                                                                                |
+| ----------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `AzureDefault`          | `DefaultAzureCredential`                                   | `Scope`; optional `TenantId`, and `ClientId` (a user-assigned or workload identity) |
+| `AzureManagedIdentity`  | `ManagedIdentityCredential`                                | `Scope`; optional `ClientId`, a user-assigned identity (system-assigned without)    |
+| `AzureWorkloadIdentity` | `WorkloadIdentityCredential`                               | `Scope`; optional `TenantId` and `ClientId` (else the platform's variables)         |
+| `AzureServicePrincipal` | `ClientSecretCredential`, or `ClientCertificateCredential` | `Scope`, `TenantId`, `ClientId`, and `ClientSecret` or the certificate keys         |
+
+`Scope` is the scopes to ask for, space-separated: `api://rockets/.default`, say. `TenantId` is a tenant id or a domain.
+
+```json
+{
+    "ConnectionStrings": {
+        "RocketsClient": "Endpoint=https://rockets.example.com/;Authentication=AzureManagedIdentity;Scope=api://rockets/.default"
+    }
+}
+```
+
+The client has one credential, made from the options the first time a token is asked for, and made again when the options are
+reloaded. The authentication handler asks it for a token on each request, so the [host check](#which-hosts-get-the-credentials)
+applies; the credential caches the token and gets a new one before it expires. Startup checks the keys only: it asks Azure for nothing.
+A credential that can't get a token fails the call with Azure.Identity's `AuthenticationFailedException` (or
+`CredentialUnavailableException`).
+
+`AzureServicePrincipal` takes `ClientSecret` or a certificate, given with the [certificate keys](#client-certificate-mtls), not both.
+The certificate then signs the credential's assertions, and is not also presented for mutual TLS.
+
+A `TokenCredential` registered keyed with the client's name is used instead of the one the method makes, for a credential Chirograph
+doesn't make (`AzureCliCredential`, a `ChainedTokenCredential`) or a fake one in tests. The keys of the method are still checked, so
+pair it with `AzureDefault`, which needs only `Scope`:
+
+```csharp
+builder.Services.AddKeyedSingleton<TokenCredential>("RocketsClient", new AzureCliCredential());
+```
+
+A native AOT publish of a client that declares `Azure` reports no trimming or AOT warnings.
+
 ### From the container
 
 With `Authentication` set to `None`, when the client is created, the registration takes its authentication from the container, under
@@ -422,7 +469,7 @@ builder.Services.AddRocketsClient(options =>
 ## Client certificate (mTLS)
 
 A client can present a certificate to the server, for mutual TLS, whatever its `Authentication`, `None` included, unless
-[`PrivateKeyJwt`](#private-key-jwt) signs with it. Give it as a file:
+[`PrivateKeyJwt`](#private-key-jwt) or [`AzureServicePrincipal`](#azure) signs with it. Give it as a file:
 
 ```json
 {

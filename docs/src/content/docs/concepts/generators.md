@@ -30,6 +30,7 @@ generator:
   doesn't get `Microsoft.Extensions.Http`: `Refit.HttpClientFactory` brings it, possibly at a newer version than the one Chirograph
   was packed with, and adding the older one would be a downgrade (NU1605).
 - **Refitter**: `Refit.HttpClientFactory`, which brings Refit, its source generator and `Microsoft.Extensions.Http`.
+- **`Authentication="Azure"`** on any client: `Azure.Identity`.
 - **`Authentication="ClientCredentials"`** on any client: `Duende.AccessTokenManagement` 4.x, which brings
   `Microsoft.Extensions.Http` (so a Kiota client's isn't added) and `Microsoft.Extensions.Http.Resilience` (so the registration's
   [resilience](../registration/#resilience) block is written too, off unless `Resilience` is `true`).

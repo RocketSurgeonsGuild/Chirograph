@@ -160,6 +160,14 @@ With `Authentication="ClientCredentials"` on the item, and only then, the file a
   `PrivateKeyJwt` with the certificate, and `RocketsClientClientAssertions`, internal: the unkeyed `IClientAssertionService` Duende
   asks, which hands each client to the one keyed with its name (see [Private key JWT](../../concepts/registration/#private-key-jwt)).
 
+With `Authentication="Azure"` on the item, and only then, the file also has:
+
+- `AzureDefault`, `AzureManagedIdentity`, `AzureWorkloadIdentity` and `AzureServicePrincipal` in `RocketsClientAuthentication`, and
+  their keys on `RocketsClientOptions`: `ClientId`, `ClientSecret`, `Scope` (shared with `ClientCredentials`) and `TenantId`.
+- `RocketsClientAzureCredential`, internal: it makes the client's Azure.Identity credential from the options (or takes the
+  `TokenCredential` registered keyed `"RocketsClient"`), checks the keys, and gives the handler the token (see
+  [Azure](../../concepts/registration/#azure)).
+
 The public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
 the sources and [Validation](../../concepts/registration/#validation) for what fails.
 

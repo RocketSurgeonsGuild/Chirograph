@@ -98,10 +98,10 @@ clients can still be generated from the same document.
 
 ## CHIRO109
 
-> The OpenApiClient 'RocketsClient' has Authentication values Chirograph doesn't know (Bearer, Kerberos): set it to a ;-separated list of ClientCredentials, or leave it out.
+> The OpenApiClient 'RocketsClient' has Authentication values Chirograph doesn't know (Bearer, Kerberos): set it to a ;-separated list of ClientCredentials, Azure, or leave it out.
 
 The item's `Authentication` metadata lists the methods that need a package, which the item must declare: `ClientCredentials` (which
-allows `PrivateKeyJwt` too). The
+allows `PrivateKeyJwt` too) and `Azure` (the four Azure methods). The
 comparison ignores case. `None`, `ApiKey`, `Bearer` and `Basic` need no package and are always available, so they don't go in the
 metadata: configuration chooses among them with `Clients:<ClientName>:Authentication`. Remove the unknown values; see
 [Authentication](../openapiclient/#metadata).
