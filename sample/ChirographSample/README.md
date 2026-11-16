@@ -17,7 +17,8 @@ The projects:
 
 Each client reads its base address from `Clients:<ClientName>:BaseAddress`, for example the environment variable
 `Clients__RocketsClient__BaseAddress=http://localhost:5179/`. `Rockets.Console/appsettings.json` also gives each of its clients a
-`Timeout` and a default request header from the same section.
+`Timeout` and a default request header from the same section; `RocketsUrlClient` takes its `Timeout` from a connection string
+instead. The client projects hold no code of their own: the registration and the options are generated.
 
 ## Running it
 
