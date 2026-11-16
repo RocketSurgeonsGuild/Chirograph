@@ -11,6 +11,7 @@ into the project, and nothing there is meant to be committed.
 | `generated/**`                                  | The generator's output. Kiota: the `RocketsClient` class, its request builders and models, and `kiota-lock.json`. Refitter: `RocketsClient.cs`, with `IRocketsClient` and its contracts. | `*.cs`   |
 | `RocketsClientServiceCollectionExtensions.g.cs` | The [registration](#the-registration).                                                                                                                                                   | yes      |
 | `RocketsClientOptions.g.cs`                     | The [options](#the-options) the registration reads, with their connection-string parser and validation.                                                                                  | yes      |
+| `RocketsClient.schema.json`                     | The schema of the client's `Clients:RocketsClient` section, for [Optionary](../../guides/with-optionary/). Not written with `ChirographOptionarySchema=false`.                           | no       |
 | `openapi.json`, `openapi.yaml` or `openapi.yml` | The client's copy of its document, written only when the content changes.                                                                                                                | no       |
 | `settings.txt`                                  | The generator, its version, `ClientName`, `Namespace` and `Options`, written only when they change.                                                                                      | no       |
 | `generated.stamp`                               | Touched after each generation. The generator runs again when the document's copy or `settings.txt` is newer.                                                                             | no       |
@@ -93,6 +94,15 @@ builder.ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
 });
 ```
 
+When the project references Microsoft.Extensions.ServiceDiscovery, the build writes this after the authentication handler, and leaves
+it out otherwise. The options then default `BaseAddress` to `https+http://RocketsClient`, and accept a service-discovery address:
+
+```csharp
+if (!HasServiceEndpointProvider(services))
+    services.AddServiceDiscovery();
+builder.AddServiceDiscovery();
+```
+
 See [Configuration](../../concepts/registration/#configuration) for what each key does.
 
 Refitter's is the same, except that it registers the Refit interface instead of a named client:
@@ -131,7 +141,28 @@ constants and the return type are public API. The body can change between releas
 - `RocketsClientCertificate`, internal: it loads the certificate the certificate keys give (a PKCS#12 or PEM file, or a store),
   checks those keys, and sets the certificate on the primary handler for mutual TLS.
 
-The two public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
+With `Authentication="ClientCredentials"` on the item, and only then, the file also has:
+
+- `ClientCredentials` and `PrivateKeyJwt` in `RocketsClientAuthentication`, and their keys on `RocketsClientOptions`: `ClientId`,
+  `ClientSecret`, `Scope`, `TokenEndpoint`, `Authority`, `Resource` and `ClientCredentialStyle`.
+- `RocketsClientCredentialStyle`, public: `Header` or `Body`.
+- `RocketsClientClientCredentials`, internal: it configures Duende's client-credentials client `RocketsClient` from the options,
+  reads the token endpoint from the `Authority`'s discovery document, and gives the handler the token (see
+  [Client credentials](../../concepts/registration/#client-credentials)). The registration calls Duende's
+  `AddClientCredentialsTokenManagement()`.
+- `RocketsClientClientAssertion`, internal: the `IClientAssertionService` keyed `"RocketsClient"`, which signs the assertion of
+  `PrivateKeyJwt` with the certificate, and `RocketsClientClientAssertions`, internal: the unkeyed `IClientAssertionService` Duende
+  asks, which hands each client to the one keyed with its name (see [Private key JWT](../../concepts/registration/#private-key-jwt)).
+
+With `Authentication="Azure"` on the item, and only then, the file also has:
+
+- `AzureDefault`, `AzureManagedIdentity`, `AzureWorkloadIdentity` and `AzureServicePrincipal` in `RocketsClientAuthentication`, and
+  their keys on `RocketsClientOptions`: `ClientId`, `ClientSecret`, `Scope` (shared with `ClientCredentials`) and `TenantId`.
+- `RocketsClientAzureCredential`, internal: it makes the client's Azure.Identity credential from the options (or takes the
+  `TokenCredential` registered keyed `"RocketsClient"`), checks the keys, and gives the handler the token (see
+  [Azure](../../concepts/registration/#azure)).
+
+The public types and their members are public API. See [The options](../../concepts/registration/#the-options) for the order of
 the sources and [Validation](../../concepts/registration/#validation) for what fails.
 
 ## The Dovetail joint

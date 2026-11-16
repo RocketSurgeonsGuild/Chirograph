@@ -106,6 +106,10 @@ generator:</p>
 doesn’t get <code dir="auto">Microsoft.Extensions.Http</code>: <code dir="auto">Refit.HttpClientFactory</code> brings it, possibly at a newer version than the one Chirograph
 was packed with, and adding the older one would be a downgrade (NU1605).</li>
 <li><strong>Refitter</strong>: <code dir="auto">Refit.HttpClientFactory</code>, which brings Refit, its source generator and <code dir="auto">Microsoft.Extensions.Http</code>.</li>
+<li><strong><code dir="auto">Authentication="Azure"</code></strong> on any client: <code dir="auto">Azure.Identity</code>.</li>
+<li><strong><code dir="auto">Authentication="ClientCredentials"</code></strong> on any client: <code dir="auto">Duende.AccessTokenManagement</code> 4.x, which brings
+<code dir="auto">Microsoft.Extensions.Http</code> (so a Kiota client’s isn’t added) and <code dir="auto">Microsoft.Extensions.Http.Resilience</code> (so the registration’s
+<a href="../registration/#resilience">resilience</a> block is written too, off unless <code dir="auto">Resilience</code> is <code dir="auto">true</code>).</li>
 </ul>
 <p>A package the project references itself wins: its own <code dir="auto">PackageReference</code> and its version are left alone, and Chirograph adds nothing.
 So reference a package yourself to choose its version, or set the matching <a href="../../reference/properties/">property</a>.</p>

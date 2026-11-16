@@ -67,7 +67,7 @@ The section's path is a constant on the registration class, `RocketsClientServic
 | Key                     | Type                 | Effect                                                                                                                                                                                                      |
 | ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ConnectionString`      | string               | The client's [connection string](#the-connection-string).                                                                                                                                                   |
-| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called.                               |
+| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, Kiota uses the document's first server, Refit fails when called, unless [service discovery](#service-discovery) is on.          |
 | `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` in the invariant culture (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                           |
 | `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. Not in a connection string.                                                                                           |
 | `Resilience`            | bool                 | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. |
@@ -134,7 +134,8 @@ It fails on:
 - an unknown key under `Clients:RocketsClient`, or in the connection string;
 - a key given twice, or an alias with its key;
 - a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
-- a `BaseAddress` that isn't an absolute `http` or `https` URI, or a `Timeout` that isn't positive;
+- a `BaseAddress` that isn't an absolute `http` or `https` URI (or, with [service discovery](#service-discovery), a service-discovery
+  address), or a `Timeout` that isn't positive;
 - an `Authentication` without the keys it needs, with the keys of another method (`None` included), or with no host to send the
   credentials to (neither `BaseAddress` nor `AllowedHosts`);
 - a [client certificate](#client-certificate-mtls) given by both a path and a thumbprint, a `CertificatePassword` or
@@ -154,6 +155,33 @@ built unless `Resilience` is `true`. Without the package the registration has no
 
 The key turns on the handler with its default options. To tune them, or to add a handler of your own, chain on the builder the
 registration returns instead.
+
+## Service discovery
+
+Chirograph adds no service-discovery package either. When the project references
+[Microsoft.Extensions.ServiceDiscovery](https://www.nuget.org/packages/Microsoft.Extensions.ServiceDiscovery) (directly, or through
+another package or project such as an Aspire service-defaults project), the build sees it among the resolved references and writes the
+service-discovery code into the registration:
+
+- it calls `AddServiceDiscovery()` on the client's builder, after the authentication handler;
+- when no endpoint provider is registered yet, it also calls `AddServiceDiscovery()` on the services, which adds the configuration
+  provider (`Services:<name>`) and the pass-through provider; register your own providers before `AddRocketsClient()` to use them
+  instead;
+- `BaseAddress` may be a [service-discovery address](https://learn.microsoft.com/dotnet/core/extensions/service-discovery), such as
+  `https+http://rockets`;
+- a client without a `BaseAddress` calls `https+http://<ClientName>`, so its endpoints come from `Services:<ClientName>`, or from the
+  platform.
+
+```json
+{
+    "Services": { "RocketsClient": { "https": ["https://10.0.0.5:8443/"] } }
+}
+```
+
+Without the package, a client without a `BaseAddress` behaves as before, and a service-discovery address fails validation.
+
+The authentication handler runs before the service-discovery handler, so the [host check](#which-hosts-get-the-credentials) compares
+the logical host, `rockets` in `https+http://rockets`, not the endpoint it resolves to.
 
 ## Configuring the client further
 
@@ -182,6 +210,9 @@ handler sends them. With `None`, the default, the container gives the client its
 | `ApiKey`         | `ApiKey` (alias `Key`), and `ApiKeyHeader` (default `X-Api-Key`) or `ApiKeyQuery` (a query parameter name) | The key in the header, or in the query.   |
 | `Bearer`         | `Token`, or `TokenProvider` in code                                                                        | `Authorization: Bearer <token>`.          |
 | `Basic`          | `Username`, `Password`                                                                                     | `Authorization: Basic`, the two in UTF-8. |
+
+`ClientCredentials` and `PrivateKeyJwt`, and the four Azure methods, are more methods, which the `OpenApiClient` item declares: see
+[Client credentials](#client-credentials), [Private key JWT](#private-key-jwt) and [Azure](#azure).
 
 ```json
 {
@@ -219,7 +250,169 @@ The handler also follows redirects in place of the primary handler (it turns the
 as many as that allowed), so each hop is checked the same way: a redirect to another host goes without the credentials, whichever
 header or query parameter carries them.
 
-A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`.
+With [service discovery](#service-discovery), the host is the logical one, and the endpoint it resolves to gets the credentials as well.
+A redirect to another host still goes without them.
+
+A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`. With service discovery,
+the default `https+http://<ClientName>` is one.
+
+### Client credentials
+
+`ClientCredentials` gets an OAuth access token with the client-credentials grant and sends it as `Authorization: Bearer <token>`, through
+[Duende.AccessTokenManagement](https://docs.duendesoftware.com/accesstokenmanagement/) 4.x. The `OpenApiClient` item must declare it,
+because it needs that package (the declaration allows [`PrivateKeyJwt`](#private-key-jwt) too):
+
+```xml
+<OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Authentication="ClientCredentials" />
+```
+
+The metadata adds a reference to `Duende.AccessTokenManagement` (the version of
+[`ChirographDuendeAccessTokenManagementVersion`](../../reference/properties/), unless the project references the package itself) and
+writes the code that uses it. Without it, there is neither, and configuration that names the method fails
+[validation](#validation) with a message that names the metadata to set.
+
+| Key                     | Meaning                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `TokenEndpoint`         | The token endpoint, an absolute `http` or `https` URI. Or:                                                           |
+| `Authority`             | An absolute `https` URI whose discovery document (`/.well-known/openid-configuration`) gives the token endpoint.     |
+| `ClientId`              | The client id. Required.                                                                                             |
+| `ClientSecret`          | The client secret. Required. Keep it in user secrets or a vault, not in `appsettings.json`.                          |
+| `Scope`                 | The scopes to ask for, space-separated. Optional.                                                                    |
+| `Resource`              | The resource to ask for (RFC 8707). Optional.                                                                        |
+| `ClientCredentialStyle` | `Header` (the default) sends the id and secret as HTTP Basic authentication; `Body` sends them in the token request. |
+
+```json
+{
+    "ConnectionStrings": {
+        "RocketsClient": "Endpoint=https://rockets.example.com/;Authentication=ClientCredentials;Authority=https://login.example.com/;ClientId=rockets-app;ClientSecret=…;Scope=rockets.read"
+    }
+}
+```
+
+The registration configures a Duende client-credentials client named after the client (`RocketsClient`) from the options, and the
+authentication handler sets its token, so the [host check](#which-hosts-get-the-credentials) applies to it as to the other methods.
+Duende caches the token and fetches a new one shortly before it expires (its `CacheLifetimeBuffer`, 60 seconds by default), so one
+token serves every request until then. A `refresh_token` in the response isn't used: RFC 6749 §4.4.3 says the server shouldn't send
+one.
+
+With `Authority`, the discovery document is read on the first token request, not at startup, and cached
+(Duende.IdentityModel's `DiscoveryCache`). Startup only checks that `Authority` is an absolute `https` URI, so a host starts without
+the network. The discovery document and the token request go through Duende's back-channel `HttpClient`
+(`ClientCredentialsTokenManagementDefaults.BackChannelHttpClientName`): configure a proxy or a certificate for both there.
+
+A token request that fails fails the call with an `HttpRequestException` that gives the server's error, such as `invalid_client`.
+
+#### The token cache
+
+Duende keeps tokens in a `HybridCache`. Chirograph registers none: Duende's registration adds the default one, in memory. To keep them
+in [FusionCache](https://github.com/ZiggyCreatures/FusionCache) (2.x, which adapts itself to `HybridCache`), register it for the whole
+application:
+
+```csharp
+using ZiggyCreatures.Caching.Fusion;
+
+builder.Services.AddFusionCache().AsHybridCache();
+```
+
+or for the tokens only, keyed with Duende's `ServiceProviderKeys.ClientCredentialsTokenCache`:
+
+```csharp
+using Duende.AccessTokenManagement;
+using ZiggyCreatures.Caching.Fusion;
+
+builder.Services.AddFusionCache().AsKeyedHybridCache(ServiceProviderKeys.ClientCredentialsTokenCache);
+```
+
+The cache key is Duende's: `<CacheKeyPrefix>::RocketsClient::<hashed scope>::<hashed resource>`. A distributed cache behind
+`HybridCache` shares the tokens across instances; encrypt them there if the cache is shared (see Duende's
+[client credentials](https://docs.duendesoftware.com/accesstokenmanagement/advanced/client-credentials/) docs).
+
+Duende doesn't claim compatibility with native AOT: a native publish of a client that declares `ClientCredentials` warns about
+`Microsoft.Extensions.Caching.Hybrid`'s default JSON serializer (its token cache), and works. A client that doesn't declare it adds no
+package and no warning.
+
+### Private key JWT
+
+`PrivateKeyJwt` is `ClientCredentials` with a client assertion (`private_key_jwt`, RFC 7523) in place of the secret: the client proves
+who it is with a short-lived JWT signed by its certificate. The `ClientCredentials` declaration on the `OpenApiClient` item allows it.
+It takes the keys of `ClientCredentials` without `ClientSecret` and `ClientCredentialStyle`, plus a certificate, given with the
+[certificate keys](#client-certificate-mtls):
+
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "BaseAddress": "https://rockets.example.com/",
+            "Authentication": "PrivateKeyJwt",
+            "Authority": "https://login.example.com/",
+            "ClientId": "rockets-app",
+            "CertificatePath": "/run/secrets/rockets-signing.pfx",
+            "CertificatePassword": "…",
+            "Scope": "rockets.read"
+        }
+    }
+}
+```
+
+The assertion has `iss` and `sub` set to `ClientId`, `aud` set to the token endpoint (the configured one, or the one the discovery
+document of `Authority` gives), a random `jti`, and `exp` five minutes ahead. It is signed through `Microsoft.IdentityModel.JsonWebTokens`,
+which Duende brings: RS256 with an RSA key, ES256, ES384 or ES512 with an EC key. The certificate is loaded for each assertion, and
+Duende asks for one only when it requests a token, so a renewed file is read on the next token request. Startup checks that a
+certificate is given, and that it loads with its private key. A `ClientSecret` alongside fails [validation](#validation).
+
+A certificate has one role: the one `PrivateKeyJwt` signs with is not also presented for [mutual TLS](#client-certificate-mtls).
+
+The assertion comes from an `IClientAssertionService`, registered keyed with the client's name (`"RocketsClient"`). Duende asks the
+unkeyed `IClientAssertionService` for the assertion of each of its clients; the registration makes that one hand each client to the
+service keyed with its name, and any other to the service registered before it (Duende's, which makes none, or the application's).
+An `IClientAssertionService` of the application's own registered after `AddRocketsClient()` replaces that one: register it before.
+
+### Azure
+
+The Azure methods get a Microsoft Entra ID token from an [Azure.Identity](https://learn.microsoft.com/dotnet/api/overview/azure/identity-readme)
+credential and send it as `Authorization: Bearer <token>`. The `OpenApiClient` item declares them with `Azure`, which adds a reference
+to `Azure.Identity` (the version of [`ChirographAzureIdentityVersion`](../../reference/properties/), unless the project references the
+package itself) and writes the code that uses it:
+
+```xml
+<OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Authentication="Azure" />
+```
+
+| `Authentication`        | Credential                                                 | Keys                                                                                |
+| ----------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `AzureDefault`          | `DefaultAzureCredential`                                   | `Scope`; optional `TenantId`, and `ClientId` (a user-assigned or workload identity) |
+| `AzureManagedIdentity`  | `ManagedIdentityCredential`                                | `Scope`; optional `ClientId`, a user-assigned identity (system-assigned without)    |
+| `AzureWorkloadIdentity` | `WorkloadIdentityCredential`                               | `Scope`; optional `TenantId` and `ClientId` (else the platform's variables)         |
+| `AzureServicePrincipal` | `ClientSecretCredential`, or `ClientCertificateCredential` | `Scope`, `TenantId`, `ClientId`, and `ClientSecret` or the certificate keys         |
+
+`Scope` is the scopes to ask for, space-separated: `api://rockets/.default`, say. `TenantId` is a tenant id or a domain.
+
+```json
+{
+    "ConnectionStrings": {
+        "RocketsClient": "Endpoint=https://rockets.example.com/;Authentication=AzureManagedIdentity;Scope=api://rockets/.default"
+    }
+}
+```
+
+The client has one credential, made from the options the first time a token is asked for, and made again when the options are
+reloaded. The authentication handler asks it for a token on each request, so the [host check](#which-hosts-get-the-credentials)
+applies; the credential caches the token and gets a new one before it expires. Startup checks the keys only: it asks Azure for nothing.
+A credential that can't get a token fails the call with Azure.Identity's `AuthenticationFailedException` (or
+`CredentialUnavailableException`).
+
+`AzureServicePrincipal` takes `ClientSecret` or a certificate, given with the [certificate keys](#client-certificate-mtls), not both.
+The certificate then signs the credential's assertions, and is not also presented for mutual TLS.
+
+A `TokenCredential` registered keyed with the client's name is used instead of the one the method makes, for a credential Chirograph
+doesn't make (`AzureCliCredential`, a `ChainedTokenCredential`) or a fake one in tests. The keys of the method are still checked, so
+pair it with `AzureDefault`, which needs only `Scope`:
+
+```csharp
+builder.Services.AddKeyedSingleton<TokenCredential>("RocketsClient", new AzureCliCredential());
+```
+
+A native AOT publish of a client that declares `Azure` reports no trimming or AOT warnings.
 
 ### From the container
 
@@ -269,7 +462,8 @@ builder.Services.AddRocketsClient(options =>
 
 ## Client certificate (mTLS)
 
-A client can present a certificate to the server, for mutual TLS, whatever its `Authentication`, `None` included. Give it as a file:
+A client can present a certificate to the server, for mutual TLS, whatever its `Authentication`, `None` included, unless
+[`PrivateKeyJwt`](#private-key-jwt) or [`AzureServicePrincipal`](#azure) signs with it. Give it as a file:
 
 ```json
 {
