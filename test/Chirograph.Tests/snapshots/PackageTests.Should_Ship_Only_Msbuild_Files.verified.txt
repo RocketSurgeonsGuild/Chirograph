@@ -11,10 +11,9 @@
     Sdk/schemas/kiota.schema.json,
     Sdk/schemas/refitter.schema.json,
     Sdk/templates/KiotaRegistration.cs.template,
-    Sdk/templates/KiotaRegistrationScaffold.cs.template,
     Sdk/templates/OpenApiClientJoint.cs.template,
+    Sdk/templates/OpenApiClientOptions.cs.template,
     Sdk/templates/RefitterRegistration.cs.template,
-    Sdk/templates/RefitterRegistrationScaffold.cs.template,
     images/chirograph-icon.png
   ],
   Id: Chirograph,

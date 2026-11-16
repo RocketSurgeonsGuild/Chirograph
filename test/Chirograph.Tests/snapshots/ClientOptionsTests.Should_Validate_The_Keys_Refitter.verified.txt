@@ -1,0 +1,36 @@
+﻿{
+  AllowedHosts as a value:
+OptionsValidationException:
+  Clients:RocketsClient:AllowedHosts is a value, and must be an array of hosts (a comma-separated list is for a connection string).,
+  Authentication:
+OptionsValidationException:
+  Clients:RocketsClient:Authentication is not a method RocketsClient can use: None.,
+  DefaultRequestHeaders as a value:
+OptionsValidationException:
+  Clients:RocketsClient:DefaultRequestHeaders is a value, and must be an object of header names and values.,
+  Endpoint alias:
+BaseAddress: http://endpoint.example/
+Timeout: 
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Endpoint with BaseAddress:
+OptionsValidationException:
+  Clients:RocketsClient sets BaseAddress twice, as BaseAddress and as Endpoint.,
+  Negative Timeout:
+OptionsValidationException:
+  The Timeout of RocketsClient must be positive and at most 24.20:31:23.647, or infinite (-00:00:00.001).,
+  Relative BaseAddress:
+OptionsValidationException:
+  The BaseAddress of RocketsClient is not an absolute http or https URI.,
+  Resilience:
+OptionsValidationException:
+  Clients:RocketsClient:Resilience is not true or false.,
+  Timeout:
+OptionsValidationException:
+  Clients:RocketsClient:Timeout is not a TimeSpan, such as 00:00:30.,
+  Unknown key:
+OptionsValidationException:
+  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts and Authentication.
+}

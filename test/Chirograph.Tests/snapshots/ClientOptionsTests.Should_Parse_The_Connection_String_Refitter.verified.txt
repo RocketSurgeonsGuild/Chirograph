@@ -1,0 +1,75 @@
+﻿{
+    endpoint = http://rockets.example/ ;  TIMEOUT = 00:00:05 ; :
+BaseAddress: http://rockets.example/
+Timeout: 00:00:05
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  AllowedHosts='it''s.example';Endpoint="http://rockets.example/?q=""x""":
+BaseAddress: http://rockets.example/?q="x"
+Timeout: 
+Resilience: False
+AllowedHosts: [it's.example]
+DefaultRequestHeaders: []
+Authentication: None,
+  Authentication=s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient (Authentication) is not a method RocketsClient can use: None.,
+  Endpoint="http://rockets.example/?a=1;b=2":
+BaseAddress: http://rockets.example/?a=1;b=2
+Timeout: 
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Endpoint='http://rockets.example/' s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has more after the closing quote of the value of Endpoint.,
+  Endpoint='http://rockets.example/?a=1;b=2':
+BaseAddress: http://rockets.example/?a=1;b=2
+Timeout: 
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Endpoint='http://s3cr3t.example/:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has a quoted value without its closing quote, for Endpoint.,
+  Endpoint=http://rockets.example/;BaseAddress=http://s3cr3t.example/:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient sets BaseAddress twice, as Endpoint and as BaseAddress.,
+  Endpoint=http://rockets.example/;Password=s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has an unknown key, Password. Its keys are BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts and Authentication.
+  When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.,
+  Endpoint=http://rockets.example/;Timeout=00:00:05;Resilience=true;AllowedHosts=a.example, b.example;Authentication=None:
+BaseAddress: http://rockets.example/
+Timeout: 00:00:05
+Resilience: True
+AllowedHosts: [a.example, b.example]
+DefaultRequestHeaders: []
+Authentication: None,
+  Endpoint=http://rockets.example/?a=b=c:
+BaseAddress: http://rockets.example/?a=b=c
+Timeout: 
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Endpoint=s3cr3t:
+OptionsValidationException:
+  The BaseAddress of RocketsClient is not an absolute http or https URI.,
+  Resilience=s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient (Resilience) is not true or false.,
+  s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has a part that isn't key=value.,
+  Timeout=00:00:05;timeout=s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient sets Timeout twice, as Timeout and as timeout.,
+  Timeout=s3cr3t:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient (Timeout) is not a TimeSpan, such as 00:00:30.
+}

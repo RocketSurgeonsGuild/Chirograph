@@ -1,11 +1,14 @@
 ﻿{
   AfterRemoving: [
+    KeptClient/KeptClientOptions.g.cs,
     KeptClient/KeptClientServiceCollectionExtensions.g.cs,
     KeptClient/generated/KeptClient.cs
   ],
   Both: [
+    KeptClient/KeptClientOptions.g.cs,
     KeptClient/KeptClientServiceCollectionExtensions.g.cs,
     KeptClient/generated/KeptClient.cs,
+    RemovedClient/RemovedClientOptions.g.cs,
     RemovedClient/RemovedClientServiceCollectionExtensions.g.cs,
     RemovedClient/generated/RemovedClient.cs
   ],

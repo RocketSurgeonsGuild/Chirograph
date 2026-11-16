@@ -1,0 +1,57 @@
+﻿{
+  A database's connection string, unshielded:
+OptionsValidationException:
+  ConnectionStrings:RocketsClient has an unknown key, Data Source. Its keys are BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts and Authentication.
+  ConnectionStrings:RocketsClient has an unknown key, Initial Catalog. Its keys are BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts and Authentication.
+  ConnectionStrings:RocketsClient has an unknown key, Password. Its keys are BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts and Authentication.
+  When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.,
+  Clients connection string first, never merged:
+BaseAddress: http://keys.example/
+Timeout: 00:00:20
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Code over keys:
+BaseAddress: http://code.example/
+Timeout: 00:00:10
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Connection string over keys and code:
+BaseAddress: http://connection-string.example/
+Timeout: 00:00:20
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  ConnectionStrings as the fallback:
+BaseAddress: http://fallback.example/
+Timeout: 00:00:05
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Empty connection string shields a database's:
+BaseAddress: http://keys.example/
+Timeout: 00:00:05
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
+  Keys only:
+BaseAddress: http://keys.example/
+Timeout: 00:00:05
+Resilience: True
+AllowedHosts: [auth.example]
+DefaultRequestHeaders: [[X-Api-Version, 2]]
+Authentication: None,
+  PostConfigure over the connection string:
+BaseAddress: http://keys.example/
+Timeout: 00:00:30
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None
+}

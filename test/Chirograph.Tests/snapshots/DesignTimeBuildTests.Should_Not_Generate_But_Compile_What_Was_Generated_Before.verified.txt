@@ -1,6 +1,7 @@
 ﻿{
   AfterABuild: {
     Compiled: [
+      RocketsClient/RocketsClientOptions.g.cs,
       RocketsClient/RocketsClientServiceCollectionExtensions.g.cs,
       RocketsClient/generated/Models/Rocket.cs,
       RocketsClient/generated/Rockets/Item/RocketsItemRequestBuilder.cs,

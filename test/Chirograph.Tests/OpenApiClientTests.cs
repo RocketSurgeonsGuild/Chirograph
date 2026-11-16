@@ -115,8 +115,9 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
 
     /// <summary>
     /// Build seam: the registration Chirograph writes for each generator, a public <c>Add&lt;ClientName&gt;()</c> that returns the
-    /// <c>IHttpClientBuilder</c>, stamped with the version of Chirograph. It reads <c>Clients:RocketsClient</c>, and adds the standard
-    /// resilience handler only when the project references Microsoft.Extensions.Http.Resilience.
+    /// <c>IHttpClientBuilder</c>, and the options it reads, <c>RocketsClientOptions</c>, both stamped with the version of Chirograph. The
+    /// options carry the generator's delegate, and the registration adds the standard resilience handler only when the project references
+    /// Microsoft.Extensions.Http.Resilience.
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota, false)]
@@ -138,11 +139,11 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         project.AddProject("lib/lib.csproj", lib).AddFile("lib/rockets.json", RocketsApi.Document);
 
         await project.Build("lib");
-        var registration = await File.ReadAllTextAsync(
-            Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient", "RocketsClientServiceCollectionExtensions.g.cs")
-        );
+        var directory = Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient");
+        var registration = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientServiceCollectionExtensions.g.cs"));
+        var options = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientOptions.g.cs"));
 
-        await project.VerifyResult(registration, referencesResilience ? $"{generator}_Resilience" : generator.ToString());
+        await project.VerifyResult(new { Registration = registration, Options = options }, referencesResilience ? $"{generator}_Resilience" : generator.ToString());
     }
 
     /// <summary>

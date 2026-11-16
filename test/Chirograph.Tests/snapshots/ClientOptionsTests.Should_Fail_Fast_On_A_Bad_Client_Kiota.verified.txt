@@ -1,0 +1,14 @@
+﻿{
+  Bare ServiceCollection, bad client:
+Built the provider.
+OptionsValidationException:
+  The BaseAddress of RocketsClient is not an absolute http or https URI.,
+  Bare ServiceCollection, good client:
+Built the provider.
+Created True.,
+  Host, bad client:
+OptionsValidationException:
+  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts and Authentication.
+  The BaseAddress of RocketsClient is not an absolute http or https URI.,
+  Host, good client: Started.
+}

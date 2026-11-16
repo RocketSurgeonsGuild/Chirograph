@@ -28,8 +28,7 @@ internal static class RocketsApp
         Generator generator,
         string include,
         string clientName = "RocketsClient",
-        IReadOnlyDictionary<string, string?>? metadata = null,
-        bool scaffold = true
+        IReadOnlyDictionary<string, string?>? metadata = null
     )
     {
         // metadata wins over the defaults, and a null leaves the metadata out (Namespace = null falls back to $(RootNamespace))
@@ -44,9 +43,7 @@ internal static class RocketsApp
             all[name] = value;
         }
 
-        project.ItemInclude("OpenApiClient", include, metadata: all);
-        // without the scaffolded registration file the project doesn't compile (CS8795), unless it brings one of its own
-        return scaffold ? project : project.Property("ChirographScaffoldRegistration", "false");
+        return project.ItemInclude("OpenApiClient", include, metadata: all);
     }
 
     /// <summary>References Microsoft.Extensions.Hosting at the version the repository pins for <paramref name="targetFramework" />.</summary>
@@ -63,11 +60,10 @@ internal static class RocketsApp
         string targetFramework,
         Generator generator,
         string include = "rockets.json",
-        IReadOnlyDictionary<string, string?>? metadata = null,
-        bool scaffold = true
+        IReadOnlyDictionary<string, string?>? metadata = null
     ) =>
         project
-           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata, scaffold: scaffold))
+           .AddProject("app/app.csproj", project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, include, metadata: metadata))
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", Program(generator));
 

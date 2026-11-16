@@ -46,39 +46,24 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
     }
 
     /// <summary>
-    /// The client uses what the project's hook returns, <c>CreateRequestAdapter</c> (Kiota) or <c>CreateRefitSettings</c> (Refitter): here
-    /// it replaces what the container gave (sends <c>HOOK</c> over <c>KEYED</c>).
+    /// The client uses what the delegate on its options returns, <c>ConfigureRequestAdapter</c> (Kiota) or <c>ConfigureRefitSettings</c>
+    /// (Refitter): here it replaces what the container gave (sends <c>DELEGATE</c> over <c>KEYED</c>).
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota)]
     [Arguments(Generator.Refitter)]
-    public async Task Should_Use_What_The_Hook_Returns(Generator generator)
+    public async Task Should_Use_What_The_Options_Delegate_Returns(Generator generator)
     {
         await using var api = RocketsApi.Start();
         using var project = new SdkTestProject(targetFramework);
         project
-           .AddRocketsApp(targetFramework, generator, scaffold: false)
-           .AddFile("app/Program.cs", Program(generator, Registration.Keyed))
-           .AddFile("app/Hook.cs", Hook(generator));
+           .AddRocketsApp(targetFramework, generator)
+           .AddFile("app/Program.cs", Program(generator, Registration.Keyed, Delegate(generator)));
 
         await project.Build("app");
         var output = await project.Run("app", RocketsApp.Environment(api));
 
         await project.VerifyResult(output, generator.ToString());
-    }
-
-    /// <summary>A client project that doesn't implement the hook fails to compile, with CS8795.</summary>
-    [Test]
-    [Arguments(Generator.Kiota)]
-    [Arguments(Generator.Refitter)]
-    public async Task Should_Require_The_Hook(Generator generator)
-    {
-        using var project = new SdkTestProject(targetFramework);
-        project.AddRocketsApp(targetFramework, generator, scaffold: false);
-
-        var diagnostics = await project.BuildDiagnostics("app", codePrefix: "CS8795");
-
-        await project.VerifyResult(diagnostics, generator.ToString());
     }
 
     /// <summary>A library generates the client, and the application that registers it gives it its authentication.</summary>
@@ -101,7 +86,7 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
         await project.VerifyResult(output, generator.ToString());
     }
 
-    private static string Program(Generator generator, Registration registration)
+    private static string Program(Generator generator, Registration registration, string configure = "")
     {
         var register = registration switch
         {
@@ -113,7 +98,7 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
         };
         return RocketsApp
               .Program(generator)
-              .Replace("builder.Services.AddRocketsClient();", register + "builder.Services.AddRocketsClient();", StringComparison.Ordinal)
+              .Replace("builder.Services.AddRocketsClient();", register + $"builder.Services.AddRocketsClient({configure});", StringComparison.Ordinal)
               .TrimEnd()
          + "\n" + ( generator == Generator.Kiota ? KiotaTypes : RefitTypes );
     }
@@ -132,33 +117,16 @@ public class AuthenticationTests(string targetFramework) : LoggerTest<TestRecord
         ? $"new SerialNumberProvider(\"{serialNumber}\")"
         : $"SerialNumberHandler.Settings(\"{serialNumber}\")";
 
-    private static string Hook(Generator generator) => generator == Generator.Kiota
+    // the configure argument of AddRocketsClient() that sets the delegate on the options
+    private static string Delegate(Generator generator) => generator == Generator.Kiota
         ? """
-          namespace Throwaway.Clients;
-
-          public static partial class RocketsClientServiceCollectionExtensions
-          {
-              private static partial Microsoft.Kiota.Abstractions.IRequestAdapter CreateRequestAdapter(
-                  System.IServiceProvider services,
-                  Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter adapter
-              ) =>
-                  new Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
-                      new SerialNumberProvider("HOOK"),
-                      httpClient: Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                         .GetRequiredService<System.Net.Http.IHttpClientFactory>(services)
-                         .CreateClient("RocketsClient")
-                  );
-          }
+          options => options.ConfigureRequestAdapter = (services, adapter) =>
+              new Microsoft.Kiota.Http.HttpClientLibrary.HttpClientRequestAdapter(
+                  new SerialNumberProvider("DELEGATE"),
+                  httpClient: services.GetRequiredService<System.Net.Http.IHttpClientFactory>().CreateClient("RocketsClient")
+              )
           """
-        : """
-          namespace Throwaway.Clients;
-
-          public static partial class RocketsClientServiceCollectionExtensions
-          {
-              private static partial Refit.RefitSettings? CreateRefitSettings(System.IServiceProvider services, Refit.RefitSettings? settings) =>
-                  SerialNumberHandler.Settings("HOOK");
-          }
-          """;
+        : """options => options.ConfigureRefitSettings = (services, settings) => SerialNumberHandler.Settings("DELEGATE")""";
 
     // the provider (Kiota) and the handler (Refit) the throwaway applications register; the Refit handler is the primary handler
     // RefitSettings.HttpMessageHandlerFactory gives

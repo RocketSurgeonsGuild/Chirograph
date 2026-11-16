@@ -1,8 +1,0 @@
-﻿// edited by the project
-namespace Throwaway.Clients;
-
-static partial class RocketsClientServiceCollectionExtensions
-{
-    private static partial global::Refit.RefitSettings? CreateRefitSettings(global::System.IServiceProvider services, global::Refit.RefitSettings? settings) => settings;
-
-}
