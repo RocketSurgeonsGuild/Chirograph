@@ -80,6 +80,23 @@ public class DiagnosticsTests(string targetFramework) : LoggerTest<TestRecord>(T
         await project.VerifyResult(await project.BuildDiagnostics("app"));
     }
 
+    /// <summary><c>CHIRO103</c>: the server writes no document of the name the client gives in <c>DocumentName</c>.</summary>
+    [Test]
+    public async Task Should_Fail_When_The_Server_Writes_No_Document_Of_The_Name()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddRocketsServer([targetFramework], "v1", "v2")
+           .AddProject(
+                "app/app.csproj",
+                project
+                   .CreateConsumer("Library")
+                   .OpenApiClient(Generator.Kiota, RocketsServer.Include, metadata: new Dictionary<string, string?> { ["DocumentName"] = "v3" })
+            );
+
+        await project.VerifyResult(await project.BuildDiagnostics("app"));
+    }
+
     /// <summary>
     /// <c>CHIRO106</c>: the generator tool is not in the packages folders, because the build asks for a version restore never
     /// downloaded.
