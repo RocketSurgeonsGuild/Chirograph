@@ -5,7 +5,8 @@
         <Authors>David Driscoll,Rocket Surgeons Guild contributors</Authors>
         <PackageProjectUrl>https://rocketsurgeonsguild.github.io/Chirograph/</PackageProjectUrl>
         <Description>Typed HTTP clients generated from OpenAPI documents at build time: one MSBuild item, a Kiota or Refitter client, registered with IHttpClientFactory.</Description>
-        <PackageTags>openapi;kiota;refitter;httpclient;msbuild;sdk;codegen</PackageTags>
+        <!-- Tags every Chirograph package shares; each project appends its own with $(PackageTags);... -->
+        <PackageTags>chirograph;openapi</PackageTags>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <PackageIcon>images/chirograph-icon.png</PackageIcon>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>

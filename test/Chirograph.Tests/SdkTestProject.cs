@@ -45,6 +45,10 @@ public sealed partial class SdkTestProject : IDisposable
                         // Until the Dovetail the joint tests need is released, its locally packed copy (Config.DovetailVersion).
                         Config.DovetailStagingPackages is { } staging
                             ? new XElement("add", new XAttribute("key", "dovetail-staging"), new XAttribute("value", staging))
+                            : null,
+                        // Until the Optionary the schema tests need is released, its locally packed copy (Config.OptionaryVersion).
+                        Config.OptionaryStagingPackages is { } optionaryStaging
+                            ? new XElement("add", new XAttribute("key", "optionary-staging"), new XAttribute("value", optionaryStaging))
                             : null
                     )
                 )
