@@ -19,8 +19,32 @@
     }
   },
   ProjectReference: {
+    ../fsserver/fsserver.fsproj: {
+      ClientName: FSharpServerClient,
+      ClientNameIsValid: True,
+      Generator: Kiota,
+      Kind: Project,
+      Namespace: Throwaway.Clients,
+      Private: false,
+      PrivateAssets: all,
+      ReferenceOutputAssembly: false,
+      SkipGetTargetFrameworkProperties: true,
+      _ChirographOpenApiClientServer: true
+    },
     ../server/server.csproj: {
       ClientName: ServerClient,
+      ClientNameIsValid: True,
+      Generator: Kiota,
+      Kind: Project,
+      Namespace: Throwaway.Clients,
+      Private: false,
+      PrivateAssets: all,
+      ReferenceOutputAssembly: false,
+      SkipGetTargetFrameworkProperties: true,
+      _ChirographOpenApiClientServer: true
+    },
+    ../vbserver/vbserver.vbproj: {
+      ClientName: VisualBasicServerClient,
       ClientNameIsValid: True,
       Generator: Kiota,
       Kind: Project,

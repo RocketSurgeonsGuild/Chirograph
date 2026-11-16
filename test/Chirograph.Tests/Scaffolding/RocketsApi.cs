@@ -48,6 +48,49 @@ internal sealed class RocketsApi : IAsyncDisposable
         }
         """;
 
+    /// <summary>
+    ///     <see cref="Document" /> in YAML.
+    /// </summary>
+    public const string YamlDocument = """
+        openapi: 3.1.1
+        info:
+          title: Rockets
+          version: 1.0.0
+        paths:
+          /rockets/{id}:
+            get:
+              operationId: GetRocket
+              parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+              responses:
+                "200":
+                  description: OK
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Rocket"
+        components:
+          schemas:
+            Rocket:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                serialNumber:
+                  type: string
+        """;
+
+    /// <summary>
+    ///     <see cref="Document" /> with this API as its only server, which a client without a base address of its own can fall back to.
+    /// </summary>
+    public string DocumentWithServer => Document.Replace("\"paths\": {", $"\"servers\": [ {{ \"url\": \"{BaseAddress}\" }} ],\n  \"paths\": {{", StringComparison.Ordinal);
+
     private RocketsApi(HttpListener listener, Uri baseAddress)
     {
         _listener = listener;

@@ -110,7 +110,7 @@ public sealed partial class SdkTestProject : IDisposable
     {
         var project = Evaluated(path);
 
-        var properties = project.AllEvaluatedProperties
+        var properties = project.Properties
                                 .Where(z => z.Name.StartsWith("Chirograph", StringComparison.Ordinal))
                                 .OrderBy(z => z.Name, StringComparer.Ordinal)
                                 .ToDictionary(z => z.Name, z => Config.ScrubPin(Config.PinnedPackageProperties.GetValueOrDefault(z.Name), z.EvaluatedValue));
@@ -200,6 +200,14 @@ public sealed partial class SdkTestProject : IDisposable
     /// </summary>
     public Task<string> Run(string relativePath, IReadOnlyDictionary<string, string>? environment = null, string arguments = "") =>
         RunDotnet(arguments == "" ? "run" : $"run -- {arguments}", Path.Combine(Directory, relativePath), environment);
+
+    /// <summary>
+    /// Runs <c>dotnet <paramref name="arguments" /></c> in <paramref name="relativePath" />, with <paramref name="environment" /> added
+    /// to its environment, and returns what it wrote to standard output. It must succeed. For what <see cref="Build" /> and
+    /// <see cref="Run" /> don't cover: say <c>publish</c>, then the published application.
+    /// </summary>
+    public Task<string> Dotnet(string relativePath, string arguments, IReadOnlyDictionary<string, string>? environment = null) =>
+        RunDotnet(arguments, Path.Combine(Directory, relativePath), environment);
 
     /// <summary>
     /// Verifies <paramref name="target" /> with the scaffold's scrubbers (the target framework and Chirograph's version). A test whose

@@ -1,0 +1,8 @@
+﻿{
+  Changed: [
+    Generating the OpenAPI client RocketsClient with Refitter
+  ],
+  First: [
+    Generating the OpenAPI client RocketsClient with Kiota
+  ]
+}

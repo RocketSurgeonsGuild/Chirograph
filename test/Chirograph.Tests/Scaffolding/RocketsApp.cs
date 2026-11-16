@@ -29,17 +29,22 @@ internal static class RocketsApp
         string include,
         string clientName = "RocketsClient",
         IReadOnlyDictionary<string, string?>? metadata = null
-    ) =>
-        project.ItemInclude(
-            "OpenApiClient",
-            include,
-            metadata: new Dictionary<string, string?>
-            {
-                ["Generator"] = generator.ToString(),
-                ["ClientName"] = clientName,
-                ["Namespace"] = "Throwaway.Clients",
-            }.Concat(metadata ?? new Dictionary<string, string?>()).ToDictionary()
-        );
+    )
+    {
+        // metadata wins over the defaults, and a null leaves the metadata out (Namespace = null falls back to $(RootNamespace))
+        var all = new Dictionary<string, string?>
+        {
+            ["Generator"] = generator.ToString(),
+            ["ClientName"] = clientName,
+            ["Namespace"] = "Throwaway.Clients",
+        };
+        foreach (var (name, value) in metadata ?? new Dictionary<string, string?>())
+        {
+            all[name] = value;
+        }
+
+        return project.ItemInclude("OpenApiClient", include, metadata: all);
+    }
 
     /// <summary>References Microsoft.Extensions.Hosting at the version the repository pins for <paramref name="targetFramework" />.</summary>
     public static ProjectCreator Hosting(this ProjectCreator project, string targetFramework) =>
@@ -62,22 +67,25 @@ internal static class RocketsApp
            .AddFile("app/rockets.json", RocketsApi.Document)
            .AddFile("app/Program.cs", Program(generator));
 
-    /// <summary>The application: it registers the client, resolves it and writes the rocket it gets.</summary>
-    public static string Program(Generator generator) => generator switch
+    /// <summary>
+    /// The application: it registers the client, resolves it and writes the rocket it gets. The client is in
+    /// <paramref name="namespace" />.
+    /// </summary>
+    public static string Program(Generator generator, string @namespace = "Throwaway.Clients") => generator switch
     {
         // Kiota's client is the class RocketsClient, with a request builder per path
-        Generator.Kiota => Program("RocketsClient", "client.Rockets[id].GetAsync()"),
+        Generator.Kiota => Program("RocketsClient", "client.Rockets[id].GetAsync()", @namespace),
         // Refitter's client is the Refit interface IRocketsClient, with a method per operation
-        Generator.Refitter => Program("IRocketsClient", "client.GetRocket(id)"),
+        Generator.Refitter => Program("IRocketsClient", "client.GetRocket(id)", @namespace),
         _ => throw new ArgumentOutOfRangeException(nameof(generator), generator, null),
     };
 
-    private static string Program(string clientType, string getRocket) => $$"""
+    private static string Program(string clientType, string getRocket, string @namespace) => $$"""
         using System;
         using Microsoft.Extensions.DependencyInjection;
         using Microsoft.Extensions.Hosting;
         using Microsoft.Extensions.Logging;
-        using Throwaway.Clients;
+        using {{@namespace}};
 
         var builder = Host.CreateApplicationBuilder(args);
         builder.Logging.ClearProviders();

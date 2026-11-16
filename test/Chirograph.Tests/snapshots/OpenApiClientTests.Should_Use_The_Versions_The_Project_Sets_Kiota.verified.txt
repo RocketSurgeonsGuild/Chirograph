@@ -1,0 +1,32 @@
+﻿{
+  DovetailTemplate: {},
+  PackageDownload: {
+    Microsoft.OpenApi.Kiota: {
+      Arguments: generate --language CSharp --openapi "{Document}" --class-name {ClientName} --namespace-name {Namespace} --output "{GeneratedDirectory}" --clean-output --exclude-backward-compatible --log-level Warning,
+      PackageId: Microsoft.OpenApi.Kiota,
+      Tool: kiota.dll,
+      Version: [1.37.0]
+    }
+  },
+  PackageReference: {
+    Microsoft.Extensions.Http: {
+      IsImplicitlyDefined: true,
+      Version: 10.0.0
+    },
+    Microsoft.Kiota.Bundle: {
+      IsImplicitlyDefined: true,
+      Version: 2.0.0
+    }
+  },
+  ProjectReference: {},
+  Properties: {
+    ChirographGenerateDovetailJoint: true,
+    ChirographKiotaBundleVersion: 2.0.0,
+    ChirographKiotaVersion: 1.37.0,
+    ChirographMicrosoftExtensionsHttpVersion: 10.0.0,
+    ChirographRefitterVersion: {pin: Refitter},
+    ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographUpdateOpenApiDocumentCache: true,
+    ChirographVersion: {chirograph-version}
+  }
+}

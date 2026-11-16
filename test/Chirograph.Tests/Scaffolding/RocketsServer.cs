@@ -12,6 +12,47 @@ internal static class RocketsServer
     /// <summary>The include of the server, relative to the application.</summary>
     public const string Include = "../server/server.csproj";
 
+    /// <summary>The include of the F# server (<see cref="AddRocketsFSharpServer" />), relative to the application.</summary>
+    public const string FSharpInclude = "../fsserver/fsserver.fsproj";
+
+    /// <summary>
+    /// Adds <c>fsserver/fsserver.fsproj</c>, the same server in F#, on <paramref name="targetFramework" />, with ASP.NET Core's default
+    /// document.
+    /// </summary>
+    public static SdkTestProject AddRocketsFSharpServer(this SdkTestProject project, string targetFramework)
+    {
+        var server = ProjectCreator.Templates.SdkCsproj(sdk: "Microsoft.NET.Sdk.Web", targetFramework: targetFramework, outputType: "Exe")
+                                   .ItemCompile("Program.fs")
+                                   .ItemPackageReference("Microsoft.AspNetCore.OpenApi", Config.CentralPackageVersion("Microsoft.AspNetCore.OpenApi", targetFramework))
+                                   .ItemPackageReference(
+                                        "Microsoft.Extensions.ApiDescription.Server",
+                                        Config.CentralPackageVersion("Microsoft.Extensions.ApiDescription.Server", targetFramework),
+                                        privateAssets: "all"
+                                    );
+        return project
+              .AddProject("fsserver/fsserver.fsproj", server)
+              .AddFile(
+                   "fsserver/Program.fs",
+                   """
+                   open System
+                   open Microsoft.AspNetCore.Builder
+                   open Microsoft.Extensions.DependencyInjection
+
+                   type Rocket = { Id: Guid; SerialNumber: string }
+
+                   [<EntryPoint>]
+                   let main args =
+                       let builder = WebApplication.CreateBuilder(args)
+                       builder.Services.AddOpenApi() |> ignore
+                       let app = builder.Build()
+                       app.MapGet("/rockets/{id}", Func<Guid, Rocket>(fun id -> { Id = id; SerialNumber = "FALCON-9" })).WithName("GetRocket") |> ignore
+                       app.MapOpenApi() |> ignore
+                       app.Run()
+                       0
+                   """
+               );
+    }
+
     /// <summary>
     /// Adds <c>server/server.csproj</c> on <paramref name="targetFrameworks" /> (several make it multi-targeted), with one OpenAPI
     /// document per name in <paramref name="documents" /> (ASP.NET Core's default, <c>v1</c>, when there is none).

@@ -1,0 +1,6 @@
+﻿{
+  Changed: [],
+  First: [
+    Generating the OpenAPI client RocketsClient with Kiota
+  ]
+}

@@ -48,6 +48,11 @@
     <ChirographUpdateOpenApiDocumentCache Condition="'$(ChirographUpdateOpenApiDocumentCache)' == ''">true</ChirographUpdateOpenApiDocumentCache>
     <!-- whether each client gets a Dovetail joint, when the Dovetail in the build can write it -->
     <ChirographGenerateDovetailJoint Condition="'$(ChirographGenerateDovetailJoint)' == ''">true</ChirographGenerateDovetailJoint>
+    <!--
+        A clients folder the project sets can be in the project: left out of its default items, so the generated code isn't compiled
+        twice (CS2002) once evaluation finds it. Items are evaluated after every property, so this reaches the SDK's globs.
+    -->
+    <DefaultItemExcludes Condition="'$(ChirographOpenApiClientsDirectory)' != ''">$(DefaultItemExcludes);$([MSBuild]::EnsureTrailingSlash('$(ChirographOpenApiClientsDirectory)'))**</DefaultItemExcludes>
     <!-- the folder of the tool packages that holds the tools, which run on .NET 10 or later -->
     <_ChirographOpenApiToolFramework>net10.0</_ChirographOpenApiToolFramework>
     <!-- the extensions of a project, which an OpenApiClient names as a server that writes its document -->

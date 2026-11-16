@@ -9,6 +9,19 @@ internal static class BinaryLogExtensions
     public static string[] GeneratedClients(this Build build) =>
         [.. build.FindChildrenRecursive<Message>(z => z.Text.StartsWith("Generating the OpenAPI client ", StringComparison.Ordinal)).Select(z => z.Text)];
 
+    /// <summary>
+    /// The client code Chirograph added to the compilation, relative to the folder of the project's clients (<c>…/openapi/</c>), sorted.
+    /// Read from the target that adds it: the compiler itself doesn't run again when it is up to date.
+    /// </summary>
+    public static string[] CompiledClientFiles(this Build build) =>
+        [.. build
+           .AddedItems("_ChirographCompileOpenApiClients", "Compile")
+           .Select(z => z.Replace('\\', '/'))
+           .Where(z => z.Contains("/openapi/", StringComparison.Ordinal))
+           .Select(z => z[( z.IndexOf("/openapi/", StringComparison.Ordinal) + "/openapi/".Length )..])
+           .Distinct(StringComparer.Ordinal)
+           .Order(StringComparer.Ordinal)];
+
     /// <summary>The items of type <paramref name="itemType" /> the target <paramref name="targetName" /> added, in every run of it.</summary>
     public static string[] AddedItems(this Build build, string targetName, string itemType) =>
         [.. build.FindChildrenRecursive<Microsoft.Build.Logging.StructuredLogger.Target>(z => z.Name == targetName)
