@@ -16,8 +16,12 @@ AllowedHosts: []
 DefaultRequestHeaders: []
 Authentication: None,
   Endpoint with BaseAddress:
-OptionsValidationException:
-  Clients:RocketsClient sets BaseAddress twice, as BaseAddress and as Endpoint.,
+BaseAddress: http://endpoint.example/
+Timeout: 
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None,
   Negative Timeout:
 OptionsValidationException:
   The Timeout of RocketsClient must be positive and at most 24.20:31:23.647, or infinite (-00:00:00.001).,
@@ -31,6 +35,10 @@ OptionsValidationException:
 OptionsValidationException:
   Clients:RocketsClient:Timeout is not a TimeSpan, such as 00:00:30.,
   Unknown key:
-OptionsValidationException:
-  Clients:RocketsClient has an unknown key, Retries. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.
+BaseAddress: 
+Timeout: 
+Resilience: False
+AllowedHosts: []
+DefaultRequestHeaders: []
+Authentication: None
 }

@@ -1,7 +1,5 @@
 ﻿{
-  ApiKey and Key:
-OptionsValidationException:
-  Clients:RocketsClient sets ApiKey twice, as ApiKey and as Key.,
+  ApiKey and Key: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (X-Api-Key=s3cr3t),
   ApiKey with ApiKeyHeader and ApiKeyQuery:
 OptionsValidationException:
   The Authentication of RocketsClient is ApiKey, which takes ApiKeyHeader or ApiKeyQuery, not both.,
@@ -20,9 +18,7 @@ OptionsValidationException:
   Basic without a password:
 OptionsValidationException:
   The Authentication of RocketsClient is Basic, which needs Username and Password.,
-  Bearer with the keys of Basic and ApiKey:
-OptionsValidationException:
-  The Authentication of RocketsClient is Bearer, and keys of another method are set: ApiKeyHeader (ApiKey), Username (Basic), Password (Basic).,
+  Bearer with the keys of Basic and ApiKey: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (Authorization=Bearer s3cr3t),
   Bearer with Token and TokenProvider:
 OptionsValidationException:
   The Authentication of RocketsClient is Bearer, which takes Token or TokenProvider, not both.,
@@ -32,25 +28,15 @@ OptionsValidationException:
   ClientCredentials, not declared:
 OptionsValidationException:
   Clients:RocketsClient:Authentication is ClientCredentials, which the OpenApiClient item of RocketsClient doesn't declare: add ClientCredentials to its Authentication metadata.,
-  ClientId, not declared:
-OptionsValidationException:
-  Clients:RocketsClient has an unknown key, ClientId. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.,
-  Connection string with the keys of another method:
-OptionsValidationException:
-  The Authentication of RocketsClient is Basic, and keys of another method are set: Token (Bearer).,
+  ClientId, not declared: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9,
+  Connection string with the keys of another method, ignored: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9 (Authorization=Basic cm9ja2V0ZWVyOnMzY3IzdA==),
   No host to send the credentials to:
 OptionsValidationException:
   The Authentication of RocketsClient is Bearer, and it has no host to send the credentials to: set BaseAddress, or AllowedHosts.,
-  None with a token:
-OptionsValidationException:
-  The Authentication of RocketsClient is None, and keys of another method are set: Token (Bearer).,
-  None with TokenProvider:
-OptionsValidationException:
-  The Authentication of RocketsClient is None, and keys of another method are set: TokenProvider (Bearer).,
+  None with a token: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9,
+  None with TokenProvider: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9,
   PrivateKeyJwt, not declared:
 OptionsValidationException:
   Clients:RocketsClient:Authentication is PrivateKeyJwt, which the OpenApiClient item of RocketsClient doesn't declare: add ClientCredentials to its Authentication metadata.,
-  TenantId, not declared:
-OptionsValidationException:
-  Clients:RocketsClient has an unknown key, TenantId. Its keys are ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore.
+  TenantId, not declared: RocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9
 }

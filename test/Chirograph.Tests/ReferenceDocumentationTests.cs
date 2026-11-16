@@ -96,7 +96,7 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
     /// <summary>
     /// The keys of a client's <c>Clients:&lt;ClientName&gt;</c> section: the keys the generated schemas describe (every client in the
     /// accepted snapshots of <see cref="OptionarySchemaTests.Should_Write_The_Schema_Of_Each_Client" />, one per variant), the keys the
-    /// options class reads from the section (its <c>ObjectKeyList</c>, with each alias) and the keys the Optionary guide's table lists
+    /// options class reads from the section (the patterns of its <c>KeyName</c> switch, aliases too, in upper case) and the keys the Optionary guide's table lists
     /// are the same.
     /// </summary>
     [Test]
@@ -108,19 +108,19 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
                                   .Distinct()
                                   .Order(StringComparer.Ordinal)
                                   .ToArray();
-        // every key of the list, whichever //#if block it is in
-        var optionsKeys = ObjectKeyList()
+        // every pattern of the switch, whichever //#if block it is in: the switch is on the upper-case key
+        var optionsKeys = KeyNameSwitch()
                          .Matches(ReadFile(OptionsTemplate))
-                         .SelectMany(z => StringLiteral().Matches(z.Groups["list"].Value))
-                         .SelectMany(z => KeyListEntry().Matches(z.Groups["value"].Value))
-                         .SelectMany(z => z.Groups["key"].Captures.Select(c => c.Value))
-                         .Where(z => z != "and")
+                         .SelectMany(z => KeyNamePattern().Matches(z.Groups["arms"].Value))
+                         .Select(z => z.Groups["key"].Value)
                          .Distinct()
                          .Order(StringComparer.Ordinal)
                          .ToArray();
 
         await schemaKeys.Should().NotBeEmpty();
-        await optionsKeys.Should().BeEquivalentTo(schemaKeys, CollectionOrdering.Matching).Because($"the ObjectKeyList of {OptionsTemplate}");
+        await optionsKeys.Should()
+                         .BeEquivalentTo(schemaKeys.Select(z => z.ToUpperInvariant()).Order(StringComparer.Ordinal).ToArray(), CollectionOrdering.Matching)
+                         .Because($"the KeyName switch of {OptionsTemplate}");
         await TableRows(OptionaryPage, "The keys").Order(StringComparer.Ordinal).ToArray().Should().BeEquivalentTo(schemaKeys, CollectionOrdering.Matching).Because($"the keys table of {OptionaryPage}");
     }
 
@@ -131,16 +131,13 @@ public partial class ReferenceDocumentationTests() : LoggerTest<TestRecord>(Test
 
     private static IEnumerable<string> TableRows(string path, string heading) => TableRow().Matches(Section(ReadFile(path), heading)).Select(z => z.Groups["name"].Value);
 
-    // the keys of the object in the options class, string literals in an array, some in //#if blocks: KeyList(new[] { "A", "B (or C)", … })
-    [GeneratedRegex(@"ObjectKeyList\s*=\s*KeyList\(\s*new\[\]\s*\{(?<list>[^}]*)\}")]
-    private static partial Regex ObjectKeyList();
+    // the arms of the switch that names the keys of the options class, some in //#if blocks: "A" => "A", "B" or "C" => "B", … _ => null
+    [GeneratedRegex(@"KeyName\(string key\) => key\.ToUpperInvariant\(\) switch\s*\{(?<arms>[^}]*)\}")]
+    private static partial Regex KeyNameSwitch();
 
-    [GeneratedRegex(@"""(?<value>[^""]*)""")]
-    private static partial Regex StringLiteral();
-
-    // an entry of that list: a key, with its alias if it has one
-    [GeneratedRegex(@"(?<key>[A-Za-z]\w*)(?: \(or (?<key>[A-Za-z]\w*)\))?")]
-    private static partial Regex KeyListEntry();
+    // a pattern of an arm: a string literal with only an "or" and other patterns between it and the arm's =>
+    [GeneratedRegex(@"""(?<key>[A-Z]+)""(?=(?:\s+or\s+""[A-Z]+"")*\s*=>)")]
+    private static partial Regex KeyNamePattern();
 
     [GeneratedRegex(@"%\((?:_Chirograph)?OpenApiClient\.(?<name>[A-Za-z]\w*)\)")]
     private static partial Regex MetadataRead();
