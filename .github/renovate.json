@@ -24,8 +24,8 @@
   ],
   "packageRules": [
     {
-      "description": "The generators and the runtime packages their clients need move together, so a generator's output always matches the runtime it was tested with",
-      "matchPackageNames": ["Microsoft.OpenApi.Kiota", "Microsoft.Kiota.Bundle", "Refitter", "Refit.HttpClientFactory"],
+      "description": "The generators and the runtime packages their clients need (including the authentication packages the generated code calls) move together, so a generator's output always matches the runtime it was tested with",
+      "matchPackageNames": ["Microsoft.OpenApi.Kiota", "Microsoft.Kiota.Bundle", "Refitter", "Refit.HttpClientFactory", "Duende.AccessTokenManagement", "Azure.Identity"],
       "groupName": "openapi generators"
     },
     {
