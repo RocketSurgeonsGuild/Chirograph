@@ -7,17 +7,28 @@ namespace Throwaway.Clients;
 
 /// <summary>
 ///     Registers <see cref="IRocketsClient" /> with <c>IHttpClientFactory</c>, as the Refit client Refit generates at build (no
-///     reflection). Its base address is read from <c>Clients:RocketsClient:BaseAddress</c>.
+///     reflection), configured from <c>Clients:RocketsClient</c>.
 /// </summary>
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "{chirograph-version}")]
 public static class RocketsClientServiceCollectionExtensions
 {
+    /// <summary>The configuration section of the client: its BaseAddress, Timeout, DefaultRequestHeaders and Resilience.</summary>
+    public const string SectionKey = "Clients:RocketsClient";
+
     /// <summary>The configuration key of the base address of the client.</summary>
-    public const string BaseAddressKey = "Clients:RocketsClient:BaseAddress";
+    public const string BaseAddressKey = SectionKey + ":BaseAddress";
 
     /// <summary>
-    ///     Registers <see cref="IRocketsClient" /> with <c>IHttpClientFactory</c>, its base address read from
-    ///     <c>Clients:RocketsClient:BaseAddress</c>.
+    ///     The configuration key that adds the standard resilience handler to the client when it is <c>true</c>. It is read only when the
+    ///     project references Microsoft.Extensions.Http.Resilience.
+    /// </summary>
+    public const string ResilienceKey = SectionKey + ":Resilience";
+
+    /// <summary>
+    ///     Registers <see cref="IRocketsClient" /> with <c>IHttpClientFactory</c>. When the client is created, its <c>HttpClient</c> takes
+    ///     BaseAddress, Timeout and DefaultRequestHeaders from <c>Clients:RocketsClient</c>, and the standard resilience handler is kept
+    ///     when Resilience is <c>true</c> (only when the project references Microsoft.Extensions.Http.Resilience). A missing key leaves
+    ///     the <c>HttpClient</c> as it is.
     /// </summary>
     /// <param name="services">The services to add the client to.</param>
     /// <returns>The builder of the Refit client's HTTP client, to configure it further.</returns>
@@ -29,9 +40,28 @@ public static class RocketsClientServiceCollectionExtensions
             static (global::System.IServiceProvider provider, global::System.Net.Http.HttpClient httpClient) =>
             {
                 var configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)provider.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
-                if (configuration?[BaseAddressKey] is { Length: > 0 } baseAddress)
+                if (configuration is null)
+                {
+                    return;
+                }
+
+                var section = configuration.GetSection(SectionKey);
+                if (section["BaseAddress"] is { Length: > 0 } baseAddress)
                 {
                     httpClient.BaseAddress = new global::System.Uri(baseAddress, global::System.UriKind.Absolute);
+                }
+
+                if (section["Timeout"] is { Length: > 0 } timeout)
+                {
+                    httpClient.Timeout = global::System.TimeSpan.Parse(timeout, global::System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                foreach (var header in section.GetSection("DefaultRequestHeaders").GetChildren())
+                {
+                    if (header.Value is { } value)
+                    {
+                        httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
+                    }
                 }
             }
         );

@@ -137,13 +137,14 @@
       Condition="'$(ChirographRefitVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) == 'true'"
     />
     <!--
-        Not with a Refitter client: Refit.HttpClientFactory brings Microsoft.Extensions.Http itself, at a version that can be newer than
-        the one packed here (NU1605, a downgrade, on net11.0).
+        Not with a Refitter client, nor beside Microsoft.Extensions.Http.Resilience: Refit.HttpClientFactory and the resilience package
+        bring Microsoft.Extensions.Http themselves, at a version that can be newer than the one packed here (NU1605, a downgrade, on
+        net11.0).
     -->
     <_ChirographImplicitPackageReference
       Include="Microsoft.Extensions.Http"
       Version="$(ChirographMicrosoftExtensionsHttpVersion)"
-      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true'"
+      Condition="'$(ChirographMicrosoftExtensionsHttpVersion)' != '' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Kiota')) == 'true' and @(_ChirographOpenApiGeneratorUsed->AnyHaveMetadataValue('Identity', 'Refitter')) != 'true' and @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Http.Resilience')) != 'true'"
     />
   </ItemGroup>
 
@@ -391,7 +392,7 @@
       Writes what a client is generated with, only when it changed (so its time stamp tells when it did), the settings file of Refitter,
       and the registration of the client.
   -->
-  <Target Name="_ChirographWriteOpenApiClientSettings" DependsOnTargets="_ChirographFindOpenApiTools">
+  <Target Name="_ChirographWriteOpenApiClientSettings" DependsOnTargets="_ChirographFindOpenApiTools;ResolveAssemblyReferences">
     <WriteLinesToFile
       File="%(_ChirographOpenApiClient.SettingsFile)"
       Lines="Generator=%(_ChirographOpenApiClient.Generator);Version=%(_ChirographOpenApiClient.ToolVersion);ClientName=%(_ChirographOpenApiClient.ClientName);Namespace=%(_ChirographOpenApiClient.Namespace);Options=$([MSBuild]::Escape('%(_ChirographOpenApiClient.Options)'))"
@@ -405,12 +406,25 @@
       Overwrite="true"
       WriteOnlyWhenDifferent="true"
     />
+    <!--
+        The code between //#if Resilience and //#endif in a template adds the standard resilience handler: it is kept, without those two
+        lines, only when the resolved references of the project include Microsoft.Extensions.Http.Resilience. Chirograph doesn't add it.
+    -->
+    <ItemGroup>
+      <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
+      <_ChirographResilienceReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.Http.Resilience'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_ChirographOpenApiTemplateCut>(?s)[ \t]*//#if Resilience\r?\n.*?//#endif\r?\n</_ChirographOpenApiTemplateCut>
+      <_ChirographOpenApiTemplateCut Condition="'@(_ChirographResilienceReference)' != ''">[ \t]*//#(if Resilience|endif)\r?\n</_ChirographOpenApiTemplateCut>
+    </PropertyGroup>
     <ItemGroup>
       <_ChirographOpenApiClientRegistration Remove="@(_ChirographOpenApiClientRegistration)" />
       <_ChirographOpenApiClientRegistration
         Include="@(_ChirographOpenApiClient->'%(RegistrationFile)')"
-        Text="$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)templates/%(Generator)Registration.cs.template').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))"
+        Text="$([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)templates/%(Generator)Registration.cs.template')), '$(_ChirographOpenApiTemplateCut)', '').Replace('__Namespace__', '%(Namespace)').Replace('__ClientName__', '%(ClientName)').Replace('__ChirographVersion__', '$(ChirographVersion)'))"
       />
+      <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
     </ItemGroup>
     <WriteLinesToFile
       File="%(_ChirographOpenApiClientRegistration.Identity)"

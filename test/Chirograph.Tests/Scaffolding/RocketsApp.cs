@@ -80,6 +80,16 @@ internal static class RocketsApp
         _ => throw new ArgumentOutOfRangeException(nameof(generator), generator, null),
     };
 
+    /// <summary>
+    /// <see cref="Program(Generator, string)" />, except that a call that fails writes the type and message of its exception instead of
+    /// failing the application.
+    /// </summary>
+    public static string ProgramReportingFailure(Generator generator) =>
+        Program(generator)
+           .Replace("var rocket = await", "try\n{\n    var rocket = await", StringComparison.Ordinal)
+           .TrimEnd()
+           + "\n}\ncatch (Exception e)\n{\n    Console.WriteLine($\"{e.GetType().FullName}: {e.Message}\");\n}\n";
+
     private static string Program(string clientType, string getRocket, string @namespace) => $$"""
         using System;
         using Microsoft.Extensions.DependencyInjection;

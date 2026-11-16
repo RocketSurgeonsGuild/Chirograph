@@ -6,18 +6,29 @@
 namespace __Namespace__;
 
 /// <summary>
-///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, as a typed client named __ClientName__. Its base address is
-///     read from <c>Clients:__ClientName__:BaseAddress</c>; without one the client uses the first server of its OpenAPI document.
+///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, as a typed client named __ClientName__, configured from
+///     <c>Clients:__ClientName__</c>. Without a BaseAddress the client uses the first server of its OpenAPI document.
 /// </summary>
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
 public static class __ClientName__ServiceCollectionExtensions
 {
+    /// <summary>The configuration section of the client: its BaseAddress, Timeout, DefaultRequestHeaders and Resilience.</summary>
+    public const string SectionKey = "Clients:__ClientName__";
+
     /// <summary>The configuration key of the base address of the client.</summary>
-    public const string BaseAddressKey = "Clients:__ClientName__:BaseAddress";
+    public const string BaseAddressKey = SectionKey + ":BaseAddress";
 
     /// <summary>
-    ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, its base address read from
-    ///     <c>Clients:__ClientName__:BaseAddress</c>.
+    ///     The configuration key that adds the standard resilience handler to the client when it is <c>true</c>. It is read only when the
+    ///     project references Microsoft.Extensions.Http.Resilience.
+    /// </summary>
+    public const string ResilienceKey = SectionKey + ":Resilience";
+
+    /// <summary>
+    ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>. When the client is created, its <c>HttpClient</c> takes
+    ///     BaseAddress, Timeout and DefaultRequestHeaders from <c>Clients:__ClientName__</c>, and the standard resilience handler is kept
+    ///     when Resilience is <c>true</c> (only when the project references Microsoft.Extensions.Http.Resilience). A missing key leaves
+    ///     the <c>HttpClient</c> as it is.
     /// </summary>
     /// <param name="services">The services to add the client to.</param>
     /// <returns>The builder of the named HTTP client, to configure it further.</returns>
@@ -29,9 +40,28 @@ public static class __ClientName__ServiceCollectionExtensions
             static (global::System.IServiceProvider provider, global::System.Net.Http.HttpClient httpClient) =>
             {
                 var configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)provider.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
-                if (configuration?[BaseAddressKey] is { Length: > 0 } baseAddress)
+                if (configuration is null)
+                {
+                    return;
+                }
+
+                var section = configuration.GetSection(SectionKey);
+                if (section["BaseAddress"] is { Length: > 0 } baseAddress)
                 {
                     httpClient.BaseAddress = new global::System.Uri(baseAddress, global::System.UriKind.Absolute);
+                }
+
+                if (section["Timeout"] is { Length: > 0 } timeout)
+                {
+                    httpClient.Timeout = global::System.TimeSpan.Parse(timeout, global::System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                foreach (var header in section.GetSection("DefaultRequestHeaders").GetChildren())
+                {
+                    if (header.Value is { } value)
+                    {
+                        httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
+                    }
                 }
             }
         );
@@ -44,6 +74,25 @@ public static class __ClientName__ServiceCollectionExtensions
                 )
             )
         );
+        //#if Resilience
+        // The project references Microsoft.Extensions.Http.Resilience: the standard resilience handler is added, and taken out again,
+        // when the handlers of the client are built, unless Clients:__ClientName__:Resilience is true.
+        global::Microsoft.Extensions.DependencyInjection.ResilienceHttpClientBuilderExtensions.AddStandardResilienceHandler(builder);
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureAdditionalHttpMessageHandlers(
+            builder,
+            static (global::System.Collections.Generic.IList<global::System.Net.Http.DelegatingHandler> handlers, global::System.IServiceProvider provider) =>
+            {
+                var configuration = (global::Microsoft.Extensions.Configuration.IConfiguration?)provider.GetService(typeof(global::Microsoft.Extensions.Configuration.IConfiguration));
+                var resilience = bool.TryParse(configuration?[ResilienceKey], out var value) && value;
+                // the handler added just above is the last one so far: a resilience handler added before (by ConfigureHttpClientDefaults,
+                // say) or after (on the builder this returns) stays
+                if (!resilience && handlers.Count > 0 && handlers[handlers.Count - 1] is global::Microsoft.Extensions.Http.Resilience.ResilienceHandler)
+                {
+                    handlers.RemoveAt(handlers.Count - 1);
+                }
+            }
+        );
+        //#endif
         return builder;
     }
 }

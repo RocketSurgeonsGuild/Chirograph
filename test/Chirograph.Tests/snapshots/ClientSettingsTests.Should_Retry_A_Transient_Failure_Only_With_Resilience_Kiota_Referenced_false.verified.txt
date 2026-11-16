@@ -1,0 +1,6 @@
+﻿{
+  Output:
+Microsoft.Kiota.Abstractions.ApiException: The server returned an unexpected status code and no error factory is registered for this code: 503
+,
+  RocketRequests: 1
+}

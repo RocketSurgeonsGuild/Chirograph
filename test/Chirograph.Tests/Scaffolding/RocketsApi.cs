@@ -17,6 +17,12 @@ internal sealed class RocketsApi : IAsyncDisposable
     public const string RocketId = "6f9619ff-8b86-d011-b42d-00cf4fc964ff";
 
     /// <summary>
+    ///     The request header the API echoes as the serial number of the rocket (<c>FALCON-9</c> without it), so a test sees the headers a
+    ///     client sends.
+    /// </summary>
+    public const string SerialNumberHeader = "X-Serial-Number";
+
+    /// <summary>
     ///     The OpenAPI document of the API: one operation, GetRocket, which returns a Rocket.
     /// </summary>
     public const string Document = """
@@ -150,9 +156,27 @@ internal sealed class RocketsApi : IAsyncDisposable
     /// </summary>
     public bool DocumentUnavailable { get; set; }
 
+    /// <summary>
+    ///     How long the API waits before it answers with a rocket, so a client's timeout can elapse first. Disposing the API ends the
+    ///     wait.
+    /// </summary>
+    public TimeSpan RocketDelay { get; set; }
+
+    /// <summary>
+    ///     How many of the first requests for a rocket answer <c>503 Service Unavailable</c>, a transient failure a resilient client
+    ///     retries, before the API answers with the rocket.
+    /// </summary>
+    public int TransientFailures { get; set; }
+
+    /// <summary>
+    ///     How many times a rocket was asked for, the requests that failed included.
+    /// </summary>
+    public int RocketRequests => _rocketRequests;
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        await _stopping.CancelAsync();
         // Close alone: Stop and Close both unregister the prefixes, and on macOS the second time binds the port again, which fails when
         // another test took it in between.
         try
@@ -163,6 +187,7 @@ internal sealed class RocketsApi : IAsyncDisposable
         catch (ObjectDisposedException) { }
 
         await _serving;
+        _stopping.Dispose();
     }
 
     // One request at a time. A request that fails (its client went away, say) is dropped, and the API keeps serving.
@@ -185,7 +210,7 @@ internal sealed class RocketsApi : IAsyncDisposable
             {
                 await Respond(context);
             }
-            catch (Exception e) when (e is HttpListenerException or IOException or ObjectDisposedException or InvalidOperationException)
+            catch (Exception e) when (e is HttpListenerException or IOException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
             {
                 try
                 {
@@ -199,14 +224,23 @@ internal sealed class RocketsApi : IAsyncDisposable
     private async Task Respond(HttpListenerContext context)
     {
         var path = context.Request.Url!.AbsolutePath;
+        var rocketRequest = path.StartsWith("/rockets/", StringComparison.Ordinal) ? Interlocked.Increment(ref _rocketRequests) : 0;
         var (status, body) = path switch
         {
             "/openapi.json" when DocumentUnavailable => (404, ""),
+            _ when rocketRequest > 0 && rocketRequest <= TransientFailures => (503, ""),
             "/openapi.json" => (200, Document),
-            _ when path.StartsWith("/rockets/", StringComparison.Ordinal) => (200, $$"""{ "id": "{{path["/rockets/".Length..]}}", "serialNumber": "FALCON-9" }"""),
+            _ when path.StartsWith("/rockets/", StringComparison.Ordinal) => (
+                200,
+                $$"""{ "id": "{{path["/rockets/".Length..]}}", "serialNumber": "{{context.Request.Headers[SerialNumberHeader] ?? "FALCON-9"}}" }"""
+            ),
             _ => (404, ""),
         };
         if (path == "/openapi.json" && status == 200) Interlocked.Increment(ref _documentRequests);
+        if (path.StartsWith("/rockets/", StringComparison.Ordinal) && RocketDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(RocketDelay, _stopping.Token);
+        }
 
         var bytes = Encoding.UTF8.GetBytes(body);
         context.Response.StatusCode = status;
@@ -218,5 +252,7 @@ internal sealed class RocketsApi : IAsyncDisposable
 
     private readonly HttpListener _listener;
     private readonly Task _serving;
+    private readonly CancellationTokenSource _stopping = new();
     private int _documentRequests;
+    private int _rocketRequests;
 }
