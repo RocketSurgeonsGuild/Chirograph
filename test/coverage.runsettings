@@ -2,9 +2,9 @@
 <!--
     Code coverage settings for the CI build (build/appsettings.yaml points the pipeline's TestSolution module at this file).
 
-    Chirograph ships no compiled code: it is an MSBuild SDK of props, targets and templates, and its tests build throwaway
-    consumer projects. Collecting coverage from those projects (and the generated clients in them) would only pad the report,
-    so the include list names only Chirograph's own assemblies, of which there are none today.
+    Chirograph is an MSBuild SDK of props, targets, templates and one assembly of MSBuild tasks (Chirograph.Build.Tasks), and its
+    tests build throwaway consumer projects. Collecting coverage from those projects (and the generated clients in them) would only
+    pad the report, so the include list names only Chirograph's own assemblies.
 -->
 <RunSettings>
   <DataCollectionRunSettings>
