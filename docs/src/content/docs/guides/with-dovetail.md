@@ -13,7 +13,7 @@ and runs when `ConfigureDovetail()` builds it. Chirograph never references Dovet
 ## The joint Chirograph declares
 
 > [!NOTE]
-> This needs **Dovetail TBD (Dovetail#426)** or later: the first release in which `DovetailTemplate` replaces every metadata value
+> This needs **Dovetail 0.6.0** or later: the first release in which `DovetailTemplate` replaces every metadata value
 > as a token ([Dovetail#413](https://github.com/RocketSurgeonsGuild/Dovetail/issues/413)). With an older Dovetail, Chirograph declares
 > nothing, the build still succeeds, and you register the client [yourself](#a-joint-of-your-own).
 
