@@ -73,7 +73,7 @@ The section's path is a constant on the registration class, `RocketsClientServic
 | Key                     | Type                 | Effect                                                                                                                                                                                                      |
 | ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ConnectionString`      | string               | The client's [connection string](#the-connection-string).                                                                                                                                                   |
-| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called.                               |
+| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, Kiota uses the document's first server, Refit fails when called, unless [service discovery](#service-discovery) is on.          |
 | `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` in the invariant culture (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                           |
 | `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. Not in a connection string.                                                                                           |
 | `Resilience`            | bool                 | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. |
@@ -140,7 +140,8 @@ It fails on:
 - an unknown key under `Clients:RocketsClient`, or in the connection string;
 - a key given twice, or an alias with its key;
 - a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
-- a `BaseAddress` that isn't an absolute `http` or `https` URI, or a `Timeout` that isn't positive;
+- a `BaseAddress` that isn't an absolute `http` or `https` URI (or, with [service discovery](#service-discovery), a service-discovery
+  address), or a `Timeout` that isn't positive;
 - an `Authentication` without the keys it needs, with the keys of another method (`None` included), or with no host to send the
   credentials to (neither `BaseAddress` nor `AllowedHosts`);
 - a [client certificate](#client-certificate-mtls) given by both a path and a thumbprint, a `CertificatePassword` or
@@ -160,6 +161,33 @@ built unless `Resilience` is `true`. Without the package the registration has no
 
 The key turns on the handler with its default options. To tune them, or to add a handler of your own, chain on the builder the
 registration returns instead.
+
+## Service discovery
+
+Chirograph adds no service-discovery package either. When the project references
+[Microsoft.Extensions.ServiceDiscovery](https://www.nuget.org/packages/Microsoft.Extensions.ServiceDiscovery) (directly, or through
+another package or project such as an Aspire service-defaults project), the build sees it among the resolved references and writes the
+service-discovery code into the registration:
+
+- it calls `AddServiceDiscovery()` on the client's builder, after the authentication handler;
+- when no endpoint provider is registered yet, it also calls `AddServiceDiscovery()` on the services, which adds the configuration
+  provider (`Services:<name>`) and the pass-through provider; register your own providers before `AddRocketsClient()` to use them
+  instead;
+- `BaseAddress` may be a [service-discovery address](https://learn.microsoft.com/dotnet/core/extensions/service-discovery), such as
+  `https+http://rockets`;
+- a client without a `BaseAddress` calls `https+http://<ClientName>`, so its endpoints come from `Services:<ClientName>`, or from the
+  platform.
+
+```json
+{
+    "Services": { "RocketsClient": { "https": ["https://10.0.0.5:8443/"] } }
+}
+```
+
+Without the package, a client without a `BaseAddress` behaves as before, and a service-discovery address fails validation.
+
+The authentication handler runs before the service-discovery handler, so the [host check](#which-hosts-get-the-credentials) compares
+the logical host, `rockets` in `https+http://rockets`, not the endpoint it resolves to.
 
 ## Configuring the client further
 
@@ -225,7 +253,11 @@ The handler also follows redirects in place of the primary handler (it turns the
 as many as that allowed), so each hop is checked the same way: a redirect to another host goes without the credentials, whichever
 header or query parameter carries them.
 
-A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`.
+With [service discovery](#service-discovery), the host is the logical one, and the endpoint it resolves to gets the credentials as well.
+A redirect to another host still goes without them.
+
+A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`. With service discovery,
+the default `https+http://<ClientName>` is one.
 
 ### From the container
 
