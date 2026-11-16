@@ -15,6 +15,7 @@
     <!-- Nothing to compare: package validation looks at assemblies, and there are none. -->
     <EnablePackageValidation>false</EnablePackageValidation>
     <PackageDescription>MSBuild SDK that generates typed HTTP clients from OpenAPI documents at build time, with Kiota or Refitter, and registers them with IHttpClientFactory.</PackageDescription>
+    <PackageTags>$(PackageTags);msbuild-sdk;msbuild;kiota;refitter;refit;httpclient;rest-client;codegen</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Sdk/**" />
