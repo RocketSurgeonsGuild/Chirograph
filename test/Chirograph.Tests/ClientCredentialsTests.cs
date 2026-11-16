@@ -322,7 +322,7 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
         project
            .AddProject("app/app.csproj", app)
            .AddFile("app/rockets.json", RocketsApi.Document)
-           .AddFile("app/Program.cs", Program(generator, fusionCache));
+           .AddFile("app/Program.cs", Program(generator, fusionCache, clientCredentials: true));
         await project.Build("app");
 
         var results = new Dictionary<string, string>();
@@ -343,7 +343,7 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
     }
 
     // starts the host (so validation runs), then asks for TEST_CALLS rockets and writes each, or why it couldn't get one
-    internal static string Program(Generator generator, bool fusionCache = false)
+    internal static string Program(Generator generator, bool fusionCache = false, bool clientCredentials = false)
     {
         var (clientType, getRocket) = generator switch
         {
@@ -361,6 +361,24 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
         var clearFusionCache = fusionCache
             ? $"fusion.Clear(false);\nConsole.WriteLine(\"FusionCache cleared\");\nvar again = await {getRocket};\nConsole.WriteLine($\"{{nameof({clientType})}}: {{again!.Id}} {{again.SerialNumber}}\");"
             : "";
+        // with Duende referenced, an IClientAssertionService of the application's own (it makes no assertion), registered before or after
+        // AddRocketsClient() as the OwnAssertionServiceVariable says
+        static string Register(string when) =>
+            $"if (Environment.GetEnvironmentVariable(\"{OwnAssertionServiceVariable}\") == \"{when}\")\n{{\n    builder.Services.AddSingleton<Duende.AccessTokenManagement.IClientAssertionService, OwnAssertionService>();\n}}";
+        var registerBefore = clientCredentials ? Register("before") : "";
+        var registerAfter = clientCredentials ? Register("after") : "";
+        var ownAssertionServiceType = clientCredentials
+            ? """
+              sealed class OwnAssertionService : Duende.AccessTokenManagement.IClientAssertionService
+              {
+                  public System.Threading.Tasks.Task<Duende.IdentityModel.Client.ClientAssertion?> GetClientAssertionAsync(
+                      Duende.AccessTokenManagement.ClientCredentialsClientName? clientName = null,
+                      Duende.AccessTokenManagement.TokenRequestParameters? parameters = null,
+                      System.Threading.CancellationToken ct = default
+                  ) => System.Threading.Tasks.Task.FromResult<Duende.IdentityModel.Client.ClientAssertion?>(null);
+              }
+              """
+            : "";
         return $$"""
             using System;
             using Microsoft.Extensions.DependencyInjection;
@@ -372,18 +390,9 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
             builder.Logging.ClearProviders();
             // every HttpClient trusts the token server's certificate, Duende's back-channel client among them
             builder.Services.ConfigureHttpClientDefaults(http => http.ConfigurePrimaryHttpMessageHandler({{RocketsTlsApi.TrustServerCertificate}}));
-            var ownAssertionService = Environment.GetEnvironmentVariable("{{OwnAssertionServiceVariable}}");
-            if (ownAssertionService == "before")
-            {
-                builder.Services.AddSingleton<Duende.AccessTokenManagement.IClientAssertionService, OwnAssertionService>();
-            }
-
+            {{registerBefore}}
             builder.Services.AddRocketsClient().ConfigurePrimaryHttpMessageHandler({{RocketsTlsApi.TrustServerCertificate}});
-            if (ownAssertionService == "after")
-            {
-                builder.Services.AddSingleton<Duende.AccessTokenManagement.IClientAssertionService, OwnAssertionService>();
-            }
-
+            {{registerAfter}}
             {{addFusionCache}}
             using var host = builder.Build();
             {{countFusionCache}}
@@ -420,15 +429,7 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
                 Console.WriteLine($"{e.GetType().FullName}: {e.Message}");
             }
 
-            // an application's own assertions, for clients of its own: it makes none
-            sealed class OwnAssertionService : Duende.AccessTokenManagement.IClientAssertionService
-            {
-                public System.Threading.Tasks.Task<Duende.IdentityModel.Client.ClientAssertion?> GetClientAssertionAsync(
-                    Duende.AccessTokenManagement.ClientCredentialsClientName? clientName = null,
-                    Duende.AccessTokenManagement.TokenRequestParameters? parameters = null,
-                    System.Threading.CancellationToken ct = default
-                ) => System.Threading.Tasks.Task.FromResult<Duende.IdentityModel.Client.ClientAssertion?>(null);
-            }
+            {{ownAssertionServiceType}}
             """;
     }
 }
