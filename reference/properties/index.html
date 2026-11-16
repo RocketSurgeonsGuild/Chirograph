@@ -81,6 +81,16 @@ wins.</p>
 <td>Whether each client gets a Dovetail joint, with a Dovetail that can write it. See <a href="../../guides/with-dovetail/">With Dovetail</a>.</td>
 </tr>
 <tr>
+<td><code dir="auto">ChirographScaffoldRegistration</code></td>
+<td><code dir="auto">true</code></td>
+<td>Whether the build writes each client’s registration file (<code dir="auto">RegistrationFile</code>) when it is missing. <code dir="auto">false</code> for a project that keeps it elsewhere. See <a href="../../concepts/registration/#the-registration-file">Registration</a>.</td>
+</tr>
+<tr>
+<td><code dir="auto">ChirographOptionarySchema</code></td>
+<td><code dir="auto">true</code></td>
+<td>Whether each client declares the schema of its <code dir="auto">Clients:&#x3C;ClientName></code> section to Optionary. See <a href="../../guides/with-optionary/">With Optionary</a>.</td>
+</tr>
+<tr>
 <td><code dir="auto">ChirographOpenApiClientsDirectory</code></td>
 <td><code dir="auto">$(IntermediateOutputPath)openapi/</code></td>
 <td>The folder each client’s folder goes in, relative to the project. A folder inside the project is left out of its default items, so the code is compiled once.</td>

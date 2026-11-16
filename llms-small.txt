@@ -96,37 +96,86 @@ refitter --settings-file <client folder>/<ClientName>.refitter --output <client 
 
 # Registration
 
-> The Add<ClientName>() extension every client gets, the Clients:<ClientName>:BaseAddress configuration key, and configuring the client further on IHttpClientBuilder.
+> The Add<ClientName>() extension every client gets, the Clients:<ClientName> configuration section (BaseAddress, Timeout, DefaultRequestHeaders, Resilience), and configuring the client further on IHttpClientBuilder.
 
 Every client gets a registration: a public extension method on `IServiceCollection`, written next to the generated code. For a client named `RocketsClient` it is: 
 ```csharp
 public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services);
 ```
- It is in the client’s namespace, in a class named `RocketsClientServiceCollectionExtensions`. It is public, so an application can register a client that a library it references generated. ## What it registers [Section titled “What it registers”](#what-it-registers) * **Kiota:** a named `HttpClient`, `RocketsClient`, and the typed client `RocketsClient`, built on Kiota’s `HttpClientRequestAdapter` with anonymous authentication. * **Refitter:** `IRocketsClient`, through Refit’s `AddRefitGeneratedClient`. Refit’s source generator writes the implementation at build time, so there is no reflection. Resolve the client from the container, or inject it: 
+ It is in the client’s namespace, in a `partial` class named `RocketsClientServiceCollectionExtensions`. It is public, so an application can register a client that a library it references generated. The project of the client must implement one hook of that class, or it fails to compile with `CS8795`: the build writes that part for a new client (see [The registration file](#the-registration-file)). ## What it registers [Section titled “What it registers”](#what-it-registers) * **Kiota:** a named `HttpClient`, `RocketsClient`, and the typed client `RocketsClient`, built on Kiota’s `HttpClientRequestAdapter` with the authentication provider from the container (see [Authentication](#authentication)). * **Refitter:** `IRocketsClient`, through Refit’s `AddRefitGeneratedClient`. Refit’s source generator writes the implementation at build time, so there is no reflection. Resolve the client from the container, or inject it: 
 ```csharp
 public sealed class LaunchService(RocketsClient rockets) { … }    // Kiota
 public sealed class LaunchService(IRocketsClient rockets) { … }   // Refitter
 ```
- ## The base address [Section titled “The base address”](#the-base-address) The registration reads the base address from configuration, at the key `Clients:<ClientName>:BaseAddress`, when the `HttpClient` is created. The key is also a constant on the class, `RocketsClientServiceCollectionExtensions.BaseAddressKey`. 
+ ## Configuration [Section titled “Configuration”](#configuration) The registration reads the section `Clients:<ClientName>` from `IConfiguration` each time the `HttpClient` is created. The section’s path is a constant on the class, `RocketsClientServiceCollectionExtensions.SectionKey`. 
 ```json
 {
     "Clients": {
         "RocketsClient": {
-            "BaseAddress": "https://rockets.example.com/"
+            "BaseAddress": "https://rockets.example.com/",
+            "Timeout": "00:00:30",
+            "DefaultRequestHeaders": {
+                "X-Api-Version": "2"
+            },
+            "Resilience": true
         }
     }
 }
 ```
- The address must be absolute. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called. ## Configuring the client further [Section titled “Configuring the client further”](#configuring-the-client-further) The registration returns the `IHttpClientBuilder`, so everything `IHttpClientFactory` offers chains on it: handlers, resilience, lifetimes, and a base address of your own that wins over the configuration. 
+ | Key | Type | Effect | | ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `BaseAddress` | absolute URI | `HttpClient.BaseAddress`. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called. | | `Timeout` | `TimeSpan` | `HttpClient.Timeout`, written as `hh:mm:ss` (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays. | | `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. | | `Resilience` | bool | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. | A missing key leaves the `HttpClient` as it is. Any configuration source works: the environment variable `Clients__RocketsClient__DefaultRequestHeaders__X-Api-Version` sets a header, for example. ### Resilience [Section titled “Resilience”](#resilience) Chirograph adds no resilience package. When the project references [Microsoft.Extensions.Http.Resilience](https://www.nuget.org/packages/Microsoft.Extensions.Http.Resilience) (directly or through another package or project), the build sees it among the resolved references and writes the resilience code into the registration: it calls `AddStandardResilienceHandler()` on the client’s builder, and takes the handler out again when the client’s handlers are built unless `Resilience` is `true`. Without the package the registration has no such code, it compiles, and `Resilience` is ignored. The key turns on the handler with its default options. To tune them, or to add a handler of your own, chain on the builder the registration returns instead. ## Configuring the client further [Section titled “Configuring the client further”](#configuring-the-client-further) The registration returns the `IHttpClientBuilder`, so everything `IHttpClientFactory` offers chains on it: handlers, resilience, lifetimes, and a base address of your own that wins over the configuration. 
 ```csharp
 builder.Services
     .AddRocketsClient()
     .AddHttpMessageHandler<BearerTokenHandler>()
     .AddStandardResilienceHandler();
 ```
- Chirograph configures no authentication, resilience or handlers itself. ## Without the registration [Section titled “Without the registration”](#without-the-registration) A generated client is an ordinary class or interface. Create one from an `HttpClient`, for example against a test server: 
+ Chirograph adds no handlers itself, and adds resilience only when `Resilience` asks for it. ## Authentication [Section titled “Authentication”](#authentication) When the client is created, the registration takes its authentication from the container, under the key of the client’s name first: * **Kiota:** an `IAuthenticationProvider` keyed `"RocketsClient"`, else an unkeyed one, else `AnonymousAuthenticationProvider`. An `IParseNodeFactory` and an `ISerializationWriterFactory` are looked up the same way, and Kiota’s defaults are used without one. * **Refitter:** `RefitSettings` keyed `"RocketsClient"`, else unkeyed ones, else none (Refit’s defaults). A provider keyed with another client’s name is not this client’s. The application registers them, so a client that a library generated gets its authentication from the application that uses it: 
 ```csharp
-var kiota = new RocketsClient(new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient));
+// Kiota: a bearer token for RocketsClient only
+builder.Services.AddKeyedSingleton<IAuthenticationProvider>(
+    "RocketsClient",
+    (services, _) => new BaseBearerTokenAuthenticationProvider(services.GetRequiredService<IAccessTokenProvider>()));
+
+
+// Refitter: settings for IRocketsClient only
+builder.Services.AddKeyedSingleton(
+    "RocketsClient",
+    (services, _) => new RefitSettings
+    {
+        AuthorizationHeaderValueGetter = (request, cancellationToken) =>
+            services.GetRequiredService<ITokenSource>().GetTokenAsync(cancellationToken),
+    });
+
+
+builder.Services.AddRocketsClient();
+```
+ Refit’s `AuthorizationHeaderValueGetter` fills an `Authorization` header that the operation declares (`[Headers("Authorization: Bearer")]`). ### The hook [Section titled “The hook”](#the-hook) The project of the client decides what the client uses at last, in a partial method of the registration’s class that it must implement (the build fails with `CS8795` without one). It gets what the container gave; returning it as is keeps that. Return something else to change it: another adapter (say with an authentication provider of the library’s own), or settings with a serializer or a handler set. ## The registration file [Section titled “The registration file”](#the-registration-file) The project owns one part of the registration class, `RocketsClientServiceCollectionExtensions.cs` in the project’s folder (the `RegistrationFile` metadata moves it). When it is missing, the build writes it, so a new client compiles straight away: 
+```csharp
+namespace MyApp.Rockets;
+
+
+static partial class RocketsClientServiceCollectionExtensions
+{
+    // Required. Kiota:
+    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter) => adapter;
+    // Refitter:
+    // private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings) => settings;
+
+
+    // Optional: called at the end of AddRocketsClient()
+    static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder)
+    {
+    }
+}
+```
+ Commit it and edit it: the build never writes it again, and `dotnet clean` keeps it. A design-time build doesn’t write it. `ConfigureHttpClientBuilder` is the place for handlers, resilience and the like that every application of the client gets: 
+```csharp
+static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder) =>
+    builder.AddHttpMessageHandler<ApiKeyHandler>().AddStandardResilienceHandler();
+```
+ Set `ChirographScaffoldRegistration` to `false` for a project that keeps the file somewhere the build can’t see; the project then compiles the part itself. When a client is removed, renamed, or moves to another generator or namespace, delete its file (the build writes a new one). ## Without the registration [Section titled “Without the registration”](#without-the-registration) A generated client is an ordinary class or interface. Create one from an `HttpClient`, for example against a test server: 
+```csharp
+var kiota = new RocketsClient(new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient));   // or a provider of your own
 var refit = RestService.For<IRocketsClient>(httpClient);
 ```
  ## With Dovetail [Section titled “With Dovetail”](#with-dovetail) A Dovetail joint is one more caller of the registration. See [With Dovetail](../../guides/with-dovetail/).
@@ -196,7 +245,7 @@ var rocket = await rockets.Rockets[Guid.Parse("6f9619ff-8b86-d011-b42d-00cf4fc96
     }
 }
 ```
- Any configuration source works, so an environment variable `Clients__RocketsClient__BaseAddress` does too. Without a base address, a Kiota client uses the first server of its document. A Refit client needs one. ## Before the first release [Section titled “Before the first release”](#before-the-first-release) Until Chirograph is on nuget.org, pack it from a clone into a local folder and add that folder as a package source. 
+ Any configuration source works, so an environment variable `Clients__RocketsClient__BaseAddress` does too. Without a base address, a Kiota client uses the first server of its document. A Refit client needs one. The same section also takes a `Timeout`, default request headers and resilience: see [Configuration](../concepts/registration/#configuration). ## Before the first release [Section titled “Before the first release”](#before-the-first-release) Until Chirograph is on nuget.org, pack it from a clone into a local folder and add that folder as a package source. 
 ```sh
 git clone https://github.com/RocketSurgeonsGuild/Chirograph.git
 cd Chirograph
@@ -212,7 +261,7 @@ dotnet pack src/Chirograph/Chirograph.csproj -o ~/chirograph-packages -p:Version
   </packageSources>
 </configuration>
 ```
- Use `Version="1.0.0-local"` in the steps above. NuGet keeps the first package it sees for a version in its global packages folder, so when you pack again, either use a new version or delete `~/.nuget/packages/chirograph/1.0.0-local`. ## Next steps [Section titled “Next steps”](#next-steps) * [From a file](from-a-file/): a document kept in the project, JSON or YAML. * [From a server project](from-a-server-project/): an ASP.NET Core project in the same build. * [From a URL](from-a-url/): a document downloaded on build, with a cache you can commit. * [With Dovetail](with-dovetail/): the client registered by a joint. * Coming from somewhere else: [`OpenApiReference`](migrating-from-openapireference/) or [LaunchPad’s preview](migrating-from-launchpad/).
+ Use `Version="1.0.0-local"` in the steps above. NuGet keeps the first package it sees for a version in its global packages folder, so when you pack again, either use a new version or delete `~/.nuget/packages/chirograph/1.0.0-local`. ## Next steps [Section titled “Next steps”](#next-steps) * [From a file](from-a-file/): a document kept in the project, JSON or YAML. * [From a server project](from-a-server-project/): an ASP.NET Core project in the same build. * [From a URL](from-a-url/): a document downloaded on build, with a cache you can commit. * [With Dovetail](with-dovetail/): the client registered by a joint. * [With Optionary](with-optionary/): `appsettings.json` IntelliSense and validation for each client’s section. * Coming from somewhere else: [`OpenApiReference`](migrating-from-openapireference/) or [LaunchPad’s preview](migrating-from-launchpad/).
 
 # From a file
 
@@ -224,7 +273,32 @@ A file source is an OpenAPI document that lives with the code. It is the simples
   <OpenApiClient Include="openapi/rockets.yaml" Generator="Refitter" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
 </ItemGroup>
 ```
- Anything that is not a project (`.csproj`, `.fsproj`, `.vbproj`) or a URL (`http://`, `https://`) is a file. A file that does not exist fails the build with [`CHIRO102`](../../reference/diagnostics/#chiro102). ## Several clients [Section titled “Several clients”](#several-clients) Give each client its own `ClientName`, and its own `Namespace` when they share a project, so their generated types don’t collide: 
+ Anything that is not a project (`.csproj`, `.fsproj`, `.vbproj`) or a URL (`http://`, `https://`) is a file. A file that does not exist fails the build with [`CHIRO102`](../../reference/diagnostics/#chiro102). ## The registration file [Section titled “The registration file”](#the-registration-file) The first build writes `RocketsClientServiceCollectionExtensions.cs` next to the project file: the project’s part of the registration. It implements the hook every client must have (`CreateRefitSettings` here, `CreateRequestAdapter` for Kiota) by returning what the container gave, and has an empty `ConfigureHttpClientBuilder` for handlers of your own. Commit it; the build never writes it again. 
+```csharp
+static partial void ConfigureHttpClientBuilder(IHttpClientBuilder builder) =>
+    builder.AddStandardResilienceHandler();
+```
+ ## Authenticate the client [Section titled “Authenticate the client”](#authenticate-the-client) Register the authentication keyed with the client’s name, then the client: 
+```csharp
+// Kiota
+builder.Services.AddKeyedSingleton<IAuthenticationProvider>(
+    "RocketsClient",
+    (services, _) => new BaseBearerTokenAuthenticationProvider(services.GetRequiredService<IAccessTokenProvider>()));
+
+
+// Refitter
+builder.Services.AddKeyedSingleton(
+    "RocketsClient",
+    (services, _) => new RefitSettings
+    {
+        AuthorizationHeaderValueGetter = (request, cancellationToken) =>
+            services.GetRequiredService<ITokenSource>().GetTokenAsync(cancellationToken),
+    });
+
+
+builder.Services.AddRocketsClient();
+```
+ See [Authentication](../../concepts/registration/#authentication) for the lookup and the hook. ## Several clients [Section titled “Several clients”](#several-clients) Give each client its own `ClientName`, and its own `Namespace` when they share a project, so their generated types don’t collide: 
 ```xml
 <ItemGroup>
   <OpenApiClient Include="openapi/rockets.json" Generator="Kiota" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
@@ -403,6 +477,36 @@ public sealed class RocketsClientSetup : IServiceJoint
 ```
  `AddStandardResilienceHandler()` comes from `Microsoft.Extensions.Http.Resilience`, as an example of chaining on the `IHttpClientBuilder`. Don’t name your joint `<ClientName>Joint` in the client’s namespace while the generated joints are on: that is the name of the generated one.
 
+# With Optionary
+
+> Chirograph declares the schema of each client's Clients:<ClientName> section to Optionary, so appsettings.json gets IntelliSense and validation for it.
+
+[Optionary](https://rocketsurgeonsguild.github.io/Optionary/) writes an `appsettings.schema.json` for an application from the configuration sections it and its references declare. Chirograph declares each client’s section, `Clients:<ClientName>`, so an application that references Optionary gets completion and validation for its clients in `appsettings.json`. Chirograph never references Optionary, and the registration still binds the section from `IConfiguration` without it. ## Turning it on [Section titled “Turning it on”](#turning-it-on) Reference Optionary in the project that declares the clients: 
+```xml
+<ItemGroup>
+  <PackageReference Include="Optionary" Version="…" />
+</ItemGroup>
+```
+ Build, and the application’s `obj/appsettings.schema.json` (copied next to the application) holds a `Clients` section with one entry per client. A library that declares the clients puts them in its own schema instead, and every application that references it merges them, as Optionary does for any section. ## The keys [Section titled “The keys”](#the-keys) The registration reads the whole section (see [Registration](../../concepts/registration/)). The schema describes: | Key | Type | Meaning | | ----------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | | `BaseAddress` | absolute URI | The `HttpClient.BaseAddress`. Required for a Refitter client; a Kiota client falls back to the first server of its document. | | `Timeout` | TimeSpan, `hh:mm:ss` | The `HttpClient.Timeout`, written as `IConfiguration` binds a `TimeSpan`, such as `00:00:30`. | | `DefaultRequestHeaders` | object of string values | Headers sent with every request, each name with its value. | | `Resilience` | boolean | `true` adds the standard resilience handler. Only takes effect when the project references `Microsoft.Extensions.Http.Resilience`. | 
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "BaseAddress": "https://rockets.example.com/",
+            "Timeout": "00:00:30",
+            "DefaultRequestHeaders": { "X-Api-Key": "…" },
+            "Resilience": true
+        }
+    }
+}
+```
+ ## What Chirograph declares [Section titled “What Chirograph declares”](#what-chirograph-declares) For each client with a valid `ClientName`, Chirograph adds an `OptionarySchemaFragment` item at evaluation, whose `File` is the schema of its generator, shipped in the SDK: 
+```xml
+<OptionarySchemaFragment Include="Clients:RocketsClient" File="…/Sdk/schemas/kiota.schema.json" />
+<OptionarySchemaFragment Include="Clients:RocketsRefitClient" File="…/Sdk/schemas/refitter.schema.json" />
+```
+ The two files differ only in that `BaseAddress` is required in `refitter.schema.json`. Optionary merges a section that several items or options types declare, so your own fragment for `Clients:RocketsClient` adds to Chirograph’s. `ChirographOptionarySchema=false` turns the items off for the project. See [Properties](../../reference/properties/).
+
 # Reference
 
 > The OpenApiClient item, the properties and target hook, the diagnostic codes and the generated code.
@@ -425,9 +529,11 @@ namespace MyApp.Rockets;
 
 
 [GeneratedCode("Chirograph", "1.0.0")]
-public static class RocketsClientServiceCollectionExtensions
+public static partial class RocketsClientServiceCollectionExtensions
 {
-    public const string BaseAddressKey = "Clients:RocketsClient:BaseAddress";
+    public const string SectionKey = "Clients:RocketsClient";
+    public const string BaseAddressKey = SectionKey + ":BaseAddress";
+    public const string ResilienceKey = SectionKey + ":Resilience";
 
 
     public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services)
@@ -436,22 +542,58 @@ public static class RocketsClientServiceCollectionExtensions
         builder.ConfigureHttpClient((provider, httpClient) =>
         {
             var configuration = provider.GetService<IConfiguration>();
-            if (configuration?[BaseAddressKey] is { Length: > 0 } baseAddress)
-            {
+            if (configuration is null) return;
+
+
+            var section = configuration.GetSection(SectionKey);
+            if (section["BaseAddress"] is { Length: > 0 } baseAddress)
                 httpClient.BaseAddress = new Uri(baseAddress, UriKind.Absolute);
-            }
+            if (section["Timeout"] is { Length: > 0 } timeout)
+                httpClient.Timeout = TimeSpan.Parse(timeout, CultureInfo.InvariantCulture);
+            foreach (var header in section.GetSection("DefaultRequestHeaders").GetChildren())
+                if (header.Value is { } value)
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
         });
-        builder.AddTypedClient<RocketsClient>(httpClient => new RocketsClient(
-            new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient)));
+        builder.AddTypedClient<RocketsClient>((httpClient, services) =>
+        {
+            // keyed with "RocketsClient", else unkeyed, else none (anonymous for the authentication provider)
+            var adapter = new HttpClientRequestAdapter(
+                Resolve<IAuthenticationProvider>(services) ?? new AnonymousAuthenticationProvider(),
+                Resolve<IParseNodeFactory>(services),
+                Resolve<ISerializationWriterFactory>(services),
+                httpClient);
+            return new RocketsClient(CreateRequestAdapter(services, adapter));
+        });
         return builder;
     }
+
+
+    // the project of the client implements it: see Authentication on the Registration page
+    private static partial IRequestAdapter CreateRequestAdapter(IServiceProvider services, HttpClientRequestAdapter adapter);
 }
 ```
- Refitter’s is the same, except that it registers the Refit interface instead of a named client: 
+ When the project references Microsoft.Extensions.Http.Resilience, the build writes this before `return builder;` too, and leaves it out otherwise: 
 ```csharp
-var builder = services.AddRefitGeneratedClient<IRocketsClient>();
+builder.AddStandardResilienceHandler();
+builder.ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
+{
+    var configuration = provider.GetService<IConfiguration>();
+    var resilience = bool.TryParse(configuration?[ResilienceKey], out var value) && value;
+    // the handler added just above is the last one so far
+    if (!resilience && handlers.Count > 0 && handlers[^1] is ResilienceHandler)
+        handlers.RemoveAt(handlers.Count - 1);
+});
 ```
- The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the project’s usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file. The class name, the method name, the `BaseAddressKey` constant and the return type are public API. The body can change between releases. ## The Dovetail joint [Section titled “The Dovetail joint”](#the-dovetail-joint) With a Dovetail that can expand it, Dovetail (not Chirograph) also writes a joint for each client, outside the client’s folder: `obj/<configuration>/<framework>/DovetailTemplate.Chirograph.RocketsClient.g.cs`. It is an internal `[DovetailExport]` class, `RocketsClientJoint`, in the client’s namespace, whose `Register` calls `AddRocketsClient(services)`. Its name is all of it that is API. See [With Dovetail](../../guides/with-dovetail/).
+ See [Configuration](../../concepts/registration/#configuration) for what each key does. Refitter’s is the same, except that it registers the Refit interface instead of a named client: 
+```csharp
+var builder = services.AddRefitGeneratedClient<IRocketsClient>(
+    static provider => CreateRefitSettings(provider, Resolve<RefitSettings>(provider)));
+
+
+// the project of the client implements it
+private static partial RefitSettings? CreateRefitSettings(IServiceProvider services, RefitSettings? settings);
+```
+ The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the project’s usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file. The class name, the method name, the hooks (`CreateRequestAdapter` or `CreateRefitSettings`, and `ConfigureHttpClientBuilder`, which `AddRocketsClient()` calls last), the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between releases. ## The Dovetail joint [Section titled “The Dovetail joint”](#the-dovetail-joint) With a Dovetail that can expand it, Dovetail (not Chirograph) also writes a joint for each client, outside the client’s folder: `obj/<configuration>/<framework>/DovetailTemplate.Chirograph.RocketsClient.g.cs`. It is an internal `[DovetailExport]` class, `RocketsClientJoint`, in the client’s namespace, whose `Register` calls `AddRocketsClient(services)`. Its name is all of it that is API. See [With Dovetail](../../guides/with-dovetail/).
 
 # OpenApiClient
 
@@ -463,10 +605,10 @@ An `OpenApiClient` item declares one client: a document, the generator that turn
   <OpenApiClient Include="openapi/rockets.yaml" Generator="Refitter" ClientName="RocketsClient" Namespace="MyApp.Rockets" />
 </ItemGroup>
 ```
- Declare it in the project file, or in a `Directory.Build.targets`. The SDK reads the items when the project is evaluated (to add packages, tool downloads and server references) and again when it builds. ## Metadata [Section titled “Metadata”](#metadata) Metadata the item doesn’t read is ignored without a warning, so a misspelt name falls back to its default. | Metadata | Required | Default | Meaning | | --------------------- | -------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `Include` | yes | | The [source](../../concepts/sources/). A `.csproj`, `.fsproj` or `.vbproj` is a server project. `http://` or `https://` is a URL. Anything else is a file (`.json`, `.yaml`, `.yml`), relative to the project. | | `Generator` | yes | | `Kiota` or `Refitter` ([`CHIRO100`](../diagnostics/#chiro100)). | | `ClientName` | yes | | A C# identifier ([`CHIRO101`](../diagnostics/#chiro101)), unique within the project ([`CHIRO108`](../diagnostics/#chiro108)). Kiota’s client class is called this, Refitter’s interface is `I<ClientName>`, the registration is `Add<ClientName>()` and the configuration key is `Clients:<ClientName>:BaseAddress`. | | `Namespace` | no | `$(RootNamespace)` | The namespace of everything generated for the client. Give each client its own when a project has several. | | `DocumentName` | no | the only document | Server project only: the document to generate from, when the server writes several. `v1` is ASP.NET Core’s default ([`CHIRO103`](../diagnostics/#chiro103)). | | `DocumentCache` | no | the document’s copy in `obj` | URL only: a file, relative to the project, to keep the last download in. Commit it to build without the URL. See [Document cache](../../concepts/document-cache/). | | `UpdateDocumentCache` | no | `$(ChirographUpdateOpenApiDocumentCache)`, which is `true` | URL only: `false` uses the cache whenever it exists instead of downloading. Wins over the property. | | `Options` | no | | More arguments for the generator: after `kiota generate …`, or after Refitter’s settings file. See [Generators](../../concepts/generators/#what-chirograph-passes). | `DocumentName` is ignored for a file or URL, and `DocumentCache` and `UpdateDocumentCache` for a file or server project. ## What changes when [Section titled “What changes when”](#what-changes-when) * Changing `Generator`, `ClientName`, `Namespace` or `Options` generates the client again on the next build. * Changing `Include` to another document of the same content changes nothing: the client is generated from the content, not the path. * Removing an item leaves its folder in `obj`, but its code is no longer compiled.
+ Declare it in the project file, or in a `Directory.Build.targets`. The SDK reads the items when the project is evaluated (to add packages, tool downloads and server references) and again when it builds. ## Metadata [Section titled “Metadata”](#metadata) Metadata the item doesn’t read is ignored without a warning, so a misspelt name falls back to its default. | Metadata | Required | Default | Meaning | | --------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | | `Include` | yes | | The [source](../../concepts/sources/). A `.csproj`, `.fsproj` or `.vbproj` is a server project. `http://` or `https://` is a URL. Anything else is a file (`.json`, `.yaml`, `.yml`), relative to the project. | | `Generator` | yes | | `Kiota` or `Refitter` ([`CHIRO100`](../diagnostics/#chiro100)). | | `ClientName` | yes | | A C# identifier ([`CHIRO101`](../diagnostics/#chiro101)), unique within the project ([`CHIRO108`](../diagnostics/#chiro108)). Kiota’s client class is called this, Refitter’s interface is `I<ClientName>`, the registration is `Add<ClientName>()` and its configuration section is `Clients:<ClientName>`. | | `Namespace` | no | `$(RootNamespace)` | The namespace of everything generated for the client. Give each client its own when a project has several. | | `DocumentName` | no | the only document | Server project only: the document to generate from, when the server writes several. `v1` is ASP.NET Core’s default ([`CHIRO103`](../diagnostics/#chiro103)). | | `DocumentCache` | no | the document’s copy in `obj` | URL only: a file, relative to the project, to keep the last download in. Commit it to build without the URL. See [Document cache](../../concepts/document-cache/). | | `UpdateDocumentCache` | no | `$(ChirographUpdateOpenApiDocumentCache)`, which is `true` | URL only: `false` uses the cache whenever it exists instead of downloading. Wins over the property. | | `Options` | no | | More arguments for the generator: after `kiota generate …`, or after Refitter’s settings file. See [Generators](../../concepts/generators/#what-chirograph-passes). | | `RegistrationFile` | no | `<ClientName>ServiceCollectionExtensions.cs` | The project’s own part of the registration class, relative to the project. The build writes it when it is missing (unless `ChirographScaffoldRegistration` is `false`) and never again. See [Registration](../../concepts/registration/#the-registration-file). | `DocumentName` is ignored for a file or URL, and `DocumentCache` and `UpdateDocumentCache` for a file or server project. ## What changes when [Section titled “What changes when”](#what-changes-when) * Changing `Generator`, `ClientName`, `Namespace` or `Options` generates the client again on the next build. * Changing `Include` to another document of the same content changes nothing: the client is generated from the content, not the path. * Removing an item leaves its folder in `obj`, but its code is no longer compiled.
 
 # Properties
 
 > The MSBuild properties that change every client of a project, their defaults, and the ChirographGenerateOpenApiClients target hook.
 
-Set a property in the project file, a `Directory.Build.props`, or on the command line (`-p:Name=value`). The version properties are set when the SDK is imported, each only when the project hasn’t set it already, so a value in `Directory.Build.props` or the project wins. ## Properties [Section titled “Properties”](#properties) | Property | Default | Meaning | | ------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `ChirographUpdateOpenApiDocumentCache` | `true` | The default of every client’s `UpdateDocumentCache`: whether a URL is downloaded again when its document is cached. See [Document cache](../../concepts/document-cache/#updating). | | `ChirographGenerateDovetailJoint` | `true` | Whether each client gets a Dovetail joint, with a Dovetail that can write it. See [With Dovetail](../../guides/with-dovetail/). | | `ChirographOpenApiClientsDirectory` | `$(IntermediateOutputPath)openapi/` | The folder each client’s folder goes in, relative to the project. A folder inside the project is left out of its default items, so the code is compiled once. | | `ChirographKiotaVersion` | the packed version | The version of the `Microsoft.OpenApi.Kiota` tool. | | `ChirographRefitterVersion` | the packed version | The version of the `Refitter` tool. | | `ChirographKiotaBundleVersion` | the packed version | The version of `Microsoft.Kiota.Bundle` added to a project with a Kiota client. | | `ChirographRefitVersion` | the packed version | The version of `Refit.HttpClientFactory` added to a project with a Refitter client. | | `ChirographMicrosoftExtensionsHttpVersion` | the packed version | The version of `Microsoft.Extensions.Http` added to a project with a Kiota client and no Refitter client. | | `ChirographVersion` | the SDK’s version | Stamped into the registration’s `[GeneratedCode]`. Read it; don’t set it. | The packed versions are the ones Chirograph’s own repository pinned when the SDK was packed: they are in the package’s `Sdk/Packages.props`. A package the project references itself is never added, whatever these say: see [Generators](../../concepts/generators/#the-packages-added-to-the-project). A tool version that isn’t in the packages folder fails the build with [`CHIRO106`](../diagnostics/#chiro106) until the project is restored. ## Targets [Section titled “Targets”](#targets) | Target | Runs | Meaning | | ---------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `ChirographGenerateOpenApiClients` | after `ResolveProjectReferences`, before `CoreCompile` and `BeforeCompile` | Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an earlier build generated. Hook `AfterTargets` or `BeforeTargets` on it. | It is the only target that is public. The others start with `_Chirograph` and can change in any release.
+Set a property in the project file, a `Directory.Build.props`, or on the command line (`-p:Name=value`). The version properties are set when the SDK is imported, each only when the project hasn’t set it already, so a value in `Directory.Build.props` or the project wins. ## Properties [Section titled “Properties”](#properties) | Property | Default | Meaning | | ------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | | `ChirographUpdateOpenApiDocumentCache` | `true` | The default of every client’s `UpdateDocumentCache`: whether a URL is downloaded again when its document is cached. See [Document cache](../../concepts/document-cache/#updating). | | `ChirographGenerateDovetailJoint` | `true` | Whether each client gets a Dovetail joint, with a Dovetail that can write it. See [With Dovetail](../../guides/with-dovetail/). | | `ChirographScaffoldRegistration` | `true` | Whether the build writes each client’s registration file (`RegistrationFile`) when it is missing. `false` for a project that keeps it elsewhere. See [Registration](../../concepts/registration/#the-registration-file). | | `ChirographOptionarySchema` | `true` | Whether each client declares the schema of its `Clients:<ClientName>` section to Optionary. See [With Optionary](../../guides/with-optionary/). | | `ChirographOpenApiClientsDirectory` | `$(IntermediateOutputPath)openapi/` | The folder each client’s folder goes in, relative to the project. A folder inside the project is left out of its default items, so the code is compiled once. | | `ChirographKiotaVersion` | the packed version | The version of the `Microsoft.OpenApi.Kiota` tool. | | `ChirographRefitterVersion` | the packed version | The version of the `Refitter` tool. | | `ChirographKiotaBundleVersion` | the packed version | The version of `Microsoft.Kiota.Bundle` added to a project with a Kiota client. | | `ChirographRefitVersion` | the packed version | The version of `Refit.HttpClientFactory` added to a project with a Refitter client. | | `ChirographMicrosoftExtensionsHttpVersion` | the packed version | The version of `Microsoft.Extensions.Http` added to a project with a Kiota client and no Refitter client. | | `ChirographVersion` | the SDK’s version | Stamped into the registration’s `[GeneratedCode]`. Read it; don’t set it. | The packed versions are the ones Chirograph’s own repository pinned when the SDK was packed: they are in the package’s `Sdk/Packages.props`. A package the project references itself is never added, whatever these say: see [Generators](../../concepts/generators/#the-packages-added-to-the-project). A tool version that isn’t in the packages folder fails the build with [`CHIRO106`](../diagnostics/#chiro106) until the project is restored. ## Targets [Section titled “Targets”](#targets) | Target | Runs | Meaning | | ---------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `ChirographGenerateOpenApiClients` | after `ResolveProjectReferences`, before `CoreCompile` and `BeforeCompile` | Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an earlier build generated. Hook `AfterTargets` or `BeforeTargets` on it. | It is the only target that is public. The others start with `_Chirograph` and can change in any release.

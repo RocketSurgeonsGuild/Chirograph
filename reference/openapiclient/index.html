@@ -89,7 +89,7 @@ packages, tool downloads and server references) and again when it builds.</p>
 <td><code dir="auto">ClientName</code></td>
 <td>yes</td>
 <td></td>
-<td>A C# identifier (<a href="../diagnostics/#chiro101"><code dir="auto">CHIRO101</code></a>), unique within the project (<a href="../diagnostics/#chiro108"><code dir="auto">CHIRO108</code></a>). Kiota’s client class is called this, Refitter’s interface is <code dir="auto">I&#x3C;ClientName></code>, the registration is <code dir="auto">Add&#x3C;ClientName>()</code> and the configuration key is <code dir="auto">Clients:&#x3C;ClientName>:BaseAddress</code>.</td>
+<td>A C# identifier (<a href="../diagnostics/#chiro101"><code dir="auto">CHIRO101</code></a>), unique within the project (<a href="../diagnostics/#chiro108"><code dir="auto">CHIRO108</code></a>). Kiota’s client class is called this, Refitter’s interface is <code dir="auto">I&#x3C;ClientName></code>, the registration is <code dir="auto">Add&#x3C;ClientName>()</code> and its configuration section is <code dir="auto">Clients:&#x3C;ClientName></code>.</td>
 </tr>
 <tr>
 <td><code dir="auto">Namespace</code></td>
@@ -120,6 +120,12 @@ packages, tool downloads and server references) and again when it builds.</p>
 <td>no</td>
 <td></td>
 <td>More arguments for the generator: after <code dir="auto">kiota generate …</code>, or after Refitter’s settings file. See <a href="../../concepts/generators/#what-chirograph-passes">Generators</a>.</td>
+</tr>
+<tr>
+<td><code dir="auto">RegistrationFile</code></td>
+<td>no</td>
+<td><code dir="auto">&#x3C;ClientName>ServiceCollectionExtensions.cs</code></td>
+<td>The project’s own part of the registration class, relative to the project. The build writes it when it is missing (unless <code dir="auto">ChirographScaffoldRegistration</code> is <code dir="auto">false</code>) and never again. See <a href="../../concepts/registration/#the-registration-file">Registration</a>.</td>
 </tr>
 </tbody>
 </table>
