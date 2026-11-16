@@ -22,9 +22,8 @@ Reference Optionary in the project that declares the clients:
 ```
 
 > [!NOTE]
-> This needs an Optionary that reads the `OptionarySchemaFragment` item
-> ([Optionary#40](https://github.com/RocketSurgeonsGuild/Optionary/issues/40)). With an older Optionary, or none, the item is ignored
-> and the build still succeeds.
+> This needs Optionary 0.1.0 or later, the first release that reads the `OptionarySchemaFragment` item. With an older Optionary, or
+> none, the item is ignored and the build still succeeds.
 
 Build, and the application's `obj/appsettings.schema.json` (copied next to the application) holds a `Clients` section with one
 entry per client. A library that declares the clients puts them in its own schema instead, and every application that references it
