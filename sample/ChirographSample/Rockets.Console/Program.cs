@@ -6,7 +6,8 @@ using Rockets.Client.Refitter;
 using Rockets.Client.Url;
 
 // Registers the three clients with their generated Add<ClientName>() extensions, without Dovetail. Each client reads its section,
-// Clients:<ClientName>: appsettings.json sets a Timeout and a default request header, and the base address comes from the environment,
+// Clients:<ClientName>: appsettings.json sets a Timeout and a default request header (RocketsUrlClient also an API key, in its
+// connection string, which Rockets.Api checks), and the base address comes from the environment,
 // for example Clients__RocketsClient__BaseAddress=http://localhost:5179/ (mise run sample:run sets all of them). Each lists the rockets of a running Rockets.Api and gets the second one; the app exits
 // non-zero when a call fails or the clients disagree.
 var builder = Host.CreateApplicationBuilder(args);
@@ -35,7 +36,7 @@ try
             async id => await refitter.GetRocket(id) is { } z ? Describe(z.Id, z.SerialNumber, z.Type) : "nothing"
         ),
         await Print(
-            "RocketsUrlClient (Kiota, generated from http://localhost:5179/openapi/v1.json, cached in rockets.openapi.json)",
+            "RocketsUrlClient (Kiota, generated from http://localhost:5179/openapi/v1.json, cached in rockets.openapi.json, with an API key)",
             async () => [.. (await url.Rockets.GetAsync() ?? []).Select(z => Describe(z.Id, z.SerialNumber, z.Type))],
             async id => await url.Rockets[id].GetAsync() is { } z ? Describe(z.Id, z.SerialNumber, z.Type) : "nothing"
         ),

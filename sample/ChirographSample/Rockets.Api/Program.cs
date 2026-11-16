@@ -7,6 +7,21 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 app.MapOpenApi();
 
+// A request that carries an API key must carry the right one, Rockets:ApiKey (sample-key by default); a request without one is anonymous.
+var apiKey = app.Configuration["Rockets:ApiKey"] ?? "sample-key";
+app.Use(
+    async (context, next) =>
+    {
+        if (context.Request.Headers.TryGetValue("X-Api-Key", out var key) && key != apiKey)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        await next(context);
+    }
+);
+
 Rocket[] rockets =
 [
     new(Guid.Parse("4c1e2a8e-5c0b-4c1f-9a43-1f4a9a2f0d11"), "FALCON-9", RocketType.Falcon9),
