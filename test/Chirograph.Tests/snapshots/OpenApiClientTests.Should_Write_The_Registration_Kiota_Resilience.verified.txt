@@ -169,12 +169,33 @@ internal sealed class RocketsClientOptionsSetup :
         new("Basic", global::Throwaway.Clients.RocketsClientAuthentication.Basic),
     ];
 
+    // every method the OpenApiClient item must declare, by the value of its Authentication metadata: one it didn't declare names it
+    private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
+    [
+        new("ClientCredentials", "ClientCredentials"),
+    ];
+
     // the keys, as the messages list them: under Clients:RocketsClient, and in a connection string
-    private const string ObjectKeyList =
-        "ConnectionString, BaseAddress (or Endpoint), Timeout, Resilience, DefaultRequestHeaders, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
-    private const string ConnectionStringKeyList =
-        "BaseAddress (or Endpoint), Timeout, Resilience, AllowedHosts, Authentication, ApiKey (or Key), ApiKeyHeader, ApiKeyQuery, Token, Username, Password, CertificatePath, CertificatePassword, CertificateKeyPath, CertificateThumbprint and CertificateStore";
+    private static readonly string ObjectKeyList = KeyList(
+        new[]
+        {
+            "ConnectionString", "BaseAddress (or Endpoint)", "Timeout", "Resilience", "DefaultRequestHeaders", "AllowedHosts", "Authentication",
+            "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
+            "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
+        }
+    );
+    private static readonly string ConnectionStringKeyList = KeyList(
+        new[]
+        {
+            "BaseAddress (or Endpoint)", "Timeout", "Resilience", "AllowedHosts", "Authentication",
+            "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
+            "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
+        }
+    );
     private static readonly string AuthenticationList = string.Join(", ", global::System.Linq.Enumerable.Select(Methods, static z => z.Key));
+
+    // a, b and c
+    private static string KeyList(string[] keys) => string.Join(", ", keys, 0, keys.Length - 1) + " and " + keys[keys.Length - 1];
 
     // a backslash in a template becomes a slash on the way through MSBuild, so the quote isn't written '/''
     private const char SingleQuote = (char)39;
@@ -398,12 +419,30 @@ internal sealed class RocketsClientOptionsSetup :
             ("Username", options.Username is not null, global::Throwaway.Clients.RocketsClientAuthentication.Basic),
             ("Password", options.Password is not null, global::Throwaway.Clients.RocketsClientAuthentication.Basic),
         };
+        // a key two methods share is listed once, with both
         var others = new global::System.Collections.Generic.List<string>();
+        var seen = new global::System.Collections.Generic.HashSet<string>(global::System.StringComparer.Ordinal);
         foreach (var key in keys)
         {
-            if (key.IsSet && key.Method != method)
+            if (!key.IsSet || !seen.Add(key.Key))
             {
-                others.Add($"{key.Key} ({key.Method})");
+                continue;
+            }
+
+            var owners = new global::System.Collections.Generic.List<string>();
+            var allowed = false;
+            foreach (var owner in keys)
+            {
+                if (owner.Key == key.Key)
+                {
+                    owners.Add(owner.Method.ToString());
+                    allowed |= owner.Method == method;
+                }
+            }
+
+            if (!allowed)
+            {
+                others.Add($"{key.Key} ({string.Join(", ", owners)})");
             }
         }
 
@@ -645,6 +684,17 @@ internal sealed class RocketsClientOptionsSetup :
                     if (string.Equals(value, method.Key, global::System.StringComparison.OrdinalIgnoreCase))
                     {
                         options.Authentication = method.Value;
+                        return;
+                    }
+                }
+
+                foreach (var declared in DeclaredMethods)
+                {
+                    if (string.Equals(value, declared.Key, global::System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        options.ConfigurationErrors.Add(
+                            $"{where} is {declared.Key}, which the OpenApiClient item of RocketsClient doesn't declare: add {declared.Value} to its Authentication metadata."
+                        );
                         return;
                     }
                 }

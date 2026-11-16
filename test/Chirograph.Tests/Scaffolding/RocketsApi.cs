@@ -181,6 +181,12 @@ internal sealed class RocketsApi : IAsyncDisposable
     public Uri? RedirectRocketsTo { get; set; }
 
     /// <summary>
+    ///     When it is set, a request for a rocket needs an <c>Authorization: Bearer</c> token this accepts (say, one <see cref="TokenServer" />
+    ///     issued), and is answered <c>401 Unauthorized</c> without one.
+    /// </summary>
+    public Func<string, bool>? BearerTokens { get; set; }
+
+    /// <summary>
     ///     How many times a rocket was asked for, the requests that failed included.
     /// </summary>
     public int RocketRequests => _rocketRequests;
@@ -242,6 +248,7 @@ internal sealed class RocketsApi : IAsyncDisposable
             "/openapi.json" when DocumentUnavailable => (404, ""),
             _ when rocketRequest > 0 && rocketRequest <= TransientFailures => (503, ""),
             _ when rocketRequest > 0 && RedirectRocketsTo is not null => (302, ""),
+            _ when rocketRequest > 0 && BearerTokens is { } accepts && !IsAccepted(context.Request, accepts) => (401, ""),
             "/openapi.json" => (200, Document),
             _ when path.StartsWith("/rockets/", StringComparison.Ordinal) => (
                 200,
@@ -263,6 +270,11 @@ internal sealed class RocketsApi : IAsyncDisposable
         await context.Response.OutputStream.WriteAsync(bytes);
         context.Response.Close();
     }
+
+    private static bool IsAccepted(HttpListenerRequest request, Func<string, bool> accepts) =>
+        request.Headers["Authorization"] is { } authorization
+     && authorization.StartsWith("Bearer ", StringComparison.Ordinal)
+     && accepts(authorization["Bearer ".Length..]);
 
     // the serial number of the rocket: X-Serial-Number, else FALCON-9, then the credentials the request carried, if any
     private static string SerialNumber(HttpListenerRequest request)
