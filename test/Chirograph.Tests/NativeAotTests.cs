@@ -7,7 +7,8 @@ namespace Chirograph.Tests;
 /// Build seam, a smoke test: an application with a client publishes with <c>PublishAot</c> and runs. The trimming and AOT warnings the
 /// publish reports (IL codes) are recorded: none for a client that authenticates with a method the options class handles itself
 /// (<c>ApiKey</c>), and, for one that declares <c>ClientCredentials</c>, those of the packages Duende.AccessTokenManagement brings (the
-/// default JSON serializer of Microsoft.Extensions.Caching.Hybrid, where its token cache lives). Both get their rocket.
+/// default JSON serializer of Microsoft.Extensions.Caching.Hybrid, where its token cache lives), and, for one that declares <c>Azure</c>
+/// (<c>AzureDefault</c>, its token from a fake credential registered for the test), those of Azure.Identity. Each gets its rocket.
 /// </summary>
 [TargetFrameworks]
 public class NativeAotTests(string targetFramework) : LoggerTest<TestRecord>(TestRecord.Create())
@@ -15,11 +16,13 @@ public class NativeAotTests(string targetFramework) : LoggerTest<TestRecord>(Tes
     [Test]
     [Arguments("ApiKey")]
     [Arguments("ClientCredentials")]
+    [Arguments("AzureDefault")]
     public async Task Should_Publish_A_Native_Application_With_A_Client(string authentication)
     {
         await using var tokens = await TokenServer.Start();
         await using var api = RocketsApi.Start();
         var clientCredentials = authentication == "ClientCredentials";
+        var azure = authentication == "AzureDefault";
         if (clientCredentials)
         {
             api.BearerTokens = tokens.IsValid;
@@ -36,11 +39,11 @@ public class NativeAotTests(string targetFramework) : LoggerTest<TestRecord>(Tes
                    .OpenApiClient(
                         Generator.Kiota,
                         "rockets.json",
-                        metadata: new Dictionary<string, string?> { ["Authentication"] = clientCredentials ? "ClientCredentials" : null }
+                        metadata: new Dictionary<string, string?> { ["Authentication"] = clientCredentials ? "ClientCredentials" : azure ? "Azure" : null }
                     )
             )
            .AddFile("app/rockets.json", RocketsApi.Document)
-           .AddFile("app/Program.cs", ClientCredentialsTests.Program(Generator.Kiota));
+           .AddFile("app/Program.cs", azure ? AzureTests.Program(Generator.Kiota) : ClientCredentialsTests.Program(Generator.Kiota));
 
         await project.Dotnet("app", $"publish -bl -r {RuntimeInformation.RuntimeIdentifier} -o publish");
         var warnings = project.Diagnostics(
@@ -57,6 +60,10 @@ public class NativeAotTests(string targetFramework) : LoggerTest<TestRecord>(Tes
             environment["Clients__RocketsClient__TokenEndpoint"] = tokens.TokenEndpoint.ToString();
             environment["Clients__RocketsClient__ClientId"] = TokenServer.ClientId;
             environment["Clients__RocketsClient__ClientSecret"] = TokenServer.ClientSecret;
+        }
+        else if (azure)
+        {
+            environment["Clients__RocketsClient__Scope"] = "api://rockets/.default";
         }
         else
         {
