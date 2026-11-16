@@ -37,7 +37,8 @@
       Generation is incremental: the document is copied into obj only when its content changes, and a client is generated again only when
       that copy or its settings (generator, its version, ClientName, Namespace, Options) change. The generated code is in
       $(ChirographOpenApiClientsDirectory)<ClientName>/, with <ClientName>ServiceCollectionExtensions.g.cs, the registration, and
-      <ClientName>Options.g.cs, the options it reads (from Clients:<ClientName> and the client's connection string), next to it.
+      <ClientName>Options.g.cs, the options it reads (from Clients:<ClientName> and the client's connection string), next to it, and
+      <ClientName>.schema.json, the schema of that section (Chirograph.OpenApiClientSchemas.targets).
 
       With Dovetail, each client also gets a joint that calls the registration, so a host built with ConfigureDovetail() resolves the client
       with no registration call. Chirograph doesn't write it: it declares a DovetailTemplate item, Chirograph.<ClientName>, which Dovetail

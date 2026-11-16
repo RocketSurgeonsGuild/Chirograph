@@ -76,17 +76,32 @@ The registration reads the whole section (see [Registration](../../concepts/regi
 }
 ```
 
+## The rules
+
+Beyond the keys, the schema checks what a validator can see in `appsettings.json`:
+
+- `Authentication` takes only the methods the client allows: `None`, `ApiKey`, `Bearer` and `Basic`.
+- When `Authentication` names a method, the keys of the other methods are not allowed, and the keys the method needs are required
+  (`Username` for `Basic`). A secret is never required, since it belongs elsewhere.
+- A section without `Authentication` is not checked against the methods: a connection string can name the method.
+- The secrets (`ApiKey`, `Key`, `Token`, `Password`, `CertificatePassword`) say in their description to keep them out of
+  `appsettings.json`, in user secrets, an environment variable or a vault.
+- `ConnectionString` is a plain string: a schema cannot check what is inside it. `ConnectionStrings:<ClientName>` is not described,
+  since Optionary describes the sections the application owns.
+- Neither generator requires `BaseAddress`: a connection string, in the section or in `ConnectionStrings:<ClientName>`, can give it.
+
 ## What Chirograph declares
 
-For each client with a valid `ClientName`, Chirograph adds an `OptionarySchemaFragment` item at evaluation, whose `File` is the schema
-of its generator, shipped in the SDK:
+For each client with a valid `ClientName`, Chirograph writes the client's schema when the project builds (a design-time build too),
+into the client's folder, and adds an `OptionarySchemaFragment` item at evaluation whose `File` is that schema:
 
 ```xml
-<OptionarySchemaFragment Include="Clients:RocketsClient" File="…/Sdk/schemas/kiota.schema.json" />
-<OptionarySchemaFragment Include="Clients:RocketsRefitClient" File="…/Sdk/schemas/refitter.schema.json" />
+<OptionarySchemaFragment Include="Clients:RocketsClient" File="obj/Debug/net10.0/openapi/RocketsClient/RocketsClient.schema.json" />
+<OptionarySchemaFragment Include="Clients:RocketsRefitClient" File="obj/Debug/net10.0/openapi/RocketsRefitClient/RocketsRefitClient.schema.json" />
 ```
 
-The two files differ only in their descriptions. Neither requires `BaseAddress`, since a connection string can give it. Optionary
-merges a section that several items or options types declare, so your own fragment for `Clients:RocketsClient` adds to Chirograph's.
+The schema is the client's own: its descriptions name the client and its generator, and its `Authentication` lists the methods the
+client allows. Optionary merges a section that several items or options types declare, so your own fragment for
+`Clients:RocketsClient` adds to Chirograph's.
 
-`ChirographOptionarySchema=false` turns the items off for the project. See [Properties](../../reference/properties/).
+`ChirographOptionarySchema=false` turns the items and the schemas off for the project. See [Properties](../../reference/properties/).
