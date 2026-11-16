@@ -205,8 +205,8 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
     }
 
     /// <summary>
-    /// <c>PrivateKeyJwt</c> needs <c>ClientId</c>, <c>TokenEndpoint</c> or <c>Authority</c>, and a certificate, and takes neither a
-    /// <c>ClientSecret</c> nor a <c>ClientCredentialStyle</c>. A certificate that can't be loaded fails too. No failure repeats a value.
+    /// <c>PrivateKeyJwt</c> needs <c>ClientId</c>, <c>TokenEndpoint</c> or <c>Authority</c>, and a certificate, and ignores a
+    /// <c>ClientSecret</c> and a <c>ClientCredentialStyle</c>. A certificate that can't be loaded fails too. No failure repeats a value.
     /// An <c>IClientAssertionService</c> of the application's own, registered after <c>AddRocketsClient()</c>, would replace the one that
     /// makes the assertion, and fails too; registered before, it is kept for the other clients and the client authenticates.
     /// </summary>
@@ -229,8 +229,8 @@ public class ClientCredentialsTests(string targetFramework) : LoggerTest<TestRec
             new()
             {
                 ["Without a certificate"] = AssertionKeys(api, tokens, 1, "", ("TokenEndpoint", "https://s3cr3t.example/token"), ("CertificatePassword", "")),
-                ["With a ClientSecret"] = AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", "https://s3cr3t.example/token"), ("ClientSecret", "s3cr3t")),
-                ["With a ClientCredentialStyle"] = AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", "https://s3cr3t.example/token"), ("ClientCredentialStyle", "Body")),
+                ["With a ClientSecret, ignored"] = AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", tokens.TokenEndpoint.ToString()), ("ClientSecret", "s3cr3t")),
+                ["With a ClientCredentialStyle, ignored"] = AssertionKeys(api, tokens, 1, pfx, ("TokenEndpoint", tokens.TokenEndpoint.ToString()), ("ClientCredentialStyle", "Body")),
                 ["Without a client id or token endpoint"] = AssertionKeys(api, tokens, 1, pfx, ("ClientId", "")),
                 ["A certificate file that doesn't exist"] = AssertionKeys(
                     api,
