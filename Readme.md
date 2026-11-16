@@ -53,8 +53,8 @@ generator telemetry and update checks are off.
 
 ## Registration
 
-Each client gets an `Add<ClientName>()` extension on `IServiceCollection` that registers it with `IHttpClientFactory`, reads its base
-address from `Clients:<ClientName>:BaseAddress`, and returns the `IHttpClientBuilder` for handlers and resilience. With
+Each client gets an `Add<ClientName>()` extension on `IServiceCollection` that registers it with `IHttpClientFactory`, configures it
+from `Clients:<ClientName>` (`BaseAddress`, `Timeout`, `DefaultRequestHeaders`, `Resilience`), and returns the `IHttpClientBuilder` for handlers and resilience. With
 [Dovetail](https://github.com/RocketSurgeonsGuild/Dovetail), each client also gets a joint. Chirograph never references Dovetail.
 
 ## Status

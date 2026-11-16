@@ -1,6 +1,6 @@
 ---
 title: Registration
-description: The Add<ClientName>() extension every client gets, the Clients:<ClientName>:BaseAddress configuration key, and configuring the client further on IHttpClientBuilder.
+description: The Add<ClientName>() extension every client gets, the Clients:<ClientName> configuration section (BaseAddress, Timeout, DefaultRequestHeaders, Resilience), and configuring the client further on IHttpClientBuilder.
 tags: [kiota, refitter]
 sidebar:
     order: 3
@@ -30,23 +30,46 @@ public sealed class LaunchService(RocketsClient rockets) { … }    // Kiota
 public sealed class LaunchService(IRocketsClient rockets) { … }   // Refitter
 ```
 
-## The base address
+## Configuration
 
-The registration reads the base address from configuration, at the key `Clients:<ClientName>:BaseAddress`, when the `HttpClient` is
-created. The key is also a constant on the class, `RocketsClientServiceCollectionExtensions.BaseAddressKey`.
+The registration reads the section `Clients:<ClientName>` from `IConfiguration` each time the `HttpClient` is created. The section's
+path is a constant on the class, `RocketsClientServiceCollectionExtensions.SectionKey`.
 
 ```json
 {
     "Clients": {
         "RocketsClient": {
-            "BaseAddress": "https://rockets.example.com/"
+            "BaseAddress": "https://rockets.example.com/",
+            "Timeout": "00:00:30",
+            "DefaultRequestHeaders": {
+                "X-Api-Version": "2"
+            },
+            "Resilience": true
         }
     }
 }
 ```
 
-The address must be absolute. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is
-called.
+| Key                     | Type                 | Effect                                                                                                                                                                                                      |
+| ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`. Without one, a Kiota client uses the first server of its document, and a Refit client fails when it is called.                                                                    |
+| `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                                                    |
+| `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it.                                                                                                                       |
+| `Resilience`            | bool                 | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. |
+
+A missing key leaves the `HttpClient` as it is. Any configuration source works: the environment variable
+`Clients__RocketsClient__DefaultRequestHeaders__X-Api-Version` sets a header, for example.
+
+### Resilience
+
+Chirograph adds no resilience package. When the project references
+[Microsoft.Extensions.Http.Resilience](https://www.nuget.org/packages/Microsoft.Extensions.Http.Resilience) (directly or through
+another package or project), the build sees it among the resolved references and writes the resilience code into the registration:
+it calls `AddStandardResilienceHandler()` on the client's builder, and takes the handler out again when the client's handlers are
+built unless `Resilience` is `true`. Without the package the registration has no such code, it compiles, and `Resilience` is ignored.
+
+The key turns on the handler with its default options. To tune them, or to add a handler of your own, chain on the builder the
+registration returns instead.
 
 ## Configuring the client further
 
@@ -60,7 +83,7 @@ builder.Services
     .AddStandardResilienceHandler();
 ```
 
-Chirograph configures no authentication, resilience or handlers itself.
+Chirograph configures no authentication or handlers itself, and adds resilience only when `Resilience` asks for it.
 
 ## Without the registration
 

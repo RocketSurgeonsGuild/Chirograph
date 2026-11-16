@@ -99,7 +99,8 @@ The registration reads the client's base address from `Clients:<ClientName>:Base
 ```
 
 Any configuration source works, so an environment variable `Clients__RocketsClient__BaseAddress` does too. Without a base address, a
-Kiota client uses the first server of its document. A Refit client needs one.
+Kiota client uses the first server of its document. A Refit client needs one. The same section also takes a `Timeout`, default
+request headers and resilience: see [Configuration](../concepts/registration/#configuration).
 
 ## Before the first release
 

@@ -35,7 +35,9 @@ namespace MyApp.Rockets;
 [GeneratedCode("Chirograph", "1.0.0")]
 public static class RocketsClientServiceCollectionExtensions
 {
-    public const string BaseAddressKey = "Clients:RocketsClient:BaseAddress";
+    public const string SectionKey = "Clients:RocketsClient";
+    public const string BaseAddressKey = SectionKey + ":BaseAddress";
+    public const string ResilienceKey = SectionKey + ":Resilience";
 
     public static IHttpClientBuilder AddRocketsClient(this IServiceCollection services)
     {
@@ -43,10 +45,16 @@ public static class RocketsClientServiceCollectionExtensions
         builder.ConfigureHttpClient((provider, httpClient) =>
         {
             var configuration = provider.GetService<IConfiguration>();
-            if (configuration?[BaseAddressKey] is { Length: > 0 } baseAddress)
-            {
+            if (configuration is null) return;
+
+            var section = configuration.GetSection(SectionKey);
+            if (section["BaseAddress"] is { Length: > 0 } baseAddress)
                 httpClient.BaseAddress = new Uri(baseAddress, UriKind.Absolute);
-            }
+            if (section["Timeout"] is { Length: > 0 } timeout)
+                httpClient.Timeout = TimeSpan.Parse(timeout, CultureInfo.InvariantCulture);
+            foreach (var header in section.GetSection("DefaultRequestHeaders").GetChildren())
+                if (header.Value is { } value)
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, value);
         });
         builder.AddTypedClient<RocketsClient>(httpClient => new RocketsClient(
             new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient)));
@@ -54,6 +62,23 @@ public static class RocketsClientServiceCollectionExtensions
     }
 }
 ```
+
+When the project references Microsoft.Extensions.Http.Resilience, the build writes this before `return builder;` too, and leaves it
+out otherwise:
+
+```csharp
+builder.AddStandardResilienceHandler();
+builder.ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
+{
+    var configuration = provider.GetService<IConfiguration>();
+    var resilience = bool.TryParse(configuration?[ResilienceKey], out var value) && value;
+    // the handler added just above is the last one so far
+    if (!resilience && handlers.Count > 0 && handlers[^1] is ResilienceHandler)
+        handlers.RemoveAt(handlers.Count - 1);
+});
+```
+
+See [Configuration](../../concepts/registration/#configuration) for what each key does.
 
 Refitter's is the same, except that it registers the Refit interface instead of a named client:
 
@@ -64,7 +89,7 @@ var builder = services.AddRefitGeneratedClient<IRocketsClient>();
 The real files spell every type with `global::` and call the extension methods as static methods, so they compile whatever the
 project's usings are. The `GeneratedCode` version is the version of Chirograph that wrote the file.
 
-The class name, the method name, the `BaseAddressKey` constant and the return type are public API. The body can change between
+The class name, the method name, the `SectionKey`, `BaseAddressKey` and `ResilienceKey` constants and the return type are public API. The body can change between
 releases.
 
 ## The Dovetail joint
