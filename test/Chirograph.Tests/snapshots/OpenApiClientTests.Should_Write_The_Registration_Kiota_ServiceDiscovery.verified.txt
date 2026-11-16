@@ -952,9 +952,11 @@ internal sealed class RocketsClientAuthenticationHandler : global::System.Net.Ht
             return null;
         }
 
+        // a relative location resolves against the request's URI, which under service discovery is the logical one (https+http://name/),
+        // so the redirected request is resolved again, and keeps the credentials of the logical host
         var to = location.IsAbsoluteUri ? location : new global::System.Uri(from, location);
-        // no other scheme, and no downgrade from https to http
-        if ((to.Scheme != global::System.Uri.UriSchemeHttp && to.Scheme != global::System.Uri.UriSchemeHttps)
+        // http, https or the request's own (logical) scheme, and no downgrade from https to http
+        if ((to.Scheme != global::System.Uri.UriSchemeHttp && to.Scheme != global::System.Uri.UriSchemeHttps && to.Scheme != from.Scheme)
          || (from.Scheme == global::System.Uri.UriSchemeHttps && to.Scheme == global::System.Uri.UriSchemeHttp))
         {
             return null;
@@ -969,9 +971,11 @@ internal sealed class RocketsClientAuthenticationHandler : global::System.Net.Ht
         }
 
         var next = new global::System.Net.Http.HttpRequestMessage(method, to) { Content = content, Version = request.Version, VersionPolicy = request.VersionPolicy };
+        // not the Host header either: it names the host of the first request (service discovery sets it to the endpoint it resolved)
         foreach (var header in request.Headers)
         {
             if (!string.Equals(header.Key, "Authorization", global::System.StringComparison.OrdinalIgnoreCase)
+             && !string.Equals(header.Key, "Host", global::System.StringComparison.OrdinalIgnoreCase)
              && !(_options.Authentication == global::Throwaway.Clients.RocketsClientAuthentication.ApiKey
                && string.Equals(header.Key, _options.ApiKeyHeader ?? DefaultApiKeyHeader, global::System.StringComparison.OrdinalIgnoreCase)))
             {

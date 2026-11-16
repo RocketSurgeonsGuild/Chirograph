@@ -181,6 +181,12 @@ internal sealed class RocketsApi : IAsyncDisposable
     public Uri? RedirectRocketsTo { get; set; }
 
     /// <summary>
+    ///     How many of the first requests for a rocket (after the transient failures) are redirected (<c>302 Found</c>) to the same path
+    ///     with a relative <c>Location</c>, before the API answers with the rocket.
+    /// </summary>
+    public int RelativeRedirects { get; set; }
+
+    /// <summary>
     ///     When it is set, a request for a rocket needs an <c>Authorization: Bearer</c> token this accepts (say, one <see cref="TokenServer" />
     ///     issued), and is answered <c>401 Unauthorized</c> without one.
     /// </summary>
@@ -247,6 +253,7 @@ internal sealed class RocketsApi : IAsyncDisposable
         {
             "/openapi.json" when DocumentUnavailable => (404, ""),
             _ when rocketRequest > 0 && rocketRequest <= TransientFailures => (503, ""),
+            _ when rocketRequest > TransientFailures && rocketRequest <= TransientFailures + RelativeRedirects => (302, ""),
             _ when rocketRequest > 0 && RedirectRocketsTo is not null => (302, ""),
             _ when rocketRequest > 0 && BearerTokens is { } accepts && !IsAccepted(context.Request, accepts) => (401, ""),
             "/openapi.json" => (200, Document),
@@ -263,7 +270,7 @@ internal sealed class RocketsApi : IAsyncDisposable
         }
 
         var bytes = Encoding.UTF8.GetBytes(body);
-        if (status == 302) context.Response.RedirectLocation = new Uri(RedirectRocketsTo!, path).ToString();
+        if (status == 302) context.Response.RedirectLocation = RedirectRocketsTo is null ? path : new Uri(RedirectRocketsTo, path).ToString();
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/json";
         context.Response.ContentLength64 = bytes.Length;

@@ -257,7 +257,8 @@ as many as that allowed), so each hop is checked the same way: a redirect to ano
 header or query parameter carries them.
 
 With [service discovery](#service-discovery), the host is the logical one, and the endpoint it resolves to gets the credentials as well.
-A redirect to another host still goes without them.
+A relative redirect resolves against the logical address, so it is resolved again and keeps the credentials. A redirect to another host
+still goes without them. A redirected request never carries the `Host` header of the first one.
 
 A client with an `Authentication` needs a host to send the credentials to: a `BaseAddress`, or `AllowedHosts`. With service discovery,
 the default `https+http://<ClientName>` is one.

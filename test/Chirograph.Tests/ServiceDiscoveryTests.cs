@@ -54,6 +54,34 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
     }
 
     /// <summary>
+    /// A relative redirect from a discovered endpoint is followed through service discovery again: with an Authentication, the redirected
+    /// request is for the logical host, so it keeps the credentials, as a client without one keeps following it.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota)]
+    [Arguments(Generator.Refitter)]
+    public async Task Should_Follow_A_Relative_Redirect_Through_Service_Discovery(Generator generator)
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        var results = await RunScenarios(
+            project,
+            generator,
+            referencesServiceDiscovery: true,
+            new()
+            {
+                ["No authentication"] = Keys(("BaseAddress", "https+http://rockets"), Services("rockets", api)),
+                ["ApiKey"] = Keys(("BaseAddress", "https+http://rockets"), ("Authentication", "ApiKey"), ("ApiKey", "abc123"), Services("rockets", api)),
+                ["ApiKey, default address"] = Keys(("Authentication", "ApiKey"), ("ApiKey", "abc123"), Services("RocketsClient", api)),
+            },
+            // the first request for a rocket of each scenario is redirected
+            () => api.RelativeRedirects = api.RocketRequests + 1
+        );
+
+        await project.VerifyResult(new { Results = results, api.RocketRequests }, generator.ToString());
+    }
+
+    /// <summary>
     /// Without the package, a logical address fails validation, and a client without a <c>BaseAddress</c> behaves as before: Kiota calls
     /// the first server of its document, Refit fails when called.
     /// </summary>
@@ -140,7 +168,8 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
         SdkTestProject project,
         Generator generator,
         bool referencesServiceDiscovery,
-        Dictionary<string, Dictionary<string, string>> scenarios
+        Dictionary<string, Dictionary<string, string>> scenarios,
+        Action? beforeEachScenario = null
     )
     {
         var app = project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, "rockets.json");
@@ -155,6 +184,7 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
         var results = new Dictionary<string, string>();
         foreach (var (name, environment) in scenarios)
         {
+            beforeEachScenario?.Invoke();
             var output = await project.Dotnet("app", "run --no-build", environment);
             results[name] = output.Trim();
         }
