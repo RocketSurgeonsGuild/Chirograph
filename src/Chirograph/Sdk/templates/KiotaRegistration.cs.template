@@ -54,6 +54,9 @@ public static class __ClientName__ServiceCollectionExtensions
         //#if ClientCredentials
         global::__Namespace__.__ClientName__ClientCredentials.Register(services);
         //#endif
+        //#if Azure
+        global::__Namespace__.__ClientName__AzureCredential.Register(services);
+        //#endif
         if (configure is not null)
         {
             global::Microsoft.Extensions.DependencyInjection.OptionsServiceCollectionExtensions.Configure(services, configure);

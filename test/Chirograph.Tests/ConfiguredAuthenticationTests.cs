@@ -79,7 +79,7 @@ public class ConfiguredAuthenticationTests(string targetFramework) : LoggerTest<
 
     /// <summary>
     /// Each method needs its keys, and the keys of another method are an error, <c>None</c> included. A method the item's
-    /// <c>Authentication</c> metadata doesn't declare (<c>ClientCredentials</c>) fails with the metadata to set, and its keys are unknown.
+    /// <c>Authentication</c> metadata doesn't declare (<c>ClientCredentials</c>, <c>AzureDefault</c>) fails with the metadata to set, and its keys are unknown.
     /// No failure repeats a value.
     /// </summary>
     [Test]
@@ -107,6 +107,8 @@ public class ConfiguredAuthenticationTests(string targetFramework) : LoggerTest<
                 ["None with TokenProvider"] = With(Keys(api), new() { [CodeToken] = "s3cr3t" }),
                 ["ClientCredentials, not declared"] = Keys(api, ("Authentication", "clientcredentials")),
                 ["ClientId, not declared"] = Keys(api, ("ClientId", "s3cr3t")),
+                ["AzureDefault, not declared"] = Keys(api, ("Authentication", "AzureDefault")),
+                ["TenantId, not declared"] = Keys(api, ("TenantId", "s3cr3t")),
                 ["Connection string with the keys of another method"] = new()
                 {
                     ["ConnectionStrings__RocketsClient"] = $"Endpoint={api.BaseAddress};Authentication=Basic;Username=rocketeer;Password=s3cr3t;Token=s3cr3t",

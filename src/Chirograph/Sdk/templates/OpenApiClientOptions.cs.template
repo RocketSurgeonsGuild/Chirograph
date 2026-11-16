@@ -29,6 +29,35 @@ public enum __ClientName__Authentication
     /// </summary>
     ClientCredentials,
     //#endif
+    //#if Azure
+
+    /// <summary>
+    ///     Azure.Identity's <c>DefaultAzureCredential</c>, which tries the environment, workload identity, managed identity and the
+    ///     developer tools in turn: a token for <c>Scope</c>, with <c>TenantId</c> and <c>ClientId</c> (of a user-assigned managed identity
+    ///     or a workload identity) if set. Needs <c>Azure</c> in the client's <c>Authentication</c> metadata.
+    /// </summary>
+    AzureDefault,
+
+    /// <summary>
+    ///     Azure.Identity's <c>ManagedIdentityCredential</c>: a token for <c>Scope</c> from the managed identity of the host, the
+    ///     user-assigned one whose client id is <c>ClientId</c> if set. Needs <c>Azure</c> in the client's <c>Authentication</c> metadata.
+    /// </summary>
+    AzureManagedIdentity,
+
+    /// <summary>
+    ///     Azure.Identity's <c>WorkloadIdentityCredential</c> (Kubernetes workload identity federation): a token for <c>Scope</c>, with
+    ///     <c>TenantId</c> and <c>ClientId</c> if set, else the platform's environment variables. Needs <c>Azure</c> in the client's
+    ///     <c>Authentication</c> metadata.
+    /// </summary>
+    AzureWorkloadIdentity,
+
+    /// <summary>
+    ///     Azure.Identity's <c>ClientSecretCredential</c>, or <c>ClientCertificateCredential</c> with the client certificate: a token for
+    ///     <c>Scope</c> for the application <c>ClientId</c> of the tenant <c>TenantId</c>, with <c>ClientSecret</c> or the
+    ///     <c>Certificate*</c> keys. Needs <c>Azure</c> in the client's <c>Authentication</c> metadata.
+    /// </summary>
+    AzureServicePrincipal,
+    //#endif
 }
 //#if ClientCredentials
 
@@ -134,16 +163,24 @@ public sealed class __ClientName__Options
     /// </summary>
     public string? CertificateStore { get; set; }
 
-    //#if ClientCredentials
-    /// <summary>The client id of <c>ClientCredentials</c> (key <c>ClientId</c>).</summary>
+    //#if ClientCredentials|Azure
+    /// <summary>
+    ///     The client id of <c>ClientCredentials</c>, or of the application or user-assigned identity of an Azure method (key
+    ///     <c>ClientId</c>).
+    /// </summary>
     public string? ClientId { get; set; }
 
-    /// <summary>The client secret of <c>ClientCredentials</c> (key <c>ClientSecret</c>).</summary>
+    /// <summary>The client secret of <c>ClientCredentials</c> or <c>AzureServicePrincipal</c> (key <c>ClientSecret</c>).</summary>
     public string? ClientSecret { get; set; }
 
-    /// <summary>The scope <c>ClientCredentials</c> asks a token for, space-separated (key <c>Scope</c>), if any.</summary>
+    /// <summary>
+    ///     The scope a token is asked for, space-separated (key <c>Scope</c>): optional for <c>ClientCredentials</c>, needed by an Azure
+    ///     method (<c>api://rockets/.default</c>, say).
+    /// </summary>
     public string? Scope { get; set; }
 
+    //#endif
+    //#if ClientCredentials
     /// <summary>The token endpoint of <c>ClientCredentials</c>, an absolute URI (key <c>TokenEndpoint</c>). Not with <see cref="Authority" />.</summary>
     public global::System.Uri? TokenEndpoint { get; set; }
 
@@ -159,6 +196,14 @@ public sealed class __ClientName__Options
 
     /// <summary>How <c>ClientCredentials</c> sends the client id and secret (key <c>ClientCredentialStyle</c>): <c>Header</c>, the default, or <c>Body</c>.</summary>
     public global::__Namespace__.__ClientName__CredentialStyle ClientCredentialStyle { get; set; }
+
+    //#endif
+    //#if Azure
+    /// <summary>
+    ///     The tenant of an Azure method, its id or a domain (key <c>TenantId</c>): needed by <c>AzureServicePrincipal</c>, optional for
+    ///     <c>AzureDefault</c> and <c>AzureWorkloadIdentity</c>.
+    /// </summary>
+    public string? TenantId { get; set; }
 
     //#endif
     //#if Kiota
@@ -224,14 +269,19 @@ internal sealed class __ClientName__OptionsSetup :
             ["CertificateKeyPath"] = "CertificateKeyPath",
             ["CertificateThumbprint"] = "CertificateThumbprint",
             ["CertificateStore"] = "CertificateStore",
-            //#if ClientCredentials
+            //#if ClientCredentials|Azure
             ["ClientId"] = "ClientId",
             ["ClientSecret"] = "ClientSecret",
             ["Scope"] = "Scope",
+            //#endif
+            //#if ClientCredentials
             ["TokenEndpoint"] = "TokenEndpoint",
             ["Authority"] = "Authority",
             ["Resource"] = "Resource",
             ["ClientCredentialStyle"] = "ClientCredentialStyle",
+            //#endif
+            //#if Azure
+            ["TenantId"] = "TenantId",
             //#endif
         };
 
@@ -245,12 +295,22 @@ internal sealed class __ClientName__OptionsSetup :
         //#if ClientCredentials
         new("ClientCredentials", global::__Namespace__.__ClientName__Authentication.ClientCredentials),
         //#endif
+        //#if Azure
+        new("AzureDefault", global::__Namespace__.__ClientName__Authentication.AzureDefault),
+        new("AzureManagedIdentity", global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity),
+        new("AzureWorkloadIdentity", global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
+        new("AzureServicePrincipal", global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
+        //#endif
     ];
 
     // every method the OpenApiClient item must declare, by the value of its Authentication metadata: one it didn't declare names it
     private static readonly global::System.Collections.Generic.KeyValuePair<string, string>[] DeclaredMethods =
     [
         new("ClientCredentials", "ClientCredentials"),
+        new("AzureDefault", "Azure"),
+        new("AzureManagedIdentity", "Azure"),
+        new("AzureWorkloadIdentity", "Azure"),
+        new("AzureServicePrincipal", "Azure"),
     ];
 
     // the keys, as the messages list them: under Clients:__ClientName__, and in a connection string
@@ -260,8 +320,14 @@ internal sealed class __ClientName__OptionsSetup :
             "ConnectionString", "BaseAddress (or Endpoint)", "Timeout", "Resilience", "DefaultRequestHeaders", "AllowedHosts", "Authentication",
             "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
             "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
+            //#if ClientCredentials|Azure
+            "ClientId", "ClientSecret", "Scope",
+            //#endif
             //#if ClientCredentials
-            "ClientId", "ClientSecret", "Scope", "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
+            "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
+            //#endif
+            //#if Azure
+            "TenantId",
             //#endif
         }
     );
@@ -271,8 +337,14 @@ internal sealed class __ClientName__OptionsSetup :
             "BaseAddress (or Endpoint)", "Timeout", "Resilience", "AllowedHosts", "Authentication",
             "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
             "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
+            //#if ClientCredentials|Azure
+            "ClientId", "ClientSecret", "Scope",
+            //#endif
             //#if ClientCredentials
-            "ClientId", "ClientSecret", "Scope", "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
+            "TokenEndpoint", "Authority", "Resource", "ClientCredentialStyle",
+            //#endif
+            //#if Azure
+            "TenantId",
             //#endif
         }
     );
@@ -558,6 +630,20 @@ internal sealed class __ClientName__OptionsSetup :
             ("Resource", options.Resource is not null, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
             ("ClientCredentialStyle", options.ClientCredentialStyle != global::__Namespace__.__ClientName__CredentialStyle.Header, global::__Namespace__.__ClientName__Authentication.ClientCredentials),
             //#endif
+            //#if Azure
+            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureDefault),
+            ("TenantId", options.TenantId is not null, global::__Namespace__.__ClientName__Authentication.AzureDefault),
+            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureDefault),
+            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity),
+            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity),
+            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
+            ("TenantId", options.TenantId is not null, global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
+            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity),
+            ("Scope", options.Scope is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
+            ("TenantId", options.TenantId is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
+            ("ClientId", options.ClientId is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
+            ("ClientSecret", options.ClientSecret is not null, global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal),
+            //#endif
         };
         // a key two methods share is listed once, with both
         var others = new global::System.Collections.Generic.List<string>();
@@ -634,6 +720,14 @@ internal sealed class __ClientName__OptionsSetup :
             //#if ClientCredentials
             case global::__Namespace__.__ClientName__Authentication.ClientCredentials:
                 global::__Namespace__.__ClientName__ClientCredentials.Validate(options, failures);
+                break;
+            //#endif
+            //#if Azure
+            case global::__Namespace__.__ClientName__Authentication.AzureDefault:
+            case global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity:
+            case global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity:
+            case global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal:
+                global::__Namespace__.__ClientName__AzureCredential.Validate(options, failures);
                 break;
             //#endif
             default:
@@ -880,7 +974,7 @@ internal sealed class __ClientName__OptionsSetup :
             case "CertificateStore":
                 options.CertificateStore = value.Length > 0 ? value : null;
                 break;
-            //#if ClientCredentials
+            //#if ClientCredentials|Azure
             case "ClientId":
                 options.ClientId = value.Length > 0 ? value : null;
                 break;
@@ -890,6 +984,13 @@ internal sealed class __ClientName__OptionsSetup :
             case "Scope":
                 options.Scope = value.Length > 0 ? value : null;
                 break;
+            //#endif
+            //#if Azure
+            case "TenantId":
+                options.TenantId = value.Length > 0 ? value : null;
+                break;
+            //#endif
+            //#if ClientCredentials
             case "Resource":
                 options.Resource = value.Length > 0 ? value : null;
                 break;
@@ -1075,6 +1176,17 @@ internal sealed class __ClientName__AuthenticationHandler : global::System.Net.H
                 );
                 break;
             //#endif
+            //#if Azure
+            case global::__Namespace__.__ClientName__Authentication.AzureDefault:
+            case global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity:
+            case global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity:
+            case global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal:
+                request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer",
+                    await global::__Namespace__.__ClientName__AzureCredential.GetAccessTokenAsync(_services, _options, cancellationToken).ConfigureAwait(false)
+                );
+                break;
+            //#endif
         }
     }
 
@@ -1167,6 +1279,10 @@ internal static class __ClientName__Certificate
         switch (options.Authentication)
         {
             // a method that signs with the certificate returns true here
+            //#if Azure
+            case global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal:
+                return true;
+            //#endif
             default:
                 return false;
         }
@@ -1597,5 +1713,187 @@ internal sealed class __ClientName__ClientCredentials :
     /// <inheritdoc />
     public void Configure(global::Duende.AccessTokenManagement.ClientCredentialsClient options) =>
         Configure(global::Microsoft.Extensions.Options.Options.DefaultName, options);
+}
+//#endif
+//#if Azure
+
+/// <summary>
+///     The Azure authentication of <c>__ClientName__</c>, through Azure.Identity: one credential for the client, made from
+///     <see cref="__ClientName__Options" /> the first time a token is asked for and again when the options are reloaded, whose token the
+///     authentication handler sets for each request (so the host check applies to it). The credential caches the token and asks for a
+///     new one before it expires. A <c>TokenCredential</c> registered keyed with <c>"__ClientName__"</c> is used instead of the one the
+///     method makes.
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
+internal sealed class __ClientName__AzureCredential
+{
+    /// <summary>The key of a <c>TokenCredential</c> in the container that replaces the one the method makes.</summary>
+    internal const string ServiceKey = "__ClientName__";
+
+    private readonly global::System.IServiceProvider _services;
+    private readonly object _gate = new object();
+    private global::__Namespace__.__ClientName__Options? _options;
+    private global::Azure.Core.TokenCredential? _credential;
+    // the certificate of the credential, disposed when the credential is made again
+    private global::System.Security.Cryptography.X509Certificates.X509Certificate2? _certificate;
+
+    public __ClientName__AzureCredential(global::System.IServiceProvider services) => _services = services;
+
+    /// <summary>Registers the client's credential, once.</summary>
+    internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(global::__Namespace__.__ClientName__AzureCredential))
+            {
+                return;
+            }
+        }
+
+        services.Add(
+            global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Singleton<global::__Namespace__.__ClientName__AzureCredential, global::__Namespace__.__ClientName__AzureCredential>()
+        );
+    }
+
+    /// <summary>
+    ///     Checks the keys of the Azure methods: Scope for each, a TenantId that is a tenant id or a domain, and, for
+    ///     <c>AzureServicePrincipal</c>, TenantId, ClientId, and ClientSecret or a certificate, one of them. Startup asks Azure for nothing.
+    /// </summary>
+    internal static void Validate(global::__Namespace__.__ClientName__Options options, global::System.Collections.Generic.List<string> failures)
+    {
+        if (options.Scope is not { Length: > 0 } scope || scope.Trim().Length == 0)
+        {
+            failures.Add($"The Authentication of __ClientName__ is {options.Authentication}, which needs Scope.");
+        }
+
+        if (options.TenantId is { Length: > 0 } tenantId && !IsTenantId(tenantId))
+        {
+            failures.Add("The TenantId of __ClientName__ is not a tenant id or a domain.");
+        }
+
+        if (options.Authentication != global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal)
+        {
+            return;
+        }
+
+        if (options.TenantId is not { Length: > 0 } || options.ClientId is not { Length: > 0 })
+        {
+            failures.Add("The Authentication of __ClientName__ is AzureServicePrincipal, which needs TenantId and ClientId.");
+        }
+
+        if ((options.ClientSecret is { Length: > 0 }) == global::__Namespace__.__ClientName__Certificate.IsSet(options))
+        {
+            failures.Add(
+                "The Authentication of __ClientName__ is AzureServicePrincipal, which takes ClientSecret or a certificate (CertificatePath or CertificateThumbprint), one of them."
+            );
+        }
+    }
+
+    // what Azure.Identity takes as a tenant: letters, digits, dots and dashes
+    private static bool IsTenantId(string tenantId)
+    {
+        foreach (var c in tenantId)
+        {
+            if (!(c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '.' or '-'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The access token for a request: the credential's cached token for Scope, or a new one.</summary>
+    /// <exception cref="global::Azure.Identity.AuthenticationFailedException">The credential could not get a token.</exception>
+    internal static async global::System.Threading.Tasks.Task<string> GetAccessTokenAsync(
+        global::System.IServiceProvider services,
+        global::__Namespace__.__ClientName__Options options,
+        global::System.Threading.CancellationToken cancellationToken
+    )
+    {
+        var credential = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                        .GetRequiredService<global::__Namespace__.__ClientName__AzureCredential>(services)
+                        .Credential(options);
+        var scopes = (options.Scope ?? "").Split(new[] { ' ' }, global::System.StringSplitOptions.RemoveEmptyEntries);
+        var token = await credential.GetTokenAsync(new global::Azure.Core.TokenRequestContext(scopes), cancellationToken).ConfigureAwait(false);
+        return token.Token;
+    }
+
+    // the credential registered for the client, else the one the options make, made again only when they are reloaded
+    private global::Azure.Core.TokenCredential Credential(global::__Namespace__.__ClientName__Options options)
+    {
+        if (_services is global::Microsoft.Extensions.DependencyInjection.IKeyedServiceProvider keyed
+         && keyed.GetKeyedService(typeof(global::Azure.Core.TokenCredential), ServiceKey) is global::Azure.Core.TokenCredential registered)
+        {
+            return registered;
+        }
+
+        lock (_gate)
+        {
+            if (_credential is null || !ReferenceEquals(_options, options))
+            {
+                var previous = _certificate;
+                _certificate = null;
+                _credential = Create(options, out _certificate);
+                _options = options;
+                previous?.Dispose();
+            }
+
+            return _credential;
+        }
+    }
+
+    private static global::Azure.Core.TokenCredential Create(
+        global::__Namespace__.__ClientName__Options options,
+        out global::System.Security.Cryptography.X509Certificates.X509Certificate2? certificate
+    )
+    {
+        certificate = null;
+        var tenantId = options.TenantId is { Length: > 0 } tenant ? tenant : null;
+        var clientId = options.ClientId is { Length: > 0 } client ? client : null;
+        switch (options.Authentication)
+        {
+            case global::__Namespace__.__ClientName__Authentication.AzureManagedIdentity:
+                return new global::Azure.Identity.ManagedIdentityCredential(
+                    clientId is null ? global::Azure.Identity.ManagedIdentityId.SystemAssigned : global::Azure.Identity.ManagedIdentityId.FromUserAssignedClientId(clientId)
+                );
+            case global::__Namespace__.__ClientName__Authentication.AzureWorkloadIdentity:
+                var workload = new global::Azure.Identity.WorkloadIdentityCredentialOptions();
+                if (tenantId is not null)
+                {
+                    workload.TenantId = tenantId;
+                }
+
+                if (clientId is not null)
+                {
+                    workload.ClientId = clientId;
+                }
+
+                return new global::Azure.Identity.WorkloadIdentityCredential(workload);
+            case global::__Namespace__.__ClientName__Authentication.AzureServicePrincipal:
+                if (options.ClientSecret is { Length: > 0 } secret)
+                {
+                    return new global::Azure.Identity.ClientSecretCredential(tenantId!, clientId!, secret);
+                }
+
+                // the certificate signs the credential's assertions, and isn't presented for mutual TLS
+                certificate = global::__Namespace__.__ClientName__Certificate.Load(options);
+                return new global::Azure.Identity.ClientCertificateCredential(tenantId!, clientId!, certificate);
+            default:
+                var defaults = new global::Azure.Identity.DefaultAzureCredentialOptions();
+                if (tenantId is not null)
+                {
+                    defaults.TenantId = tenantId;
+                }
+
+                if (clientId is not null)
+                {
+                    defaults.ManagedIdentityClientId = clientId;
+                    defaults.WorkloadIdentityClientId = clientId;
+                }
+
+                return new global::Azure.Identity.DefaultAzureCredential(defaults);
+        }
+    }
 }
 //#endif
