@@ -66,3 +66,10 @@ project's usings are. The `GeneratedCode` version is the version of Chirograph t
 
 The class name, the method name, the `BaseAddressKey` constant and the return type are public API. The body can change between
 releases.
+
+## The Dovetail joint
+
+With a Dovetail that can expand it, Dovetail (not Chirograph) also writes a joint for each client, outside the client's folder:
+`obj/<configuration>/<framework>/DovetailTemplate.Chirograph.RocketsClient.g.cs`. It is an internal `[DovetailExport]` class,
+`RocketsClientJoint`, in the client's namespace, whose `Register` calls `AddRocketsClient(services)`. Its name is all of it that is
+API. See [With Dovetail](../../guides/with-dovetail/).

@@ -1,4 +1,5 @@
 ﻿{
+  DovetailTemplate: {},
   PackageDownload: {
     Refitter: {
       Arguments: --settings-file "{RefitterSettingsFile}" --output "{GeneratedDirectory}/{ClientName}.cs" --no-logging --no-banner --simple-output,
@@ -15,6 +16,7 @@
   },
   ProjectReference: {},
   Properties: {
+    ChirographGenerateDovetailJoint: true,
     ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
     ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
     ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},

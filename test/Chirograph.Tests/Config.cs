@@ -60,6 +60,21 @@ internal static class Config
     /// </summary>
     public static string PackagesFolder { get; } = Path.Combine(Path.GetTempPath(), "chirograph-tests", $"packages-{Guid.NewGuid():N}");
 
+    /// <summary>
+    /// The Dovetail the joint tests build with: the first one whose <c>DovetailTemplate</c> replaces every metadata value as a token,
+    /// and sets <c>DovetailTemplateMetadataTokens</c>.
+    /// </summary>
+    public const string DovetailVersion = "0.6.0";
+
+    /// <summary>
+    /// A package source with a locally packed <see cref="DovetailVersion" />, added to every scaffold's NuGet.config, or
+    /// <see langword="null" /> when that version is on nuget.org.
+    /// </summary>
+    public static string? DovetailStagingPackages { get; } = null;
+
+    /// <summary>A released Dovetail without <c>DovetailTemplateMetadataTokens</c>, which must get no <c>DovetailTemplate</c>.</summary>
+    public const string DovetailVersionWithoutMetadataTokens = "0.5.3";
+
     [Before(Assembly)]
     public static async Task Setup(AssemblyHookContext context)
     {

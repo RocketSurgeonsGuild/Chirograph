@@ -1,4 +1,5 @@
 ﻿{
+  DovetailTemplate: {},
   PackageDownload: {
     Microsoft.OpenApi.Kiota: {
       Arguments: generate --language CSharp --openapi "{Document}" --class-name {ClientName} --namespace-name {Namespace} --output "{GeneratedDirectory}" --clean-output --exclude-backward-compatible --log-level Warning,
@@ -19,6 +20,7 @@
   },
   ProjectReference: {},
   Properties: {
+    ChirographGenerateDovetailJoint: true,
     ChirographKiotaBundleVersion: {pin: Microsoft.Kiota.Bundle},
     ChirographKiotaVersion: {pin: Microsoft.OpenApi.Kiota},
     ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
