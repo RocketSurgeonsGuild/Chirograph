@@ -386,13 +386,13 @@ internal sealed class __ClientName__OptionsSetup :
     /// </summary>
     internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
     {
-        foreach (var descriptor in services)
+        if (IsRegistered(
+                services,
+                typeof(global::Microsoft.Extensions.Options.IValidateOptions<global::__Namespace__.__ClientName__Options>),
+                typeof(global::__Namespace__.__ClientName__OptionsSetup)
+            ))
         {
-            if (descriptor.ServiceType == typeof(global::Microsoft.Extensions.Options.IValidateOptions<global::__Namespace__.__ClientName__Options>)
-             && descriptor.ImplementationType == typeof(global::__Namespace__.__ClientName__OptionsSetup))
-            {
-                return;
-            }
+            return;
         }
 
         services.Insert(
@@ -412,6 +412,27 @@ internal sealed class __ClientName__OptionsSetup :
         global::Microsoft.Extensions.DependencyInjection.OptionsBuilderExtensions.ValidateOnStart(
             global::Microsoft.Extensions.DependencyInjection.OptionsServiceCollectionExtensions.AddOptions<global::__Namespace__.__ClientName__Options>(services)
         );
+    }
+
+    /// <summary>
+    ///     Whether <paramref name="services" /> already registers <paramref name="serviceType" /> (implemented by
+    ///     <paramref name="implementationType" />, when it is given), so a registration that runs again adds nothing.
+    /// </summary>
+    internal static bool IsRegistered(
+        global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
+        global::System.Type serviceType,
+        global::System.Type? implementationType = null
+    )
+    {
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == serviceType && (implementationType is null || descriptor.ImplementationType == implementationType))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>The name of the options this registers: the default.</summary>
@@ -1616,12 +1637,9 @@ internal sealed class __ClientName__ClientCredentials :
     /// <summary>Registers Duende's client-credentials token management and the client, once.</summary>
     internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
     {
-        foreach (var descriptor in services)
+        if (global::__Namespace__.__ClientName__OptionsSetup.IsRegistered(services, typeof(global::__Namespace__.__ClientName__ClientCredentials)))
         {
-            if (descriptor.ServiceType == typeof(global::__Namespace__.__ClientName__ClientCredentials))
-            {
-                return;
-            }
+            return;
         }
 
         global::Duende.AccessTokenManagement.ServiceCollectionExtensions.AddClientCredentialsTokenManagement(services);
@@ -2074,12 +2092,9 @@ internal sealed class __ClientName__AzureCredential
     /// <summary>Registers the client's credential, once.</summary>
     internal static void Register(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
     {
-        foreach (var descriptor in services)
+        if (global::__Namespace__.__ClientName__OptionsSetup.IsRegistered(services, typeof(global::__Namespace__.__ClientName__AzureCredential)))
         {
-            if (descriptor.ServiceType == typeof(global::__Namespace__.__ClientName__AzureCredential))
-            {
-                return;
-            }
+            return;
         }
 
         services.Add(
