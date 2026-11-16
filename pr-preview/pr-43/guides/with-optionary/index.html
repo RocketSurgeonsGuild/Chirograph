@@ -113,12 +113,47 @@ merges them, as Optionary does for any section.</p>
 <tr>
 <td><code dir="auto">AllowedHosts</code></td>
 <td>array of strings</td>
-<td>More hosts than the <code dir="auto">BaseAddress</code> host that may receive the client’s credentials.</td>
+<td>More hosts than the <code dir="auto">BaseAddress</code> host that may receive the client’s credentials: a host alone allows each of its ports, <code dir="auto">host:port</code> that port.</td>
 </tr>
 <tr>
 <td><code dir="auto">Authentication</code></td>
-<td><code dir="auto">None</code></td>
+<td><code dir="auto">None</code>, <code dir="auto">ApiKey</code>, <code dir="auto">Bearer</code>, <code dir="auto">Basic</code></td>
 <td>How the client authenticates. <code dir="auto">None</code>, the default, takes the authentication from the container.</td>
+</tr>
+<tr>
+<td><code dir="auto">ApiKey</code></td>
+<td>string</td>
+<td>The key of <code dir="auto">ApiKey</code>.</td>
+</tr>
+<tr>
+<td><code dir="auto">Key</code></td>
+<td>string</td>
+<td>An alias of <code dir="auto">ApiKey</code>. Set one or the other, not both.</td>
+</tr>
+<tr>
+<td><code dir="auto">ApiKeyHeader</code></td>
+<td>string</td>
+<td>The header <code dir="auto">ApiKey</code> sends the key in, <code dir="auto">X-Api-Key</code> by default.</td>
+</tr>
+<tr>
+<td><code dir="auto">ApiKeyQuery</code></td>
+<td>string</td>
+<td>The query parameter <code dir="auto">ApiKey</code> sends the key in, instead of a header.</td>
+</tr>
+<tr>
+<td><code dir="auto">Token</code></td>
+<td>string</td>
+<td>The token of <code dir="auto">Bearer</code>.</td>
+</tr>
+<tr>
+<td><code dir="auto">Username</code></td>
+<td>string</td>
+<td>The user name of <code dir="auto">Basic</code>.</td>
+</tr>
+<tr>
+<td><code dir="auto">Password</code></td>
+<td>string</td>
+<td>The password of <code dir="auto">Basic</code>.</td>
 </tr>
 </tbody>
 </table>
