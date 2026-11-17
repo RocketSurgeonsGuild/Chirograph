@@ -49,10 +49,22 @@ public sealed class RocketsClientOptions
         new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    ///     Whether the standard resilience handler is kept (key <c>Resilience</c>). Read only when the project references
+    ///     Whether the standard resilience handler is kept (key <c>Resilience</c>: <c>true</c> or <c>false</c>, or an object of its
+    ///     settings, which keeps it unless its <c>Enabled</c> is <c>false</c>). Read only when the project references
     ///     Microsoft.Extensions.Http.Resilience.
     /// </summary>
     public bool Resilience { get; set; }
+
+    /// <summary>
+    ///     The settings of the standard resilience handler (key <c>Resilience</c>, as an object: <c>RateLimiter</c>,
+    ///     <c>TotalRequestTimeout</c>, <c>Retry</c>, <c>CircuitBreaker</c> and <c>AttemptTimeout</c>, as
+    ///     <c>HttpStandardResilienceOptions</c> names them, or the <c>Resilience:&lt;setting&gt;</c> keys of a connection string). The
+    ///     defaults are the handler's; code can change them too. They are given to the handler each time these options are filled, and
+    ///     Microsoft.Extensions.Http.Resilience checks them when the host starts.
+    /// </summary>
+    public global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions ResilienceOptions { get; } =
+        new global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions();
+
 
     /// <summary>
     ///     More hosts than the BaseAddress host that may receive the client's credentials (key <c>AllowedHosts</c>: an array, or a
@@ -148,6 +160,8 @@ internal sealed class RocketsClientOptionsSetup :
         "BASEADDRESS" or "ENDPOINT" => "BaseAddress",
         "TIMEOUT" => "Timeout",
         "RESILIENCE" => "Resilience",
+        // only a connection string can have this key: in configuration, Resilience:Enabled is under the Resilience object
+        "RESILIENCE:ENABLED" => "Resilience",
         "DEFAULTREQUESTHEADERS" => "DefaultRequestHeaders",
         "ALLOWEDHOSTS" => "AllowedHosts",
         "AUTHENTICATION" => "Authentication",
@@ -195,7 +209,9 @@ internal sealed class RocketsClientOptionsSetup :
     private static readonly string ConnectionStringKeyList = KeyList(
         new[]
         {
-            "BaseAddress (or Endpoint)", "Timeout", "Resilience", "AllowedHosts", "Authentication",
+            "BaseAddress (or Endpoint)", "Timeout", "Resilience",
+            "Resilience:<setting> (Resilience:Enabled is an alias of Resilience)",
+            "AllowedHosts", "Authentication",
             "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
             "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
         }
@@ -338,6 +354,14 @@ internal sealed class RocketsClientOptionsSetup :
                     }
                 }
 
+                continue;
+            }
+
+            if (name == "Resilience" && child.Value is null)
+            {
+                var enabled = options.Resilience;
+                global::Chirograph.ChirographResilience.Read(child, where, options.ResilienceOptions, ref enabled, options.ConfigurationErrors);
+                options.Resilience = enabled;
                 continue;
             }
 
@@ -521,6 +545,7 @@ internal sealed class RocketsClientOptionsSetup :
     {
         var seen = new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase);
         var unknown = false;
+        var resilienceSettings = false;
         var i = 0;
         while (true)
         {
@@ -621,6 +646,34 @@ internal sealed class RocketsClientOptionsSetup :
                 continue;
             }
 
+            // Resilience:<setting>, a setting of the standard resilience handler, which turns it on; Resilience:Enabled is an alias of
+            // Resilience
+            if (ResilienceSetting(key) is { } setting && setting != "ENABLED")
+            {
+                if (global::Chirograph.ChirographResilience.IsValue(setting) != true)
+                {
+                    // a misspelled setting, not the connection string of something else: no hint about that
+                    options.ConfigurationErrors.Add($"{source} has an unknown resilience setting, {key}.");
+                    continue;
+                }
+
+                if (seen.TryGetValue("Resilience:" + setting, out var otherSetting))
+                {
+                    options.ConfigurationErrors.Add($"{source} sets {key} twice, as {otherSetting} and as {key}.");
+                    continue;
+                }
+
+                seen["Resilience:" + setting] = key;
+                resilienceSettings = true;
+                if (value.Length > 0)
+                {
+                    var enabled = options.Resilience;
+                    global::Chirograph.ChirographResilience.Set(options.ResilienceOptions, ref enabled, setting, value, $"{source} ({key})", options.ConfigurationErrors);
+                }
+
+                continue;
+            }
+
             var name = KeyName(key);
             if (name is null or "ConnectionString" or "DefaultRequestHeaders")
             {
@@ -649,12 +702,39 @@ internal sealed class RocketsClientOptionsSetup :
             }
         }
 
+        // a setting turns the handler on, unless the connection string says otherwise (Resilience, or Resilience:Enabled)
+        if (resilienceSettings && !seen.ContainsKey("Resilience"))
+        {
+            options.Resilience = true;
+        }
+
         if (unknown && source == FallbackConnectionStringKey)
         {
             options.ConfigurationErrors.Add(
                 $"When {FallbackConnectionStringKey} is the connection string of something else, set {ConnectionStringKey} to an empty value: the client then doesn't read it."
             );
         }
+    }
+
+    // the path of a Resilience:<setting> key of a connection string, in upper case, else null
+    private static string? ResilienceSetting(string key)
+    {
+        const string Prefix = "Resilience:";
+        if (key.Length <= Prefix.Length || !key.StartsWith(Prefix, global::System.StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var path = key.Substring(Prefix.Length);
+        foreach (var c in path)
+        {
+            if (!IsLetter(c) && c != ':')
+            {
+                return null;
+            }
+        }
+
+        return path.ToUpperInvariant();
     }
 
     // whether the text reads as a key: a letter, then letters, digits and spaces, as a key name is written
@@ -1243,8 +1323,8 @@ public static class RocketsClientServiceCollectionExtensions
     /// <summary>
     ///     Registers <see cref="RocketsClient" /> with <c>IHttpClientFactory</c>, with its options, <see cref="RocketsClientOptions" />. Each time
     ///     the client's <c>HttpClient</c> is created, it takes BaseAddress, Timeout and DefaultRequestHeaders from the options, and the
-    ///     standard resilience handler is kept when Resilience is <c>true</c> (only when the project references
-    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
+    ///     standard resilience handler is kept when Resilience is <c>true</c>, or an object of its settings (only when the project
+    ///     references Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
     ///     handler is made, it presents the client certificate the options give, for mutual TLS; a <c>ConfigurePrimaryHttpMessageHandler</c>
     ///     that makes a new handler, on the builder this returns, replaces that handler, certificate included. The options are validated
     ///     when the host starts, or when the client is first created without a host.
@@ -1316,8 +1396,12 @@ public static class RocketsClientServiceCollectionExtensions
             }
         );
         // The project references Microsoft.Extensions.Http.Resilience: the standard resilience handler is added, and taken out again,
-        // when the handlers of the client are built, unless Clients:RocketsClient:Resilience is true.
-        global::Microsoft.Extensions.DependencyInjection.ResilienceHttpClientBuilderExtensions.AddStandardResilienceHandler(builder);
+        // when the handlers of the client are built, unless Clients:RocketsClient:Resilience is true (or an object of its settings, which
+        // the handler is given).
+        global::Chirograph.ChirographResilience.Register(
+            global::Microsoft.Extensions.DependencyInjection.ResilienceHttpClientBuilderExtensions.AddStandardResilienceHandler(builder),
+            static (global::Throwaway.Clients.RocketsClientOptions options) => options.ResilienceOptions
+        );
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureAdditionalHttpMessageHandlers(
             builder,
             static (global::System.Collections.Generic.IList<global::System.Net.Http.DelegatingHandler> handlers, global::System.IServiceProvider provider) =>
@@ -1354,6 +1438,371 @@ public static class RocketsClientServiceCollectionExtensions
             ? (T?)keyed.GetKeyedService(typeof(T), "RocketsClient")
             : null)
         ?? (T?)services.GetService(typeof(T));
+}
+,
+  Shared:
+// <auto-generated>
+//     Written by Chirograph, once for every OpenApiClient of the project: the settings of the standard resilience handler, read from
+//     configuration and connection strings, for a project that references Microsoft.Extensions.Http.Resilience.
+// </auto-generated>
+#nullable enable
+
+namespace Chirograph;
+
+/// <summary>
+///     The standard resilience handler of the project's clients: reading its settings, as <c>HttpStandardResilienceOptions</c> names them,
+///     from a <c>Resilience</c> object of configuration or the <c>Resilience:&lt;setting&gt;</c> keys of a connection string, without
+///     reflection, and giving them to a client's handler. No message repeats a value from configuration.
+/// </summary>
+[global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "{chirograph-version}")]
+internal static class ChirographResilience
+{
+    /// <summary>
+    ///     Gives the settings <paramref name="settings" /> selects from the options of a client to the standard resilience handler
+    ///     <paramref name="builder" /> added, each time its options are made, and makes them again whenever the options of the client are
+    ///     filled again (when configuration reloads, say). A <c>Configure</c> on the handler's options in code, made after this, still has
+    ///     the last word.
+    /// </summary>
+    internal static void Register<[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TOptions>(
+        global::Microsoft.Extensions.Http.Resilience.IHttpStandardResiliencePipelineBuilder builder,
+        global::System.Func<TOptions, global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions> settings
+    )
+        where TOptions : class
+    {
+        global::Microsoft.Extensions.Http.Resilience.HttpStandardResiliencePipelineBuilderExtensions.Configure(
+            builder,
+            (global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions resilience, global::System.IServiceProvider services) =>
+            {
+                global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions options;
+                try
+                {
+                    options = settings(Monitor<TOptions>(services).CurrentValue);
+                }
+                catch (global::Microsoft.Extensions.Options.OptionsValidationException)
+                {
+                    // the options of the client fail their own validation, which reports it (at startup too): the handler keeps its
+                    // defaults rather than report it a second time, and is given the settings once a reload fixes them
+                    return;
+                }
+
+                resilience.RateLimiter = options.RateLimiter;
+                resilience.TotalRequestTimeout = options.TotalRequestTimeout;
+                resilience.Retry = options.Retry;
+                resilience.CircuitBreaker = options.CircuitBreaker;
+                resilience.AttemptTimeout = options.AttemptTimeout;
+            }
+        );
+        var name = builder.PipelineName;
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::Microsoft.Extensions.Options.IOptionsChangeTokenSource<global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions>>(
+            builder.Services,
+            services => new ChangeTokenSource<TOptions>(name, Monitor<TOptions>(services))
+        );
+    }
+
+    /// <summary>
+    ///     Reads <paramref name="section" />, a <c>Resilience</c> object of configuration, into <paramref name="resilience" />: it turns the
+    ///     handler on (<paramref name="enabled" />), unless its <c>Enabled</c> is <c>false</c>. A key that is no setting is ignored.
+    /// </summary>
+    internal static void Read(
+        global::Microsoft.Extensions.Configuration.IConfigurationSection section,
+        string where,
+        global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions resilience,
+        ref bool enabled,
+        global::System.Collections.Generic.List<string> errors
+    )
+    {
+        enabled = true;
+        Read(section, "", where, resilience, ref enabled, errors);
+    }
+
+    private static void Read(
+        global::Microsoft.Extensions.Configuration.IConfigurationSection section,
+        string prefix,
+        string where,
+        global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions resilience,
+        ref bool enabled,
+        global::System.Collections.Generic.List<string> errors
+    )
+    {
+        foreach (var child in section.GetChildren())
+        {
+            var path = prefix + child.Key.ToUpperInvariant();
+            var key = $"{where}:{child.Key}";
+            switch (IsValue(path))
+            {
+                case true when child.Value is null:
+                    errors.Add($"{key} is an object, and must be a value.");
+                    break;
+                case true:
+                    Set(resilience, ref enabled, path, child.Value, key, errors);
+                    break;
+                case false:
+                    if (child.Value is { Length: > 0 })
+                    {
+                        errors.Add($"{key} is a value, and must be an object of keys.");
+                    }
+
+                    Read(child, path + ":", key, resilience, ref enabled, errors);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Whether the setting at <paramref name="path" /> (in upper case, its names separated by <c>:</c>) is a value (<c>true</c>), an
+    ///     object of settings (<c>false</c>), or no setting at all (<c>null</c>).
+    /// </summary>
+    internal static bool? IsValue(string path) => path switch
+    {
+        "ENABLED"
+            or "RATELIMITER:DEFAULTRATELIMITEROPTIONS:PERMITLIMIT"
+            or "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUELIMIT"
+            or "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUEPROCESSINGORDER"
+            or "TOTALREQUESTTIMEOUT:TIMEOUT"
+            or "RETRY:MAXRETRYATTEMPTS"
+            or "RETRY:BACKOFFTYPE"
+            or "RETRY:USEJITTER"
+            or "RETRY:DELAY"
+            or "RETRY:MAXDELAY"
+            or "RETRY:SHOULDRETRYAFTERHEADER"
+            or "CIRCUITBREAKER:FAILURERATIO"
+            or "CIRCUITBREAKER:MINIMUMTHROUGHPUT"
+            or "CIRCUITBREAKER:SAMPLINGDURATION"
+            or "CIRCUITBREAKER:BREAKDURATION"
+            or "ATTEMPTTIMEOUT:TIMEOUT" => true,
+        "RATELIMITER" or "RATELIMITER:DEFAULTRATELIMITEROPTIONS" or "TOTALREQUESTTIMEOUT" or "RETRY" or "CIRCUITBREAKER" or "ATTEMPTTIMEOUT" => false,
+        _ => null,
+    };
+
+    /// <summary>
+    ///     Sets the setting at <paramref name="path" /> (in upper case, its names separated by <c>:</c>) from its text. A text that doesn't
+    ///     parse is an error that names <paramref name="where" />. Returns <c>false</c> when the path is not a setting that takes a value.
+    /// </summary>
+    internal static bool Set(
+        global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions resilience,
+        ref bool enabled,
+        string path,
+        string value,
+        string where,
+        global::System.Collections.Generic.List<string> errors
+    )
+    {
+        switch (path)
+        {
+            case "ENABLED":
+                if (Boolean(value, where, errors) is { } isEnabled)
+                {
+                    enabled = isEnabled;
+                }
+
+                return true;
+            case "RATELIMITER:DEFAULTRATELIMITEROPTIONS:PERMITLIMIT":
+                if (Integer(value, where, errors) is { } permitLimit)
+                {
+                    resilience.RateLimiter.DefaultRateLimiterOptions.PermitLimit = permitLimit;
+                }
+
+                return true;
+            case "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUELIMIT":
+                if (Integer(value, where, errors) is { } queueLimit)
+                {
+                    resilience.RateLimiter.DefaultRateLimiterOptions.QueueLimit = queueLimit;
+                }
+
+                return true;
+            case "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUEPROCESSINGORDER":
+                switch (value.Trim().ToUpperInvariant())
+                {
+                    case "OLDESTFIRST":
+                        resilience.RateLimiter.DefaultRateLimiterOptions.QueueProcessingOrder = global::System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+                        break;
+                    case "NEWESTFIRST":
+                        resilience.RateLimiter.DefaultRateLimiterOptions.QueueProcessingOrder = global::System.Threading.RateLimiting.QueueProcessingOrder.NewestFirst;
+                        break;
+                    default:
+                        errors.Add($"{where} is not OldestFirst or NewestFirst.");
+                        break;
+                }
+
+                return true;
+            case "TOTALREQUESTTIMEOUT:TIMEOUT":
+                if (Time(value, where, errors) is { } totalRequestTimeout)
+                {
+                    resilience.TotalRequestTimeout.Timeout = totalRequestTimeout;
+                }
+
+                return true;
+            case "RETRY:MAXRETRYATTEMPTS":
+                if (Integer(value, where, errors) is { } maxRetryAttempts)
+                {
+                    resilience.Retry.MaxRetryAttempts = maxRetryAttempts;
+                }
+
+                return true;
+            case "RETRY:BACKOFFTYPE":
+                switch (value.Trim().ToUpperInvariant())
+                {
+                    case "CONSTANT":
+                        resilience.Retry.BackoffType = global::Polly.DelayBackoffType.Constant;
+                        break;
+                    case "LINEAR":
+                        resilience.Retry.BackoffType = global::Polly.DelayBackoffType.Linear;
+                        break;
+                    case "EXPONENTIAL":
+                        resilience.Retry.BackoffType = global::Polly.DelayBackoffType.Exponential;
+                        break;
+                    default:
+                        errors.Add($"{where} is not Constant, Linear or Exponential.");
+                        break;
+                }
+
+                return true;
+            case "RETRY:USEJITTER":
+                if (Boolean(value, where, errors) is { } useJitter)
+                {
+                    resilience.Retry.UseJitter = useJitter;
+                }
+
+                return true;
+            case "RETRY:DELAY":
+                if (Time(value, where, errors) is { } delay)
+                {
+                    resilience.Retry.Delay = delay;
+                }
+
+                return true;
+            case "RETRY:MAXDELAY":
+                if (Time(value, where, errors) is { } maxDelay)
+                {
+                    resilience.Retry.MaxDelay = maxDelay;
+                }
+
+                return true;
+            case "RETRY:SHOULDRETRYAFTERHEADER":
+                if (Boolean(value, where, errors) is { } shouldRetryAfterHeader)
+                {
+                    resilience.Retry.ShouldRetryAfterHeader = shouldRetryAfterHeader;
+                }
+
+                return true;
+            case "CIRCUITBREAKER:FAILURERATIO":
+                if (Number(value, where, errors) is { } failureRatio)
+                {
+                    resilience.CircuitBreaker.FailureRatio = failureRatio;
+                }
+
+                return true;
+            case "CIRCUITBREAKER:MINIMUMTHROUGHPUT":
+                if (Integer(value, where, errors) is { } minimumThroughput)
+                {
+                    resilience.CircuitBreaker.MinimumThroughput = minimumThroughput;
+                }
+
+                return true;
+            case "CIRCUITBREAKER:SAMPLINGDURATION":
+                if (Time(value, where, errors) is { } samplingDuration)
+                {
+                    resilience.CircuitBreaker.SamplingDuration = samplingDuration;
+                }
+
+                return true;
+            case "CIRCUITBREAKER:BREAKDURATION":
+                if (Time(value, where, errors) is { } breakDuration)
+                {
+                    resilience.CircuitBreaker.BreakDuration = breakDuration;
+                }
+
+                return true;
+            case "ATTEMPTTIMEOUT:TIMEOUT":
+                if (Time(value, where, errors) is { } attemptTimeout)
+                {
+                    resilience.AttemptTimeout.Timeout = attemptTimeout;
+                }
+
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool? Boolean(string text, string where, global::System.Collections.Generic.List<string> errors)
+    {
+        if (bool.TryParse(text, out var value))
+        {
+            return value;
+        }
+
+        errors.Add($"{where} is not true or false.");
+        return null;
+    }
+
+    private static int? Integer(string text, string where, global::System.Collections.Generic.List<string> errors)
+    {
+        if (int.TryParse(text, global::System.Globalization.NumberStyles.Integer, global::System.Globalization.CultureInfo.InvariantCulture, out var value))
+        {
+            return value;
+        }
+
+        errors.Add($"{where} is not an integer.");
+        return null;
+    }
+
+    private static double? Number(string text, string where, global::System.Collections.Generic.List<string> errors)
+    {
+        if (double.TryParse(text, global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture, out var value))
+        {
+            return value;
+        }
+
+        errors.Add($"{where} is not a number, such as 0.1.");
+        return null;
+    }
+
+    private static global::System.TimeSpan? Time(string text, string where, global::System.Collections.Generic.List<string> errors)
+    {
+        if (global::System.TimeSpan.TryParse(text, global::System.Globalization.CultureInfo.InvariantCulture, out var value))
+        {
+            return value;
+        }
+
+        errors.Add($"{where} is not a TimeSpan, such as 00:00:30.");
+        return null;
+    }
+
+    private static global::Microsoft.Extensions.Options.IOptionsMonitor<TOptions> Monitor<[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TOptions>(global::System.IServiceProvider services)
+        where TOptions : class =>
+        global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+           .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<TOptions>>(services);
+
+    /// <summary>
+    ///     Changes after the options of a client are filled again, so its handler's options are made again from the new settings: never
+    ///     before, which watching configuration itself could do.
+    /// </summary>
+    private sealed class ChangeTokenSource<[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TOptions> :
+        global::Microsoft.Extensions.Options.IOptionsChangeTokenSource<global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions>
+        where TOptions : class
+    {
+        private global::System.Threading.CancellationTokenSource _changed = new global::System.Threading.CancellationTokenSource();
+
+        public ChangeTokenSource(string name, global::Microsoft.Extensions.Options.IOptionsMonitor<TOptions> monitor)
+        {
+            Name = name;
+            monitor.OnChange(
+                (_, optionsName) =>
+                {
+                    if ((optionsName ?? global::Microsoft.Extensions.Options.Options.DefaultName) == global::Microsoft.Extensions.Options.Options.DefaultName)
+                    {
+                        global::System.Threading.Interlocked.Exchange(ref _changed, new global::System.Threading.CancellationTokenSource()).Cancel();
+                    }
+                }
+            );
+        }
+
+        public string Name { get; }
+
+        public global::Microsoft.Extensions.Primitives.IChangeToken GetChangeToken() =>
+            new global::Microsoft.Extensions.Primitives.CancellationChangeToken(global::System.Threading.Volatile.Read(ref _changed).Token);
+    }
 }
 
 }

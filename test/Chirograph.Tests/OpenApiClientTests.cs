@@ -1,4 +1,5 @@
 using Chirograph.Tests.Scaffolding;
+using Microsoft.Build.Utilities.ProjectCreation;
 
 namespace Chirograph.Tests;
 
@@ -155,11 +156,55 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         var directory = Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient");
         var registration = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientServiceCollectionExtensions.g.cs"));
         var options = await File.ReadAllTextAsync(Path.Combine(directory, "RocketsClientOptions.g.cs"));
+        // the code the clients share, once for the project: only with the Resilience block
+        var sharedFile = Path.Combine(directory, "..", "ChirographResilience.g.cs");
+        var shared = File.Exists(sharedFile) ? await File.ReadAllTextAsync(sharedFile) : null;
 
         await project.VerifyResult(
-            new { Registration = registration, Options = options },
+            new { Registration = registration, Options = options, Shared = shared },
             $"{generator}{( block is null ? "" : $"_{block}" )}{( authentication is null ? "" : $"_{authentication}" )}"
         );
+    }
+
+    /// <summary>
+    /// Build seam: the code that reads the standard resilience handler's settings is written once for the project, however many clients
+    /// it has, and every client's registration and options use it. Without Microsoft.Extensions.Http.Resilience it isn't written, and a
+    /// build after the reference is removed deletes it. The result is the C# files outside the clients' generated code, before and after
+    /// the reference is removed.
+    /// </summary>
+    [Test]
+    public async Task Should_Write_The_Resilience_Code_Once()
+    {
+        const string Package = "Microsoft.Extensions.Http.Resilience";
+        using var project = new SdkTestProject(targetFramework);
+        ProjectCreator Library(bool resilience)
+        {
+            var lib = project
+                     .CreateConsumer("Library")
+                     .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient")
+                     .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient")
+                     // in a namespace of its own: two Kiota clients of one document in one namespace would define its models twice
+                     .OpenApiClient(Generator.Kiota, "rockets.json", "OtherKiotaClient", new Dictionary<string, string?> { ["Namespace"] = "Other.Clients" });
+            return resilience ? lib.ItemPackageReference(Package, Config.CentralPackageVersion(Package, targetFramework)) : lib;
+        }
+
+        var openapi = Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi");
+        string[] Files() =>
+        [
+            .. Directory.EnumerateFiles(openapi, "*.cs", SearchOption.AllDirectories)
+                        .Select(z => Path.GetRelativePath(openapi, z).Replace('\\', '/'))
+                        .Where(z => !z.Contains("/generated/", StringComparison.Ordinal))
+                        .Order(StringComparer.Ordinal),
+        ];
+
+        project.AddProject("lib/lib.csproj", Library(resilience: true)).AddFile("lib/rockets.json", RocketsApi.Document);
+        await project.Build("lib");
+        var referenced = Files();
+
+        project.AddProject("lib/lib.csproj", Library(resilience: false));
+        await project.Build("lib");
+
+        await project.VerifyResult(new { Referenced = referenced, NotReferenced = Files() });
     }
 
     /// <summary>
@@ -643,7 +688,7 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
         project
            .AddProject(
                 "lib/lib.csproj",
-                Microsoft.Build.Utilities.ProjectCreation.ProjectCreator.Templates
+                ProjectCreator.Templates
                          .SdkCsproj(targetFrameworks: ["net10.0", "net11.0"], outputType: "Library")
                          .Sdk("Chirograph")
                          .OpenApiClient(generator, "rockets.json")

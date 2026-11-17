@@ -25,8 +25,8 @@ public static class __ClientName__ServiceCollectionExtensions
     /// <summary>
     ///     Registers <see cref="__ClientName__" /> with <c>IHttpClientFactory</c>, with its options, <see cref="__ClientName__Options" />. Each time
     ///     the client's <c>HttpClient</c> is created, it takes BaseAddress, Timeout and DefaultRequestHeaders from the options, and the
-    ///     standard resilience handler is kept when Resilience is <c>true</c> (only when the project references
-    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
+    ///     standard resilience handler is kept when Resilience is <c>true</c>, or an object of its settings (only when the project
+    ///     references Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
     ///     handler is made, it presents the client certificate the options give, for mutual TLS; a <c>ConfigurePrimaryHttpMessageHandler</c>
     ///     that makes a new handler, on the builder this returns, replaces that handler, certificate included. The options are validated
     ///     when the host starts, or when the client is first created without a host.
@@ -105,8 +105,12 @@ public static class __ClientName__ServiceCollectionExtensions
         );
         //#if Resilience
         // The project references Microsoft.Extensions.Http.Resilience: the standard resilience handler is added, and taken out again,
-        // when the handlers of the client are built, unless Clients:__ClientName__:Resilience is true.
-        global::Microsoft.Extensions.DependencyInjection.ResilienceHttpClientBuilderExtensions.AddStandardResilienceHandler(builder);
+        // when the handlers of the client are built, unless Clients:__ClientName__:Resilience is true (or an object of its settings, which
+        // the handler is given).
+        global::Chirograph.ChirographResilience.Register(
+            global::Microsoft.Extensions.DependencyInjection.ResilienceHttpClientBuilderExtensions.AddStandardResilienceHandler(builder),
+            static (global::__Namespace__.__ClientName__Options options) => options.ResilienceOptions
+        );
         global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureAdditionalHttpMessageHandlers(
             builder,
             static (global::System.Collections.Generic.IList<global::System.Net.Http.DelegatingHandler> handlers, global::System.IServiceProvider provider) =>

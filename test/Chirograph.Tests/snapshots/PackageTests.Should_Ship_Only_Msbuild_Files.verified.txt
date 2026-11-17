@@ -11,6 +11,7 @@
     Sdk/Sdk.props,
     Sdk/Sdk.targets,
     Sdk/tasks/netstandard2.0/Chirograph.Build.Tasks.dll,
+    Sdk/templates/ChirographResilience.cs.template,
     Sdk/templates/KiotaRegistration.cs.template,
     Sdk/templates/OpenApiClientJoint.cs.template,
     Sdk/templates/OpenApiClientOptions.cs.template,

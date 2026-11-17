@@ -1,0 +1,272 @@
+﻿{
+  "KiotaClient": {
+    "anyOf": [
+      {
+        "type": "boolean"
+      },
+      {
+        "type": "object",
+        "description": "The settings of the standard resilience handler, as HttpStandardResilienceOptions names them. Setting them keeps the handler, unless Enabled is false. A setting that is not set keeps the handler's default.",
+        "properties": {
+          "Enabled": {
+            "type": "boolean",
+            "description": "false takes the handler out and keeps the settings. true by default."
+          },
+          "RateLimiter": {
+            "type": "object",
+            "description": "The rate limiter, the outermost strategy.",
+            "properties": {
+              "DefaultRateLimiterOptions": {
+                "type": "object",
+                "description": "The concurrency limiter of the client.",
+                "properties": {
+                  "PermitLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "How many requests may run at once. 1000 by default."
+                  },
+                  "QueueLimit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "How many requests may wait for a permit. 0 by default."
+                  },
+                  "QueueProcessingOrder": {
+                    "type": "string",
+                    "enum": [
+                      "OldestFirst",
+                      "NewestFirst"
+                    ],
+                    "description": "Which waiting request gets the next permit. OldestFirst by default."
+                  }
+                }
+              }
+            }
+          },
+          "TotalRequestTimeout": {
+            "type": "object",
+            "description": "The timeout of a request, retries included.",
+            "properties": {
+              "Timeout": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "How long it may take, as a TimeSpan. 00:00:30 by default."
+              }
+            }
+          },
+          "Retry": {
+            "type": "object",
+            "description": "The retries of a request that failed transiently (an exception, 408, 429 or 5xx).",
+            "properties": {
+              "MaxRetryAttempts": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "How many times a request is retried. 3 by default."
+              },
+              "BackoffType": {
+                "type": "string",
+                "enum": [
+                  "Constant",
+                  "Linear",
+                  "Exponential"
+                ],
+                "description": "How the delay between retries grows. Exponential by default."
+              },
+              "UseJitter": {
+                "type": "boolean",
+                "description": "Whether the delay is randomized. true by default."
+              },
+              "Delay": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "The delay before the first retry, as a TimeSpan. 00:00:02 by default."
+              },
+              "MaxDelay": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "The longest delay between retries, as a TimeSpan. None by default."
+              },
+              "ShouldRetryAfterHeader": {
+                "type": "boolean",
+                "description": "Whether a Retry-After header of the response sets the delay. true by default."
+              }
+            }
+          },
+          "CircuitBreaker": {
+            "type": "object",
+            "description": "The circuit breaker, which stops sending requests while too many fail.",
+            "properties": {
+              "FailureRatio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "The ratio of failed requests that breaks the circuit. 0.1 by default."
+              },
+              "MinimumThroughput": {
+                "type": "integer",
+                "minimum": 2,
+                "description": "How many requests the sampling duration must see before the circuit can break. 100 by default."
+              },
+              "SamplingDuration": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "The window the failure ratio is measured over, as a TimeSpan, at least twice the AttemptTimeout. 00:00:30 by default."
+              },
+              "BreakDuration": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "How long the circuit stays broken, as a TimeSpan. 00:00:05 by default."
+              }
+            }
+          },
+          "AttemptTimeout": {
+            "type": "object",
+            "description": "The timeout of each attempt, less than the TotalRequestTimeout.",
+            "properties": {
+              "Timeout": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "How long it may take, as a TimeSpan. 00:00:10 by default."
+              }
+            }
+          }
+        }
+      }
+    ],
+    "description": "The standard resilience handler (AddStandardResilienceHandler()): true keeps it, false (the default) takes it out, and an object of its settings keeps it with those settings."
+  },
+  "RefitterClient": {
+    "anyOf": [
+      {
+        "type": "boolean"
+      },
+      {
+        "type": "object",
+        "description": "The settings of the standard resilience handler, as HttpStandardResilienceOptions names them. Setting them keeps the handler, unless Enabled is false. A setting that is not set keeps the handler's default.",
+        "properties": {
+          "Enabled": {
+            "type": "boolean",
+            "description": "false takes the handler out and keeps the settings. true by default."
+          },
+          "RateLimiter": {
+            "type": "object",
+            "description": "The rate limiter, the outermost strategy.",
+            "properties": {
+              "DefaultRateLimiterOptions": {
+                "type": "object",
+                "description": "The concurrency limiter of the client.",
+                "properties": {
+                  "PermitLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "How many requests may run at once. 1000 by default."
+                  },
+                  "QueueLimit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "How many requests may wait for a permit. 0 by default."
+                  },
+                  "QueueProcessingOrder": {
+                    "type": "string",
+                    "enum": [
+                      "OldestFirst",
+                      "NewestFirst"
+                    ],
+                    "description": "Which waiting request gets the next permit. OldestFirst by default."
+                  }
+                }
+              }
+            }
+          },
+          "TotalRequestTimeout": {
+            "type": "object",
+            "description": "The timeout of a request, retries included.",
+            "properties": {
+              "Timeout": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "How long it may take, as a TimeSpan. 00:00:30 by default."
+              }
+            }
+          },
+          "Retry": {
+            "type": "object",
+            "description": "The retries of a request that failed transiently (an exception, 408, 429 or 5xx).",
+            "properties": {
+              "MaxRetryAttempts": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "How many times a request is retried. 3 by default."
+              },
+              "BackoffType": {
+                "type": "string",
+                "enum": [
+                  "Constant",
+                  "Linear",
+                  "Exponential"
+                ],
+                "description": "How the delay between retries grows. Exponential by default."
+              },
+              "UseJitter": {
+                "type": "boolean",
+                "description": "Whether the delay is randomized. true by default."
+              },
+              "Delay": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "The delay before the first retry, as a TimeSpan. 00:00:02 by default."
+              },
+              "MaxDelay": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "The longest delay between retries, as a TimeSpan. None by default."
+              },
+              "ShouldRetryAfterHeader": {
+                "type": "boolean",
+                "description": "Whether a Retry-After header of the response sets the delay. true by default."
+              }
+            }
+          },
+          "CircuitBreaker": {
+            "type": "object",
+            "description": "The circuit breaker, which stops sending requests while too many fail.",
+            "properties": {
+              "FailureRatio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "The ratio of failed requests that breaks the circuit. 0.1 by default."
+              },
+              "MinimumThroughput": {
+                "type": "integer",
+                "minimum": 2,
+                "description": "How many requests the sampling duration must see before the circuit can break. 100 by default."
+              },
+              "SamplingDuration": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "The window the failure ratio is measured over, as a TimeSpan, at least twice the AttemptTimeout. 00:00:30 by default."
+              },
+              "BreakDuration": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "How long the circuit stays broken, as a TimeSpan. 00:00:05 by default."
+              }
+            }
+          },
+          "AttemptTimeout": {
+            "type": "object",
+            "description": "The timeout of each attempt, less than the TotalRequestTimeout.",
+            "properties": {
+              "Timeout": {
+                "type": "string",
+                "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$",
+                "description": "How long it may take, as a TimeSpan. 00:00:10 by default."
+              }
+            }
+          }
+        }
+      }
+    ],
+    "description": "The standard resilience handler (AddStandardResilienceHandler()): true keeps it, false (the default) takes it out, and an object of its settings keeps it with those settings."
+  }
+}

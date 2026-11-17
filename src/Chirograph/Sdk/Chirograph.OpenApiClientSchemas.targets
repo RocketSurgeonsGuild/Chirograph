@@ -65,6 +65,7 @@
         - Description: what it is. No backslash and no double quote; %3B for a semicolon, __ClientName__ for the client's name.
         - Generator: only for the clients of that generator.
         - ServiceDiscovery: true only when the project references Microsoft.Extensions.ServiceDiscovery, false only when it doesn't.
+        - Resilience: true only when the project references Microsoft.Extensions.Http.Resilience, false only when it doesn't.
         - Methods: the methods that use it, a ;-list. The schema has the key when the client allows one of them, and the other methods
           forbid it. A key without methods (a certificate key, say) goes with every method.
         - Secret: true for a credential, whose description then says to keep it out of appsettings.json.
@@ -74,6 +75,10 @@
       since a connection string can name the method.
   -->
   <Target Name="_ChirographWriteOpenApiClientSchema" Outputs="%(_ChirographOpenApiClientSchemaFile.Identity)">
+    <PropertyGroup>
+      <!-- a TimeSpan, hh:mm:ss, as the keys of the resilience handler's settings take it -->
+      <_ChirographTimeSpanSchema>"type": "string", "pattern": "^-?([0-9]+[.])?[0-9]{1,2}:[0-9]{2}(:[0-9]{2}([.][0-9]{1,7})?)?$"</_ChirographTimeSpanSchema>
+    </PropertyGroup>
     <ItemGroup>
       <_ChirographOpenApiClientMethod Remove="@(_ChirographOpenApiClientMethod)" />
       <_ChirographOpenApiClientMethod Include="None" />
@@ -115,9 +120,13 @@
         <Schema>"type": "object", "additionalProperties": { "type": "string" }</Schema>
         <Description>Headers sent with every request (HttpClient.DefaultRequestHeaders): each name with its value.</Description>
       </_ChirographOpenApiClientKey>
-      <_ChirographOpenApiClientKey Include="Resilience">
+      <_ChirographOpenApiClientKey Include="Resilience" Resilience="false">
         <Schema>"type": "boolean"</Schema>
         <Description>true adds the standard resilience handler (AddStandardResilienceHandler()) to the client. Only takes effect when the project references Microsoft.Extensions.Http.Resilience%3B otherwise it is ignored.</Description>
+      </_ChirographOpenApiClientKey>
+      <_ChirographOpenApiClientKey Include="Resilience" Resilience="true">
+        <Schema>"anyOf": [{ "type": "boolean" }, { "type": "object", "description": "The settings of the standard resilience handler, as HttpStandardResilienceOptions names them. Setting them keeps the handler, unless Enabled is false. A setting that is not set keeps the handler's default.", "properties": { "Enabled": { "type": "boolean", "description": "false takes the handler out and keeps the settings. true by default." }, "RateLimiter": { "type": "object", "description": "The rate limiter, the outermost strategy.", "properties": { "DefaultRateLimiterOptions": { "type": "object", "description": "The concurrency limiter of the client.", "properties": { "PermitLimit": { "type": "integer", "minimum": 1, "description": "How many requests may run at once. 1000 by default." }, "QueueLimit": { "type": "integer", "minimum": 0, "description": "How many requests may wait for a permit. 0 by default." }, "QueueProcessingOrder": { "type": "string", "enum": ["OldestFirst", "NewestFirst"], "description": "Which waiting request gets the next permit. OldestFirst by default." } } } } }, "TotalRequestTimeout": { "type": "object", "description": "The timeout of a request, retries included.", "properties": { "Timeout": { $(_ChirographTimeSpanSchema), "description": "How long it may take, as a TimeSpan. 00:00:30 by default." } } }, "Retry": { "type": "object", "description": "The retries of a request that failed transiently (an exception, 408, 429 or 5xx).", "properties": { "MaxRetryAttempts": { "type": "integer", "minimum": 1, "description": "How many times a request is retried. 3 by default." }, "BackoffType": { "type": "string", "enum": ["Constant", "Linear", "Exponential"], "description": "How the delay between retries grows. Exponential by default." }, "UseJitter": { "type": "boolean", "description": "Whether the delay is randomized. true by default." }, "Delay": { $(_ChirographTimeSpanSchema), "description": "The delay before the first retry, as a TimeSpan. 00:00:02 by default." }, "MaxDelay": { $(_ChirographTimeSpanSchema), "description": "The longest delay between retries, as a TimeSpan. None by default." }, "ShouldRetryAfterHeader": { "type": "boolean", "description": "Whether a Retry-After header of the response sets the delay. true by default." } } }, "CircuitBreaker": { "type": "object", "description": "The circuit breaker, which stops sending requests while too many fail.", "properties": { "FailureRatio": { "type": "number", "minimum": 0, "maximum": 1, "description": "The ratio of failed requests that breaks the circuit. 0.1 by default." }, "MinimumThroughput": { "type": "integer", "minimum": 2, "description": "How many requests the sampling duration must see before the circuit can break. 100 by default." }, "SamplingDuration": { $(_ChirographTimeSpanSchema), "description": "The window the failure ratio is measured over, as a TimeSpan, at least twice the AttemptTimeout. 00:00:30 by default." }, "BreakDuration": { $(_ChirographTimeSpanSchema), "description": "How long the circuit stays broken, as a TimeSpan. 00:00:05 by default." } } }, "AttemptTimeout": { "type": "object", "description": "The timeout of each attempt, less than the TotalRequestTimeout.", "properties": { "Timeout": { $(_ChirographTimeSpanSchema), "description": "How long it may take, as a TimeSpan. 00:00:10 by default." } } } } }]</Schema>
+        <Description>The standard resilience handler (AddStandardResilienceHandler()): true keeps it, false (the default) takes it out, and an object of its settings keeps it with those settings.</Description>
       </_ChirographOpenApiClientKey>
       <_ChirographOpenApiClientKey Include="AllowedHosts">
         <Schema>"type": "array", "items": { "type": "string" }</Schema>
@@ -197,11 +206,18 @@
     <ItemGroup>
       <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
       <_ChirographServiceDiscoveryReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.ServiceDiscovery'" />
+      <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
+      <_ChirographResilienceReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.Http.Resilience'" />
     </ItemGroup>
-    <!-- whether the project references Microsoft.Extensions.ServiceDiscovery, as the registration's ServiceDiscovery block says -->
+    <!--
+        whether the project references Microsoft.Extensions.ServiceDiscovery and Microsoft.Extensions.Http.Resilience, as the
+        registration's ServiceDiscovery and Resilience blocks say
+    -->
     <PropertyGroup>
       <_ChirographOpenApiClientSchemaServiceDiscovery>false</_ChirographOpenApiClientSchemaServiceDiscovery>
       <_ChirographOpenApiClientSchemaServiceDiscovery Condition="'@(_ChirographServiceDiscoveryReference)' != ''">true</_ChirographOpenApiClientSchemaServiceDiscovery>
+      <_ChirographOpenApiClientSchemaResilience>false</_ChirographOpenApiClientSchemaResilience>
+      <_ChirographOpenApiClientSchemaResilience Condition="'@(_ChirographResilienceReference)' != ''">true</_ChirographOpenApiClientSchemaResilience>
     </PropertyGroup>
 
     <!-- WriteOpenApiClientSchema, src/Chirograph.Build.Tasks -->
@@ -211,6 +227,7 @@
       Generator="%(_ChirographOpenApiClientSchemaFile.Generator)"
       Authentication="%(_ChirographOpenApiClientSchemaFile.Authentication)"
       ServiceDiscovery="$(_ChirographOpenApiClientSchemaServiceDiscovery)"
+      Resilience="$(_ChirographOpenApiClientSchemaResilience)"
       Methods="@(_ChirographOpenApiClientMethod)"
       Keys="@(_ChirographOpenApiClientKey)"
     />
@@ -219,6 +236,7 @@
       <_ChirographOpenApiClientMethod Remove="@(_ChirographOpenApiClientMethod)" />
       <_ChirographOpenApiClientKey Remove="@(_ChirographOpenApiClientKey)" />
       <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
+      <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
     </ItemGroup>
   </Target>
 </Project>

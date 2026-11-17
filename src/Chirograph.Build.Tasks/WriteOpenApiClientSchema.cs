@@ -8,7 +8,7 @@ namespace Chirograph.Build.Tasks;
 ///     and the keys <c>Chirograph.OpenApiClientSchemas.targets</c> declares (see that file for their metadata).
 /// </summary>
 /// <remarks>
-///     The schema has the keys of the client's generator, and of the project's service discovery, less the keys only methods the
+///     The schema has the keys of the client's generator, and of the project's service discovery and resilience, less the keys only methods the
 ///     client doesn't allow use. <c>Authentication</c> is an enum of the client's methods, and each method gets an if/then: when
 ///     Authentication is that method, its keys are required and the keys of the other methods are not allowed.
 /// </remarks>
@@ -35,13 +35,16 @@ public sealed class WriteOpenApiClientSchema : Microsoft.Build.Utilities.Task
     /// <summary>Whether the project references Microsoft.Extensions.ServiceDiscovery.</summary>
     public bool ServiceDiscovery { get; set; }
 
+    /// <summary>Whether the project references Microsoft.Extensions.Http.Resilience.</summary>
+    public bool Resilience { get; set; }
+
     /// <summary>The authentication methods, in order, with their <c>Feature</c> and <c>Requires</c>.</summary>
     [Required]
     public ITaskItem[] Methods { get; set; } = [];
 
     /// <summary>
     ///     The keys of the section, in order, with their <c>Schema</c>, <c>Description</c>, <c>Generator</c>, <c>ServiceDiscovery</c>,
-    ///     <c>Methods</c> and <c>Secret</c>.
+    ///     <c>Resilience</c>, <c>Methods</c> and <c>Secret</c>.
     /// </summary>
     [Required]
     public ITaskItem[] Keys { get; set; } = [];
@@ -53,7 +56,8 @@ public sealed class WriteOpenApiClientSchema : Microsoft.Build.Utilities.Task
         var methods = Methods.Where(z => z.GetMetadata("Feature") is not { Length: > 0 } feature || features.Contains(feature)).ToArray();
 
         var keys = Keys.Where(z => Matches(z.GetMetadata("Generator"), Generator)
-                                && Matches(z.GetMetadata("ServiceDiscovery"), ServiceDiscovery ? "true" : "false"))
+                                && Matches(z.GetMetadata("ServiceDiscovery"), ServiceDiscovery ? "true" : "false")
+                                && Matches(z.GetMetadata("Resilience"), Resilience ? "true" : "false"))
                        .ToList();
         // a key only some methods use goes when none of the client's methods uses it (every key of that name: Remove matched on it)
         var unused = new HashSet<string>(
