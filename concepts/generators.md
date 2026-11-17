@@ -27,7 +27,7 @@ generator:
 - **`Authentication="Azure"`** on any client: `Azure.Identity`.
 - **`Authentication="ClientCredentials"`** on any client: `Duende.AccessTokenManagement` 4.x, which brings
   `Microsoft.Extensions.Http` (so a Kiota client's isn't added) and `Microsoft.Extensions.Http.Resilience` (so the registration's
-  [resilience](../registration/#resilience) block is written too, off unless `Resilience` is `true`).
+  [resilience](../registration/#resilience) block is written too, off unless `Resilience` is `true` or an object of its settings).
 
 A package the project references itself wins: its own `PackageReference` and its version are left alone, and Chirograph adds nothing.
 So reference a package yourself to choose its version, or set the matching [property](../../reference/properties/).

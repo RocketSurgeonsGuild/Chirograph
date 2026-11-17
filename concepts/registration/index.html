@@ -122,8 +122,8 @@ registered after runs after it.</li>
 </tr>
 <tr>
 <td><code dir="auto">Resilience</code></td>
-<td>bool</td>
-<td><code dir="auto">true</code> keeps the standard resilience handler (<code dir="auto">AddStandardResilienceHandler()</code>): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience.</td>
+<td>bool or object</td>
+<td><code dir="auto">true</code> keeps the standard resilience handler (<code dir="auto">AddStandardResilienceHandler()</code>): retries, timeouts and a circuit breaker; an object sets its <a href="#resilience">settings</a>. It is read only when the project references Microsoft.Extensions.Http.Resilience.</td>
 </tr>
 <tr>
 <td><code dir="auto">AllowedHosts</code></td>
@@ -207,7 +207,7 @@ are never merged.</p>
 <code dir="auto">Endpoint='https://rockets.example.com/?a=1;b=2'</code>.</li>
 <li>An unquoted value may contain <code dir="auto">=</code>.</li>
 </ul>
-<p>It takes the keys of the table above, except <code dir="auto">ConnectionString</code> and <code dir="auto">DefaultRequestHeaders</code>. The parser is stricter than
+<p>It takes the keys of the table above, except <code dir="auto">ConnectionString</code> and <code dir="auto">DefaultRequestHeaders</code>, and the <a href="#resilience">resilience settings</a>, as <code dir="auto">MaxRetryAttempts</code>, <code dir="auto">AttemptTimeout</code> and the like. The parser is stricter than
 <code dir="auto">DbConnectionStringBuilder</code>: an unknown key and a key given twice (an alias with its key, <code dir="auto">Endpoint</code> and <code dir="auto">BaseAddress</code>, too) are errors.</p>
 <p>When an application already has a connection string named after the client for something else, a database say, set
 <code dir="auto">Clients:RocketsClient:ConnectionString</code> to an empty value. The client then reads no connection string:</p>
@@ -219,7 +219,7 @@ problem. With a bare <code dir="auto">ServiceCollection</code>, the same excepti
 <p>It fails on:</p>
 <ul>
 <li>an unknown key in the connection string, or a key given twice there (an alias with its key too);</li>
-<li>a value that doesn’t parse (<code dir="auto">Timeout</code>, <code dir="auto">Resilience</code>, <code dir="auto">Authentication</code>), or a malformed connection string;</li>
+<li>a value that doesn’t parse (<code dir="auto">Timeout</code>, <code dir="auto">Resilience</code> and its <a href="#resilience">settings</a>, <code dir="auto">Authentication</code>), or a malformed connection string;</li>
 <li>a <code dir="auto">BaseAddress</code> that isn’t an absolute <code dir="auto">http</code> or <code dir="auto">https</code> URI (or, with <a href="#service-discovery">service discovery</a>, a service-discovery
 address), or a <code dir="auto">Timeout</code> that isn’t positive;</li>
 <li>with service discovery, no service-discovery provider registered by the application;</li>
@@ -242,8 +242,114 @@ part, without its text.</p>
 another package or project), the build sees it among the resolved references and writes the resilience code into the registration:
 it calls <code dir="auto">AddStandardResilienceHandler()</code> on the client’s builder, and takes the handler out again when the client’s handlers are
 built unless <code dir="auto">Resilience</code> is <code dir="auto">true</code>. Without the package the registration has no such code, it compiles, and <code dir="auto">Resilience</code> is ignored.</p>
-<p>The key turns on the handler with its default options. To tune them, or to add a handler of your own, chain on the builder the
-registration returns instead.</p>
+<p><code dir="auto">Resilience</code> is either <code dir="auto">true</code> or <code dir="auto">false</code>, or an object of the handler’s settings, named as <code dir="auto">HttpStandardResilienceOptions</code> names them
+(the <a href="https://learn.microsoft.com/dotnet/core/resilience/http-resilience#standard-resilience-handler-defaults">standard resilience handler</a>).
+An object keeps the handler, unless its <code dir="auto">Enabled</code> is <code dir="auto">false</code>, and a setting it leaves out keeps the handler’s default:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"Clients"</span><span style="--0:#D6DEEB;--1:#403F53">: {</span></div></div><div class="ec-line"><div class="code"><span class="indent">        </span><span style="--0:#7FDBCA;--1:#096E72">"RocketsClient"</span><span style="--0:#D6DEEB;--1:#403F53">: {</span></div></div><div class="ec-line"><div class="code"><span class="indent">            </span><span style="--0:#7FDBCA;--1:#096E72">"Resilience"</span><span style="--0:#D6DEEB;--1:#403F53">: {</span></div></div><div class="ec-line"><div class="code"><span class="indent">                </span><span style="--0:#7FDBCA;--1:#096E72">"Retry"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"MaxRetryAttempts"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#F78C6C;--1:#AA0982">5</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#7FDBCA;--1:#096E72">"BackoffType"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">Exponential</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#7FDBCA;--1:#096E72">"Delay"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">00:00:01</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53"> },</span></div></div><div class="ec-line"><div class="code"><span class="indent">                </span><span style="--0:#7FDBCA;--1:#096E72">"AttemptTimeout"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"Timeout"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">00:00:05</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53"> },</span></div></div><div class="ec-line"><div class="code"><span class="indent">                </span><span style="--0:#7FDBCA;--1:#096E72">"TotalRequestTimeout"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"Timeout"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">00:01:00</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53"> },</span></div></div><div class="ec-line"><div class="code"><span class="indent">                </span><span style="--0:#7FDBCA;--1:#096E72">"CircuitBreaker"</span><span style="--0:#D6DEEB;--1:#403F53">: { </span><span style="--0:#7FDBCA;--1:#096E72">"FailureRatio"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#F78C6C;--1:#AA0982">0.2</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#7FDBCA;--1:#096E72">"SamplingDuration"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">00:00:30</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53"> }</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">            </span></span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{    &#x22;Clients&#x22;: {        &#x22;RocketsClient&#x22;: {            &#x22;Resilience&#x22;: {                &#x22;Retry&#x22;: { &#x22;MaxRetryAttempts&#x22;: 5, &#x22;BackoffType&#x22;: &#x22;Exponential&#x22;, &#x22;Delay&#x22;: &#x22;00:00:01&#x22; },                &#x22;AttemptTimeout&#x22;: { &#x22;Timeout&#x22;: &#x22;00:00:05&#x22; },                &#x22;TotalRequestTimeout&#x22;: { &#x22;Timeout&#x22;: &#x22;00:01:00&#x22; },                &#x22;CircuitBreaker&#x22;: { &#x22;FailureRatio&#x22;: 0.2, &#x22;SamplingDuration&#x22;: &#x22;00:00:30&#x22; }            }        }    }}"><div></div></button></div></figure></div>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code dir="auto">Enabled</code></td>
+<td>bool</td>
+<td><code dir="auto">true</code></td>
+</tr>
+<tr>
+<td><code dir="auto">RateLimiter:DefaultRateLimiterOptions:PermitLimit</code></td>
+<td>int</td>
+<td><code dir="auto">1000</code></td>
+</tr>
+<tr>
+<td><code dir="auto">RateLimiter:DefaultRateLimiterOptions:QueueLimit</code></td>
+<td>int</td>
+<td><code dir="auto">0</code></td>
+</tr>
+<tr>
+<td><code dir="auto">RateLimiter:DefaultRateLimiterOptions:QueueProcessingOrder</code></td>
+<td><code dir="auto">OldestFirst</code>, <code dir="auto">NewestFirst</code></td>
+<td><code dir="auto">OldestFirst</code></td>
+</tr>
+<tr>
+<td><code dir="auto">TotalRequestTimeout:Timeout</code></td>
+<td><code dir="auto">TimeSpan</code></td>
+<td><code dir="auto">00:00:30</code></td>
+</tr>
+<tr>
+<td><code dir="auto">Retry:MaxRetryAttempts</code></td>
+<td>int</td>
+<td><code dir="auto">3</code></td>
+</tr>
+<tr>
+<td><code dir="auto">Retry:BackoffType</code></td>
+<td><code dir="auto">Constant</code>, <code dir="auto">Linear</code>, <code dir="auto">Exponential</code></td>
+<td><code dir="auto">Exponential</code></td>
+</tr>
+<tr>
+<td><code dir="auto">Retry:UseJitter</code></td>
+<td>bool</td>
+<td><code dir="auto">true</code></td>
+</tr>
+<tr>
+<td><code dir="auto">Retry:Delay</code></td>
+<td><code dir="auto">TimeSpan</code></td>
+<td><code dir="auto">00:00:02</code></td>
+</tr>
+<tr>
+<td><code dir="auto">Retry:MaxDelay</code></td>
+<td><code dir="auto">TimeSpan</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td><code dir="auto">Retry:ShouldRetryAfterHeader</code></td>
+<td>bool</td>
+<td><code dir="auto">true</code></td>
+</tr>
+<tr>
+<td><code dir="auto">CircuitBreaker:FailureRatio</code></td>
+<td>number, 0 to 1</td>
+<td><code dir="auto">0.1</code></td>
+</tr>
+<tr>
+<td><code dir="auto">CircuitBreaker:MinimumThroughput</code></td>
+<td>int</td>
+<td><code dir="auto">100</code></td>
+</tr>
+<tr>
+<td><code dir="auto">CircuitBreaker:SamplingDuration</code></td>
+<td><code dir="auto">TimeSpan</code></td>
+<td><code dir="auto">00:00:30</code></td>
+</tr>
+<tr>
+<td><code dir="auto">CircuitBreaker:BreakDuration</code></td>
+<td><code dir="auto">TimeSpan</code></td>
+<td><code dir="auto">00:00:05</code></td>
+</tr>
+<tr>
+<td><code dir="auto">AttemptTimeout:Timeout</code></td>
+<td><code dir="auto">TimeSpan</code></td>
+<td><code dir="auto">00:00:10</code></td>
+</tr>
+</tbody>
+</table>
+<p>The registration reads them without reflection into <code dir="auto">RocketsClientOptions.ResilienceOptions</code>, so code can change them too
+(<code dir="auto">AddRocketsClient(o => o.ResilienceOptions.Retry.MaxRetryAttempts = 5)</code>), and hands them to the handler whenever the options are filled,
+when configuration reloads too. A value that doesn’t parse fails <a href="#validation">validation</a>; Microsoft.Extensions.Http.Resilience checks
+the rest when the host starts (<code dir="auto">MaxRetryAttempts</code> at least 1, an <code dir="auto">AttemptTimeout</code> shorter than the <code dir="auto">TotalRequestTimeout</code>, a
+<code dir="auto">SamplingDuration</code> at least twice the <code dir="auto">AttemptTimeout</code>, and so on). To add a handler of your own, chain on the builder the registration
+returns.</p>
+<p>A <a href="#the-connection-string">connection string</a> takes the same settings, as keys named after them: the last name of each setting
+(<code dir="auto">MaxRetryAttempts</code>, <code dir="auto">Delay</code>, <code dir="auto">FailureRatio</code>, <code dir="auto">PermitLimit</code>, and so on), except the two timeouts, which are <code dir="auto">TotalRequestTimeout</code> and
+<code dir="auto">AttemptTimeout</code> since <code dir="auto">Timeout</code> is the client’s. They win over the keys of the section, and a setting turns the handler on unless the
+connection string also sets <code dir="auto">Resilience</code>:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Endpoint=https://rockets.example.com/;MaxRetryAttempts=5;AttemptTimeout=00:00:05</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="Endpoint=https://rockets.example.com/;MaxRetryAttempts=5;AttemptTimeout=00:00:05"><div></div></button></div></figure></div>
+<p>The code that reads the settings is written once for the project, <code dir="auto">ChirographResilience.g.cs</code> next to the clients’ folders in <code dir="auto">obj</code>, and
+shared by every client: only when the project references Microsoft.Extensions.Http.Resilience.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="service-discovery">Service discovery</h2><a class="sl-anchor-link" href="#service-discovery"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Service discovery”</span></a></div>
 <p>Chirograph adds no service-discovery package either. When the project references
 <a href="https://www.nuget.org/packages/Microsoft.Extensions.ServiceDiscovery">Microsoft.Extensions.ServiceDiscovery</a> (directly, or through

@@ -107,8 +107,8 @@ merges them, as Optionary does for any section.</p>
 </tr>
 <tr>
 <td><code dir="auto">Resilience</code></td>
-<td>boolean</td>
-<td><code dir="auto">true</code> adds the standard resilience handler. Only takes effect when the project references <code dir="auto">Microsoft.Extensions.Http.Resilience</code>.</td>
+<td>boolean, or an object when the project references <code dir="auto">Microsoft.Extensions.Http.Resilience</code></td>
+<td><code dir="auto">true</code> adds the standard resilience handler; an object sets its <a href="../../concepts/registration/#resilience">settings</a> (<code dir="auto">Retry</code>, <code dir="auto">CircuitBreaker</code>, <code dir="auto">AttemptTimeout</code>, <code dir="auto">TotalRequestTimeout</code>, <code dir="auto">RateLimiter</code>). Only takes effect when the project references <code dir="auto">Microsoft.Extensions.Http.Resilience</code>.</td>
 </tr>
 <tr>
 <td><code dir="auto">AllowedHosts</code></td>
