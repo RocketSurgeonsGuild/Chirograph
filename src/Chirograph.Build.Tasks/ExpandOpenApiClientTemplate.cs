@@ -4,7 +4,8 @@ using Microsoft.Build.Framework;
 namespace Chirograph.Build.Tasks;
 
 /// <summary>
-///     Writes one of a client's files (its registration or its options) from a template in <c>Sdk/templates</c>.
+///     Writes one of a client's files (its registration or its options), or the code a project's clients share, from a template in
+///     <c>Sdk/templates</c>.
 /// </summary>
 /// <remarks>
 ///     A template's code between <c>//#if &lt;Block&gt;</c> and <c>//#endif</c> is kept, without those two lines, only when the block
@@ -36,8 +37,7 @@ public sealed class ExpandOpenApiClientTemplate : Microsoft.Build.Utilities.Task
     /// <summary>The namespace of the client's code.</summary>
     public string Namespace { get; set; } = "";
 
-    /// <summary>The name of the client.</summary>
-    [Required]
+    /// <summary>The name of the client; none for the code the clients of a project share.</summary>
     public string ClientName { get; set; } = "";
 
     /// <summary>The version of Chirograph, written into the generated code.</summary>

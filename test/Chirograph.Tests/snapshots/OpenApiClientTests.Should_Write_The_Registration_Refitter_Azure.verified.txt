@@ -76,10 +76,12 @@ public sealed class RocketsClientOptions
         new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    ///     Whether the standard resilience handler is kept (key <c>Resilience</c>). Read only when the project references
+    ///     Whether the standard resilience handler is kept (key <c>Resilience</c>: <c>true</c> or <c>false</c>, or an object of its
+    ///     settings, which keeps it unless its <c>Enabled</c> is <c>false</c>). Read only when the project references
     ///     Microsoft.Extensions.Http.Resilience.
     /// </summary>
     public bool Resilience { get; set; }
+
 
     /// <summary>
     ///     More hosts than the BaseAddress host that may receive the client's credentials (key <c>AllowedHosts</c>: an array, or a
@@ -254,7 +256,8 @@ internal sealed class RocketsClientOptionsSetup :
     private static readonly string ConnectionStringKeyList = KeyList(
         new[]
         {
-            "BaseAddress (or Endpoint)", "Timeout", "Resilience", "AllowedHosts", "Authentication",
+            "BaseAddress (or Endpoint)", "Timeout", "Resilience",
+            "AllowedHosts", "Authentication",
             "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
             "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
             "ClientId", "ClientSecret", "Scope",
@@ -1509,8 +1512,8 @@ public static class RocketsClientServiceCollectionExtensions
     /// <summary>
     ///     Registers <see cref="IRocketsClient" /> with <c>IHttpClientFactory</c>, with its options, <see cref="RocketsClientOptions" />. Each time
     ///     the client's <c>HttpClient</c> is created, it takes BaseAddress, Timeout and DefaultRequestHeaders from the options, and the
-    ///     standard resilience handler is kept when Resilience is <c>true</c> (only when the project references
-    ///     Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
+    ///     standard resilience handler is kept when Resilience is <c>true</c>, or an object of its settings (only when the project
+    ///     references Microsoft.Extensions.Http.Resilience). An option that isn't set leaves the <c>HttpClient</c> as it is. Each time the primary
     ///     handler is made, it presents the client certificate the options give, for mutual TLS; a <c>ConfigurePrimaryHttpMessageHandler</c>
     ///     that makes a new handler, on the builder this returns, replaces that handler, certificate included. The options are validated
     ///     when the host starts, or when the client is first created without a host.

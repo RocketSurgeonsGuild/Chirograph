@@ -1,0 +1,19 @@
+﻿{
+  NotReferenced: [
+    KiotaClient/KiotaClientOptions.g.cs,
+    KiotaClient/KiotaClientServiceCollectionExtensions.g.cs,
+    OtherKiotaClient/OtherKiotaClientOptions.g.cs,
+    OtherKiotaClient/OtherKiotaClientServiceCollectionExtensions.g.cs,
+    RefitterClient/RefitterClientOptions.g.cs,
+    RefitterClient/RefitterClientServiceCollectionExtensions.g.cs
+  ],
+  Referenced: [
+    ChirographResilience.g.cs,
+    KiotaClient/KiotaClientOptions.g.cs,
+    KiotaClient/KiotaClientServiceCollectionExtensions.g.cs,
+    OtherKiotaClient/OtherKiotaClientOptions.g.cs,
+    OtherKiotaClient/OtherKiotaClientServiceCollectionExtensions.g.cs,
+    RefitterClient/RefitterClientOptions.g.cs,
+    RefitterClient/RefitterClientServiceCollectionExtensions.g.cs
+  ]
+}

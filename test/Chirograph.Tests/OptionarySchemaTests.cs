@@ -162,6 +162,40 @@ public class OptionarySchemaTests(string targetFramework) : LoggerTest<TestRecor
         );
     }
 
+    /// <summary>
+    /// Build seam: when the project references Microsoft.Extensions.Http.Resilience, <c>Resilience</c> takes <c>true</c> or <c>false</c>,
+    /// or an object of the standard resilience handler's settings. The result is the <c>Resilience</c> key of each client's schema.
+    /// </summary>
+    [Test]
+    public async Task Should_Describe_The_Resilience_Settings_When_Referenced()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        project
+           .AddProject(
+                "app/app.csproj",
+                ClientsApp(project, optionaryVersion: null, optionarySchema: "")
+                   .ItemPackageReference(ResiliencePackage, Config.CentralPackageVersion(ResiliencePackage, targetFramework))
+            )
+           .AddFile("app/rockets.json", RocketsApi.Document)
+           .AddFile("app/Program.cs", "System.Console.WriteLine();\n");
+
+        await project.Build("app");
+
+        var clients = new JsonObject(
+            ClientNames.Select(
+                name => KeyValuePair.Create(
+                    name,
+                    JsonNode.Parse(File.ReadAllText(Path.Combine(project.Directory, "app", "obj", "Debug", targetFramework, "openapi", name, $"{name}.schema.json")))!
+                        ["properties"]!["Resilience"]!.DeepClone()
+                )
+            )
+        );
+
+        await project.VerifyResult(clients.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+    }
+
+    private const string ResiliencePackage = "Microsoft.Extensions.Http.Resilience";
+
     private static void AddClientsApp(SdkTestProject project, string? optionaryVersion, string optionarySchema = "", string? authentication = null) =>
         project
            .AddProject("app/app.csproj", ClientsApp(project, optionaryVersion, optionarySchema, authentication))

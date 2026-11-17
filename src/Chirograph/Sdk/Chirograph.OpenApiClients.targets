@@ -39,7 +39,9 @@
       that copy or its settings (generator, its version, ClientName, Namespace, Options) change. The generated code is in
       $(ChirographOpenApiClientsDirectory)<ClientName>/, with <ClientName>ServiceCollectionExtensions.g.cs, the registration, and
       <ClientName>Options.g.cs, the options it reads (from Clients:<ClientName> and the client's connection string), next to it, and
-      <ClientName>.schema.json, the schema of that section (Chirograph.OpenApiClientSchemas.targets).
+      <ClientName>.schema.json, the schema of that section (Chirograph.OpenApiClientSchemas.targets). The code the clients share is
+      written once, into $(ChirographOpenApiClientsDirectory): ChirographResilience.g.cs, when the project references
+      Microsoft.Extensions.Http.Resilience.
 
       With Dovetail, each client also gets a joint that calls the registration, so a host built with ConfigureDovetail() resolves the client
       with no registration call. Chirograph doesn't write it: it declares a DovetailTemplate item, Chirograph.<ClientName>, which Dovetail
@@ -222,6 +224,8 @@
     <!-- read here rather than when the project is evaluated, so the file can be imported before IntermediateOutputPath is set -->
     <PropertyGroup>
       <ChirographOpenApiClientsDirectory Condition="'$(ChirographOpenApiClientsDirectory)' == ''">$(IntermediateOutputPath)openapi/</ChirographOpenApiClientsDirectory>
+      <!-- the code every client shares, once for the project: the settings of the standard resilience handler -->
+      <_ChirographResilienceFile>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(ChirographOpenApiClientsDirectory)', 'ChirographResilience.g.cs'))</_ChirographResilienceFile>
     </PropertyGroup>
     <ItemGroup>
       <_ChirographOpenApiClient>
@@ -511,6 +515,17 @@
     <ItemGroup>
       <_ChirographOpenApiClientRegistration Remove="@(_ChirographOpenApiClientRegistration)" />
     </ItemGroup>
+    <!--
+        The code the clients share, once for the project however many clients it has: with the Resilience block, the reading of the
+        standard resilience handler's settings. Without it the file goes, since its code needs Microsoft.Extensions.Http.Resilience.
+    -->
+    <ExpandOpenApiClientTemplate
+      Condition="$(_ChirographOpenApiTemplateBlocks.Contains(';Resilience;'))"
+      Template="$(MSBuildThisFileDirectory)templates/ChirographResilience.cs.template"
+      OutputFile="$(_ChirographResilienceFile)"
+      ChirographVersion="$(ChirographVersion)"
+    />
+    <Delete Condition="!$(_ChirographOpenApiTemplateBlocks.Contains(';Resilience;'))" Files="$(_ChirographResilienceFile)" />
   </Target>
 
   <!--
@@ -613,6 +628,7 @@
       <_ChirographOpenApiClientCode Include="%(_ChirographOpenApiClient.GeneratedDirectory)**/*.cs" />
       <_ChirographOpenApiClientCode Include="@(_ChirographOpenApiClient->'%(GeneratedRegistrationFile)')" Condition="Exists('%(_ChirographOpenApiClient.GeneratedRegistrationFile)')" />
       <_ChirographOpenApiClientCode Include="@(_ChirographOpenApiClient->'%(GeneratedOptionsFile)')" Condition="Exists('%(_ChirographOpenApiClient.GeneratedOptionsFile)')" />
+      <_ChirographOpenApiClientCode Include="$(_ChirographResilienceFile)" Condition="'@(_ChirographOpenApiClient)' != '' and Exists('$(_ChirographResilienceFile)')" />
       <Compile Include="@(_ChirographOpenApiClientCode)" />
       <FileWrites Include="@(_ChirographOpenApiClientCode)" />
       <!-- the stamp goes with the code dotnet clean removes, so the next build generates the client again -->

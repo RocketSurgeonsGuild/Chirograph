@@ -1,0 +1,53 @@
+﻿{
+  A connection string over the keys: {
+    Output:
+Refit.ApiException: Response status code does not indicate success: 503 (Service Unavailable).
+,
+    RocketRequests: 2
+  },
+  A connection string with bad settings: {
+    Output:
+Microsoft.Extensions.Options.OptionsValidationException: ConnectionStrings:RocketsClient (MaxRetryAttempts) is not an integer.; ConnectionStrings:RocketsClient sets Delay twice, as Delay and as delay.; ConnectionStrings:RocketsClient (AttemptTimeout) is not a TimeSpan, such as 00:00:30.; ConnectionStrings:RocketsClient has an unrecognised part.; When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.
+
+  },
+  Disabled: {
+    Output:
+Refit.ApiException: Response status code does not indicate success: 503 (Service Unavailable).
+,
+    RocketRequests: 1
+  },
+  Disabled in a connection string: {
+    Output:
+Refit.ApiException: Response status code does not indicate success: 503 (Service Unavailable).
+,
+    RocketRequests: 1
+  },
+  One retry: {
+    Output:
+Refit.ApiException: Response status code does not indicate success: 503 (Service Unavailable).
+,
+    RocketRequests: 2
+  },
+  Settings that don't parse: {
+    Output:
+Microsoft.Extensions.Options.OptionsValidationException: Clients:RocketsClient:Resilience:AttemptTimeout is a value, and must be an object of keys.; Clients:RocketsClient:Resilience:CircuitBreaker:FailureRatio is not a number, such as 0.1.; Clients:RocketsClient:Resilience:Enabled is not true or false.; Clients:RocketsClient:Resilience:RateLimiter:DefaultRateLimiterOptions:QueueProcessingOrder is not OldestFirst or NewestFirst.; Clients:RocketsClient:Resilience:Retry:BackoffType is not Constant, Linear or Exponential.; Clients:RocketsClient:Resilience:Retry:Delay is an object, and must be a value.; Clients:RocketsClient:Resilience:Retry:MaxRetryAttempts is not an integer.
+
+  },
+  Settings the handler rejects: {
+    Output:
+Microsoft.Extensions.Options.OptionsValidationException: MaxRetryAttempts: The field Refit.Implementation.Generatedapp+ThrowawayClientsIRocketsClient, app, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null-standard.Retry.MaxRetryAttempts must be between 1 and 2147483647.
+
+  },
+  Two retries: {
+    Output:
+IRocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9
+,
+    RocketRequests: 3
+  },
+  Two retries in a connection string: {
+    Output:
+IRocketsClient: 6f9619ff-8b86-d011-b42d-00cf4fc964ff FALCON-9
+,
+    RocketRequests: 3
+  }
+}

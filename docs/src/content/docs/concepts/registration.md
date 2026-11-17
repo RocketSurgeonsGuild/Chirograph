@@ -72,26 +72,26 @@ The section's path is an internal constant on the registration class, `RocketsCl
 }
 ```
 
-| Key                     | Type                 | Effect                                                                                                                                                                                                      |
-| ----------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ConnectionString`      | string               | The client's [connection string](#the-connection-string).                                                                                                                                                   |
-| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, Kiota uses the document's first server, Refit fails when called, unless [service discovery](#service-discovery) is on.          |
-| `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` in the invariant culture (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                           |
-| `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. Not in a connection string.                                                                                           |
-| `Resilience`            | bool                 | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker. It is read only when the project references Microsoft.Extensions.Http.Resilience. |
-| `AllowedHosts`          | array of hosts       | More hosts than the `BaseAddress` host that may receive the client's [credentials](#which-hosts-get-the-credentials). In a connection string, a comma-separated list.                                       |
-| `Authentication`        | method               | How the client authenticates: `None` (the default, the [container](#from-the-container) decides), `ApiKey`, `Bearer` or `Basic` ([configured](#configured-authentication)).                                 |
-| `ApiKey`                | string               | The key of `ApiKey`. Alias `Key`.                                                                                                                                                                           |
-| `ApiKeyHeader`          | string               | The header `ApiKey` sends the key in, `X-Api-Key` by default.                                                                                                                                               |
-| `ApiKeyQuery`           | string               | The query parameter `ApiKey` sends the key in, instead of a header.                                                                                                                                         |
-| `Token`                 | string               | The token of `Bearer`. In code, `TokenProvider` can give it instead.                                                                                                                                        |
-| `Username`              | string               | The user name of `Basic`.                                                                                                                                                                                   |
-| `Password`              | string               | The password of `Basic`.                                                                                                                                                                                    |
-| `CertificatePath`       | path                 | A [client certificate](#client-certificate-mtls), a PKCS#12 (`.pfx`, `.p12`) or PEM file.                                                                                                                   |
-| `CertificatePassword`   | string               | The password of the PKCS#12 file, or of the encrypted PEM key.                                                                                                                                              |
-| `CertificateKeyPath`    | path                 | The PEM private key, when `CertificatePath` is a PEM certificate without its key.                                                                                                                           |
-| `CertificateThumbprint` | string               | A client certificate in a certificate store, instead of a file.                                                                                                                                             |
-| `CertificateStore`      | `<location>/<name>`  | The store of `CertificateThumbprint`: `CurrentUser/My` (the default) or `LocalMachine/My`, say.                                                                                                             |
+| Key                     | Type                 | Effect                                                                                                                                                                                                                                                  |
+| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConnectionString`      | string               | The client's [connection string](#the-connection-string).                                                                                                                                                                                               |
+| `BaseAddress`           | absolute URI         | `HttpClient.BaseAddress`, `http` or `https`. Alias `Endpoint`. Without one, Kiota uses the document's first server, Refit fails when called, unless [service discovery](#service-discovery) is on.                                                      |
+| `Timeout`               | `TimeSpan`           | `HttpClient.Timeout`, written as `hh:mm:ss` in the invariant culture (`00:00:00.5` is half a second). Without one, the `HttpClient` default of 100 seconds stays.                                                                                       |
+| `DefaultRequestHeaders` | string to string map | Each entry is added to `HttpClient.DefaultRequestHeaders`, so every request sends it. Not in a connection string.                                                                                                                                       |
+| `Resilience`            | bool or object       | `true` keeps the standard resilience handler (`AddStandardResilienceHandler()`): retries, timeouts and a circuit breaker; an object sets its [settings](#resilience). It is read only when the project references Microsoft.Extensions.Http.Resilience. |
+| `AllowedHosts`          | array of hosts       | More hosts than the `BaseAddress` host that may receive the client's [credentials](#which-hosts-get-the-credentials). In a connection string, a comma-separated list.                                                                                   |
+| `Authentication`        | method               | How the client authenticates: `None` (the default, the [container](#from-the-container) decides), `ApiKey`, `Bearer` or `Basic` ([configured](#configured-authentication)).                                                                             |
+| `ApiKey`                | string               | The key of `ApiKey`. Alias `Key`.                                                                                                                                                                                                                       |
+| `ApiKeyHeader`          | string               | The header `ApiKey` sends the key in, `X-Api-Key` by default.                                                                                                                                                                                           |
+| `ApiKeyQuery`           | string               | The query parameter `ApiKey` sends the key in, instead of a header.                                                                                                                                                                                     |
+| `Token`                 | string               | The token of `Bearer`. In code, `TokenProvider` can give it instead.                                                                                                                                                                                    |
+| `Username`              | string               | The user name of `Basic`.                                                                                                                                                                                                                               |
+| `Password`              | string               | The password of `Basic`.                                                                                                                                                                                                                                |
+| `CertificatePath`       | path                 | A [client certificate](#client-certificate-mtls), a PKCS#12 (`.pfx`, `.p12`) or PEM file.                                                                                                                                                               |
+| `CertificatePassword`   | string               | The password of the PKCS#12 file, or of the encrypted PEM key.                                                                                                                                                                                          |
+| `CertificateKeyPath`    | path                 | The PEM private key, when `CertificatePath` is a PEM certificate without its key.                                                                                                                                                                       |
+| `CertificateThumbprint` | string               | A client certificate in a certificate store, instead of a file.                                                                                                                                                                                         |
+| `CertificateStore`      | `<location>/<name>`  | The store of `CertificateThumbprint`: `CurrentUser/My` (the default) or `LocalMachine/My`, say.                                                                                                                                                         |
 
 Keys are case-insensitive. A key that isn't set leaves the `HttpClient` as it is. Any configuration source works: the environment
 variable `Clients__RocketsClient__DefaultRequestHeaders__X-Api-Version` sets a header, for example.
@@ -118,7 +118,7 @@ It has the syntax of `DbConnectionStringBuilder`:
   `Endpoint='https://rockets.example.com/?a=1;b=2'`.
 - An unquoted value may contain `=`.
 
-It takes the keys of the table above, except `ConnectionString` and `DefaultRequestHeaders`. The parser is stricter than
+It takes the keys of the table above, except `ConnectionString` and `DefaultRequestHeaders`, and the [resilience settings](#resilience), as `MaxRetryAttempts`, `AttemptTimeout` and the like. The parser is stricter than
 `DbConnectionStringBuilder`: an unknown key and a key given twice (an alias with its key, `Endpoint` and `BaseAddress`, too) are errors.
 
 When an application already has a connection string named after the client for something else, a database say, set
@@ -140,7 +140,7 @@ problem. With a bare `ServiceCollection`, the same exception is thrown when the 
 It fails on:
 
 - an unknown key in the connection string, or a key given twice there (an alias with its key too);
-- a value that doesn't parse (`Timeout`, `Resilience`, `Authentication`), or a malformed connection string;
+- a value that doesn't parse (`Timeout`, `Resilience` and its [settings](#resilience), `Authentication`), or a malformed connection string;
 - a `BaseAddress` that isn't an absolute `http` or `https` URI (or, with [service discovery](#service-discovery), a service-discovery
   address), or a `Timeout` that isn't positive;
 - with service discovery, no service-discovery provider registered by the application;
@@ -167,8 +167,62 @@ another package or project), the build sees it among the resolved references and
 it calls `AddStandardResilienceHandler()` on the client's builder, and takes the handler out again when the client's handlers are
 built unless `Resilience` is `true`. Without the package the registration has no such code, it compiles, and `Resilience` is ignored.
 
-The key turns on the handler with its default options. To tune them, or to add a handler of your own, chain on the builder the
-registration returns instead.
+`Resilience` is either `true` or `false`, or an object of the handler's settings, named as `HttpStandardResilienceOptions` names them
+(the [standard resilience handler](https://learn.microsoft.com/dotnet/core/resilience/http-resilience#standard-resilience-handler-defaults)).
+An object keeps the handler, unless its `Enabled` is `false`, and a setting it leaves out keeps the handler's default:
+
+```json
+{
+    "Clients": {
+        "RocketsClient": {
+            "Resilience": {
+                "Retry": { "MaxRetryAttempts": 5, "BackoffType": "Exponential", "Delay": "00:00:01" },
+                "AttemptTimeout": { "Timeout": "00:00:05" },
+                "TotalRequestTimeout": { "Timeout": "00:01:00" },
+                "CircuitBreaker": { "FailureRatio": 0.2, "SamplingDuration": "00:00:30" }
+            }
+        }
+    }
+}
+```
+
+| Setting                                                      | Type                                | Default       |
+| ------------------------------------------------------------ | ----------------------------------- | ------------- |
+| `Enabled`                                                    | bool                                | `true`        |
+| `RateLimiter:DefaultRateLimiterOptions:PermitLimit`          | int                                 | `1000`        |
+| `RateLimiter:DefaultRateLimiterOptions:QueueLimit`           | int                                 | `0`           |
+| `RateLimiter:DefaultRateLimiterOptions:QueueProcessingOrder` | `OldestFirst`, `NewestFirst`        | `OldestFirst` |
+| `TotalRequestTimeout:Timeout`                                | `TimeSpan`                          | `00:00:30`    |
+| `Retry:MaxRetryAttempts`                                     | int                                 | `3`           |
+| `Retry:BackoffType`                                          | `Constant`, `Linear`, `Exponential` | `Exponential` |
+| `Retry:UseJitter`                                            | bool                                | `true`        |
+| `Retry:Delay`                                                | `TimeSpan`                          | `00:00:02`    |
+| `Retry:MaxDelay`                                             | `TimeSpan`                          | none          |
+| `Retry:ShouldRetryAfterHeader`                               | bool                                | `true`        |
+| `CircuitBreaker:FailureRatio`                                | number, 0 to 1                      | `0.1`         |
+| `CircuitBreaker:MinimumThroughput`                           | int                                 | `100`         |
+| `CircuitBreaker:SamplingDuration`                            | `TimeSpan`                          | `00:00:30`    |
+| `CircuitBreaker:BreakDuration`                               | `TimeSpan`                          | `00:00:05`    |
+| `AttemptTimeout:Timeout`                                     | `TimeSpan`                          | `00:00:10`    |
+
+The registration reads them without reflection into `RocketsClientOptions.ResilienceOptions`, so code can change them too
+(`AddRocketsClient(o => o.ResilienceOptions.Retry.MaxRetryAttempts = 5)`), and hands them to the handler whenever the options are filled,
+when configuration reloads too. A value that doesn't parse fails [validation](#validation); Microsoft.Extensions.Http.Resilience checks
+the rest when the host starts (`MaxRetryAttempts` at least 1, an `AttemptTimeout` shorter than the `TotalRequestTimeout`, a
+`SamplingDuration` at least twice the `AttemptTimeout`, and so on). To add a handler of your own, chain on the builder the registration
+returns.
+
+A [connection string](#the-connection-string) takes the same settings, as keys named after them: the last name of each setting
+(`MaxRetryAttempts`, `Delay`, `FailureRatio`, `PermitLimit`, and so on), except the two timeouts, which are `TotalRequestTimeout` and
+`AttemptTimeout` since `Timeout` is the client's. They win over the keys of the section, and a setting turns the handler on unless the
+connection string also sets `Resilience`:
+
+```text
+Endpoint=https://rockets.example.com/;MaxRetryAttempts=5;AttemptTimeout=00:00:05
+```
+
+The code that reads the settings is written once for the project, `ChirographResilience.g.cs` next to the clients' folders in `obj`, and
+shared by every client: only when the project references Microsoft.Extensions.Http.Resilience.
 
 ## Service discovery
 

@@ -81,12 +81,12 @@ internal static class RocketsApp
     };
 
     /// <summary>
-    /// <see cref="Program(Generator, string)" />, except that a call that fails writes the type and message of its exception instead of
+    /// <see cref="Program(Generator, string)" />, except that creating the client or a call that fails writes the type and message of its exception instead of
     /// failing the application.
     /// </summary>
     public static string ProgramReportingFailure(Generator generator) =>
         Program(generator)
-           .Replace("var rocket = await", "try\n{\n    var rocket = await", StringComparison.Ordinal)
+           .Replace("var client = ", "try\n{\n    var client = ", StringComparison.Ordinal)
            .TrimEnd()
            + "\n}\ncatch (Exception e)\n{\n    Console.WriteLine($\"{e.GetType().FullName}: {e.Message}\");\n}\n";
 

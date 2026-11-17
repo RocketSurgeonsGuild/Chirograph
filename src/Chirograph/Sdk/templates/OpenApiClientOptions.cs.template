@@ -105,10 +105,24 @@ public sealed class __ClientName__Options
         new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    ///     Whether the standard resilience handler is kept (key <c>Resilience</c>). Read only when the project references
+    ///     Whether the standard resilience handler is kept (key <c>Resilience</c>: <c>true</c> or <c>false</c>, or an object of its
+    ///     settings, which keeps it unless its <c>Enabled</c> is <c>false</c>). Read only when the project references
     ///     Microsoft.Extensions.Http.Resilience.
     /// </summary>
     public bool Resilience { get; set; }
+
+    //#if Resilience
+    /// <summary>
+    ///     The settings of the standard resilience handler (key <c>Resilience</c>, as an object: <c>RateLimiter</c>,
+    ///     <c>TotalRequestTimeout</c>, <c>Retry</c>, <c>CircuitBreaker</c> and <c>AttemptTimeout</c>, as
+    ///     <c>HttpStandardResilienceOptions</c> names them, or the keys of a connection string named after them). The
+    ///     defaults are the handler's; code can change them too. They are given to the handler each time these options are filled, and
+    ///     Microsoft.Extensions.Http.Resilience checks them when the host starts.
+    /// </summary>
+    public global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions ResilienceOptions { get; } =
+        new global::Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions();
+
+    //#endif
 
     /// <summary>
     ///     More hosts than the BaseAddress host that may receive the client's credentials (key <c>AllowedHosts</c>: an array, or a
@@ -345,7 +359,13 @@ internal sealed class __ClientName__OptionsSetup :
     private static readonly string ConnectionStringKeyList = KeyList(
         new[]
         {
-            "BaseAddress (or Endpoint)", "Timeout", "Resilience", "AllowedHosts", "Authentication",
+            "BaseAddress (or Endpoint)", "Timeout", "Resilience",
+            //#if Resilience
+            "PermitLimit", "QueueLimit", "QueueProcessingOrder", "TotalRequestTimeout", "MaxRetryAttempts", "BackoffType", "UseJitter",
+            "Delay", "MaxDelay", "ShouldRetryAfterHeader", "FailureRatio", "MinimumThroughput", "SamplingDuration", "BreakDuration",
+            "AttemptTimeout",
+            //#endif
+            "AllowedHosts", "Authentication",
             "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
             "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
             //#if ClientCredentials|Azure
@@ -500,6 +520,16 @@ internal sealed class __ClientName__OptionsSetup :
                 continue;
             }
 
+            //#if Resilience
+            if (name == "Resilience" && child.Value is null)
+            {
+                var enabled = options.Resilience;
+                global::Chirograph.ChirographResilience.Read(child, where, options.ResilienceOptions, ref enabled, options.ConfigurationErrors);
+                options.Resilience = enabled;
+                continue;
+            }
+
+            //#endif
             if (child.Value is null)
             {
                 LogIgnoredObject(where);
@@ -748,6 +778,9 @@ internal sealed class __ClientName__OptionsSetup :
     {
         var seen = new global::System.Collections.Generic.Dictionary<string, string>(global::System.StringComparer.OrdinalIgnoreCase);
         var unknown = false;
+        //#if Resilience
+        var resilienceSettings = false;
+        //#endif
         var i = 0;
         while (true)
         {
@@ -848,6 +881,28 @@ internal sealed class __ClientName__OptionsSetup :
                 continue;
             }
 
+            //#if Resilience
+            // a setting of the standard resilience handler, which turns it on
+            if (global::Chirograph.ChirographResilience.ConnectionStringSetting(key) is { } setting)
+            {
+                if (seen.TryGetValue(setting.Name, out var otherSetting))
+                {
+                    options.ConfigurationErrors.Add($"{source} sets {setting.Name} twice, as {otherSetting} and as {key}.");
+                    continue;
+                }
+
+                seen[setting.Name] = key;
+                resilienceSettings = true;
+                if (value.Length > 0)
+                {
+                    var enabled = options.Resilience;
+                    global::Chirograph.ChirographResilience.Set(options.ResilienceOptions, ref enabled, setting.Path, value, $"{source} ({key})", options.ConfigurationErrors);
+                }
+
+                continue;
+            }
+
+            //#endif
             var name = KeyName(key);
             if (name is null or "ConnectionString" or "DefaultRequestHeaders")
             {
@@ -876,6 +931,14 @@ internal sealed class __ClientName__OptionsSetup :
             }
         }
 
+        //#if Resilience
+        // a setting turns the handler on, unless the connection string says otherwise with Resilience
+        if (resilienceSettings && !seen.ContainsKey("Resilience"))
+        {
+            options.Resilience = true;
+        }
+
+        //#endif
         if (unknown && source == FallbackConnectionStringKey)
         {
             options.ConfigurationErrors.Add(
