@@ -7,7 +7,7 @@ Refit.ApiException: Response status code does not indicate success: 503 (Service
   },
   A connection string with bad settings: {
     Output:
-Microsoft.Extensions.Options.OptionsValidationException: ConnectionStrings:RocketsClient has an unknown resilience setting, Resilience:Retry:Retries.; ConnectionStrings:RocketsClient has an unknown resilience setting, Resilience:Retry.; ConnectionStrings:RocketsClient (Resilience:Retry:Delay) is not a TimeSpan, such as 00:00:30.; ConnectionStrings:RocketsClient sets Resilience:Retry:Delay twice, as Resilience:Retry:Delay and as Resilience:Retry:Delay.; ConnectionStrings:RocketsClient sets Resilience twice, as Resilience and as Resilience:Enabled.
+Microsoft.Extensions.Options.OptionsValidationException: ConnectionStrings:RocketsClient (MaxRetryAttempts) is not an integer.; ConnectionStrings:RocketsClient sets Delay twice, as Delay and as delay.; ConnectionStrings:RocketsClient (AttemptTimeout) is not a TimeSpan, such as 00:00:30.; ConnectionStrings:RocketsClient has an unrecognised part.; When ConnectionStrings:RocketsClient is the connection string of something else, set Clients:RocketsClient:ConnectionString to an empty value: the client then doesn't read it.
 
   },
   Disabled: {

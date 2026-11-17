@@ -58,7 +58,7 @@ public sealed class RocketsClientOptions
     /// <summary>
     ///     The settings of the standard resilience handler (key <c>Resilience</c>, as an object: <c>RateLimiter</c>,
     ///     <c>TotalRequestTimeout</c>, <c>Retry</c>, <c>CircuitBreaker</c> and <c>AttemptTimeout</c>, as
-    ///     <c>HttpStandardResilienceOptions</c> names them, or the <c>Resilience:&lt;setting&gt;</c> keys of a connection string). The
+    ///     <c>HttpStandardResilienceOptions</c> names them, or the keys of a connection string named after them). The
     ///     defaults are the handler's; code can change them too. They are given to the handler each time these options are filled, and
     ///     Microsoft.Extensions.Http.Resilience checks them when the host starts.
     /// </summary>
@@ -160,8 +160,6 @@ internal sealed class RocketsClientOptionsSetup :
         "BASEADDRESS" or "ENDPOINT" => "BaseAddress",
         "TIMEOUT" => "Timeout",
         "RESILIENCE" => "Resilience",
-        // only a connection string can have this key: in configuration, Resilience:Enabled is under the Resilience object
-        "RESILIENCE:ENABLED" => "Resilience",
         "DEFAULTREQUESTHEADERS" => "DefaultRequestHeaders",
         "ALLOWEDHOSTS" => "AllowedHosts",
         "AUTHENTICATION" => "Authentication",
@@ -210,7 +208,9 @@ internal sealed class RocketsClientOptionsSetup :
         new[]
         {
             "BaseAddress (or Endpoint)", "Timeout", "Resilience",
-            "Resilience:<setting> (Resilience:Enabled is an alias of Resilience)",
+            "PermitLimit", "QueueLimit", "QueueProcessingOrder", "TotalRequestTimeout", "MaxRetryAttempts", "BackoffType", "UseJitter",
+            "Delay", "MaxDelay", "ShouldRetryAfterHeader", "FailureRatio", "MinimumThroughput", "SamplingDuration", "BreakDuration",
+            "AttemptTimeout",
             "AllowedHosts", "Authentication",
             "ApiKey (or Key)", "ApiKeyHeader", "ApiKeyQuery", "Token", "Username", "Password",
             "CertificatePath", "CertificatePassword", "CertificateKeyPath", "CertificateThumbprint", "CertificateStore",
@@ -646,29 +646,21 @@ internal sealed class RocketsClientOptionsSetup :
                 continue;
             }
 
-            // Resilience:<setting>, a setting of the standard resilience handler, which turns it on; Resilience:Enabled is an alias of
-            // Resilience
-            if (ResilienceSetting(key) is { } setting && setting != "ENABLED")
+            // a setting of the standard resilience handler, which turns it on
+            if (global::Chirograph.ChirographResilience.ConnectionStringSetting(key) is { } setting)
             {
-                if (global::Chirograph.ChirographResilience.IsValue(setting) != true)
+                if (seen.TryGetValue(setting.Name, out var otherSetting))
                 {
-                    // a misspelled setting, not the connection string of something else: no hint about that
-                    options.ConfigurationErrors.Add($"{source} has an unknown resilience setting, {key}.");
+                    options.ConfigurationErrors.Add($"{source} sets {setting.Name} twice, as {otherSetting} and as {key}.");
                     continue;
                 }
 
-                if (seen.TryGetValue("Resilience:" + setting, out var otherSetting))
-                {
-                    options.ConfigurationErrors.Add($"{source} sets {key} twice, as {otherSetting} and as {key}.");
-                    continue;
-                }
-
-                seen["Resilience:" + setting] = key;
+                seen[setting.Name] = key;
                 resilienceSettings = true;
                 if (value.Length > 0)
                 {
                     var enabled = options.Resilience;
-                    global::Chirograph.ChirographResilience.Set(options.ResilienceOptions, ref enabled, setting, value, $"{source} ({key})", options.ConfigurationErrors);
+                    global::Chirograph.ChirographResilience.Set(options.ResilienceOptions, ref enabled, setting.Path, value, $"{source} ({key})", options.ConfigurationErrors);
                 }
 
                 continue;
@@ -702,7 +694,7 @@ internal sealed class RocketsClientOptionsSetup :
             }
         }
 
-        // a setting turns the handler on, unless the connection string says otherwise (Resilience, or Resilience:Enabled)
+        // a setting turns the handler on, unless the connection string says otherwise with Resilience
         if (resilienceSettings && !seen.ContainsKey("Resilience"))
         {
             options.Resilience = true;
@@ -714,27 +706,6 @@ internal sealed class RocketsClientOptionsSetup :
                 $"When {FallbackConnectionStringKey} is the connection string of something else, set {ConnectionStringKey} to an empty value: the client then doesn't read it."
             );
         }
-    }
-
-    // the path of a Resilience:<setting> key of a connection string, in upper case, else null
-    private static string? ResilienceSetting(string key)
-    {
-        const string Prefix = "Resilience:";
-        if (key.Length <= Prefix.Length || !key.StartsWith(Prefix, global::System.StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var path = key.Substring(Prefix.Length);
-        foreach (var c in path)
-        {
-            if (!IsLetter(c) && c != ':')
-            {
-                return null;
-            }
-        }
-
-        return path.ToUpperInvariant();
     }
 
     // whether the text reads as a key: a letter, then letters, digits and spaces, as a key name is written
@@ -1451,7 +1422,7 @@ namespace Chirograph;
 
 /// <summary>
 ///     The standard resilience handler of the project's clients: reading its settings, as <c>HttpStandardResilienceOptions</c> names them,
-///     from a <c>Resilience</c> object of configuration or the <c>Resilience:&lt;setting&gt;</c> keys of a connection string, without
+///     from a <c>Resilience</c> object of configuration or the keys of a connection string named after them, without
 ///     reflection, and giving them to a client's handler. No message repeats a value from configuration.
 /// </summary>
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "{chirograph-version}")]
@@ -1552,7 +1523,7 @@ internal static class ChirographResilience
     ///     Whether the setting at <paramref name="path" /> (in upper case, its names separated by <c>:</c>) is a value (<c>true</c>), an
     ///     object of settings (<c>false</c>), or no setting at all (<c>null</c>).
     /// </summary>
-    internal static bool? IsValue(string path) => path switch
+    private static bool? IsValue(string path) => path switch
     {
         "ENABLED"
             or "RATELIMITER:DEFAULTRATELIMITEROPTIONS:PERMITLIMIT"
@@ -1571,6 +1542,31 @@ internal static class ChirographResilience
             or "CIRCUITBREAKER:BREAKDURATION"
             or "ATTEMPTTIMEOUT:TIMEOUT" => true,
         "RATELIMITER" or "RATELIMITER:DEFAULTRATELIMITEROPTIONS" or "TOTALREQUESTTIMEOUT" or "RETRY" or "CIRCUITBREAKER" or "ATTEMPTTIMEOUT" => false,
+        _ => null,
+    };
+
+    /// <summary>
+    ///     The setting a key of a connection string stands for, whatever its case: its name, as messages give it, and its path. A setting
+    ///     is the last name of its path, unless that name is ambiguous: the two timeouts are <c>TotalRequestTimeout</c> and
+    ///     <c>AttemptTimeout</c>, since <c>Timeout</c> is the client's. <c>null</c> for a key that is no setting.
+    /// </summary>
+    internal static (string Name, string Path)? ConnectionStringSetting(string key) => key.ToUpperInvariant() switch
+    {
+        "PERMITLIMIT" => ("PermitLimit", "RATELIMITER:DEFAULTRATELIMITEROPTIONS:PERMITLIMIT"),
+        "QUEUELIMIT" => ("QueueLimit", "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUELIMIT"),
+        "QUEUEPROCESSINGORDER" => ("QueueProcessingOrder", "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUEPROCESSINGORDER"),
+        "TOTALREQUESTTIMEOUT" => ("TotalRequestTimeout", "TOTALREQUESTTIMEOUT:TIMEOUT"),
+        "MAXRETRYATTEMPTS" => ("MaxRetryAttempts", "RETRY:MAXRETRYATTEMPTS"),
+        "BACKOFFTYPE" => ("BackoffType", "RETRY:BACKOFFTYPE"),
+        "USEJITTER" => ("UseJitter", "RETRY:USEJITTER"),
+        "DELAY" => ("Delay", "RETRY:DELAY"),
+        "MAXDELAY" => ("MaxDelay", "RETRY:MAXDELAY"),
+        "SHOULDRETRYAFTERHEADER" => ("ShouldRetryAfterHeader", "RETRY:SHOULDRETRYAFTERHEADER"),
+        "FAILURERATIO" => ("FailureRatio", "CIRCUITBREAKER:FAILURERATIO"),
+        "MINIMUMTHROUGHPUT" => ("MinimumThroughput", "CIRCUITBREAKER:MINIMUMTHROUGHPUT"),
+        "SAMPLINGDURATION" => ("SamplingDuration", "CIRCUITBREAKER:SAMPLINGDURATION"),
+        "BREAKDURATION" => ("BreakDuration", "CIRCUITBREAKER:BREAKDURATION"),
+        "ATTEMPTTIMEOUT" => ("AttemptTimeout", "ATTEMPTTIMEOUT:TIMEOUT"),
         _ => null,
     };
 

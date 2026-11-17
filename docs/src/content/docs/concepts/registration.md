@@ -118,7 +118,7 @@ It has the syntax of `DbConnectionStringBuilder`:
   `Endpoint='https://rockets.example.com/?a=1;b=2'`.
 - An unquoted value may contain `=`.
 
-It takes the keys of the table above, except `ConnectionString` and `DefaultRequestHeaders`, and the [resilience settings](#resilience) as `Resilience:<setting>` keys. The parser is stricter than
+It takes the keys of the table above, except `ConnectionString` and `DefaultRequestHeaders`, and the [resilience settings](#resilience), as `MaxRetryAttempts`, `AttemptTimeout` and the like. The parser is stricter than
 `DbConnectionStringBuilder`: an unknown key and a key given twice (an alias with its key, `Endpoint` and `BaseAddress`, too) are errors.
 
 When an application already has a connection string named after the client for something else, a database say, set
@@ -212,11 +212,13 @@ the rest when the host starts (`MaxRetryAttempts` at least 1, an `AttemptTimeout
 `SamplingDuration` at least twice the `AttemptTimeout`, and so on). To add a handler of your own, chain on the builder the registration
 returns.
 
-A [connection string](#the-connection-string) takes the same settings as `Resilience:<setting>` keys, which win over the keys of the
-section. A setting turns the handler on, unless the connection string also sets `Resilience` (or its alias, `Resilience:Enabled`):
+A [connection string](#the-connection-string) takes the same settings, as keys named after them: the last name of each setting
+(`MaxRetryAttempts`, `Delay`, `FailureRatio`, `PermitLimit`, and so on), except the two timeouts, which are `TotalRequestTimeout` and
+`AttemptTimeout` since `Timeout` is the client's. They win over the keys of the section, and a setting turns the handler on unless the
+connection string also sets `Resilience`:
 
 ```text
-Endpoint=https://rockets.example.com/;Resilience:Retry:MaxRetryAttempts=5;Resilience:AttemptTimeout:Timeout=00:00:05
+Endpoint=https://rockets.example.com/;MaxRetryAttempts=5;AttemptTimeout=00:00:05
 ```
 
 The code that reads the settings is written once for the project, `ChirographResilience.g.cs` next to the clients' folders in `obj`, and

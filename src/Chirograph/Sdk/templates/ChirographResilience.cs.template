@@ -8,7 +8,7 @@ namespace Chirograph;
 
 /// <summary>
 ///     The standard resilience handler of the project's clients: reading its settings, as <c>HttpStandardResilienceOptions</c> names them,
-///     from a <c>Resilience</c> object of configuration or the <c>Resilience:&lt;setting&gt;</c> keys of a connection string, without
+///     from a <c>Resilience</c> object of configuration or the keys of a connection string named after them, without
 ///     reflection, and giving them to a client's handler. No message repeats a value from configuration.
 /// </summary>
 [global::System.CodeDom.Compiler.GeneratedCode("Chirograph", "__ChirographVersion__")]
@@ -109,7 +109,7 @@ internal static class ChirographResilience
     ///     Whether the setting at <paramref name="path" /> (in upper case, its names separated by <c>:</c>) is a value (<c>true</c>), an
     ///     object of settings (<c>false</c>), or no setting at all (<c>null</c>).
     /// </summary>
-    internal static bool? IsValue(string path) => path switch
+    private static bool? IsValue(string path) => path switch
     {
         "ENABLED"
             or "RATELIMITER:DEFAULTRATELIMITEROPTIONS:PERMITLIMIT"
@@ -128,6 +128,31 @@ internal static class ChirographResilience
             or "CIRCUITBREAKER:BREAKDURATION"
             or "ATTEMPTTIMEOUT:TIMEOUT" => true,
         "RATELIMITER" or "RATELIMITER:DEFAULTRATELIMITEROPTIONS" or "TOTALREQUESTTIMEOUT" or "RETRY" or "CIRCUITBREAKER" or "ATTEMPTTIMEOUT" => false,
+        _ => null,
+    };
+
+    /// <summary>
+    ///     The setting a key of a connection string stands for, whatever its case: its name, as messages give it, and its path. A setting
+    ///     is the last name of its path, unless that name is ambiguous: the two timeouts are <c>TotalRequestTimeout</c> and
+    ///     <c>AttemptTimeout</c>, since <c>Timeout</c> is the client's. <c>null</c> for a key that is no setting.
+    /// </summary>
+    internal static (string Name, string Path)? ConnectionStringSetting(string key) => key.ToUpperInvariant() switch
+    {
+        "PERMITLIMIT" => ("PermitLimit", "RATELIMITER:DEFAULTRATELIMITEROPTIONS:PERMITLIMIT"),
+        "QUEUELIMIT" => ("QueueLimit", "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUELIMIT"),
+        "QUEUEPROCESSINGORDER" => ("QueueProcessingOrder", "RATELIMITER:DEFAULTRATELIMITEROPTIONS:QUEUEPROCESSINGORDER"),
+        "TOTALREQUESTTIMEOUT" => ("TotalRequestTimeout", "TOTALREQUESTTIMEOUT:TIMEOUT"),
+        "MAXRETRYATTEMPTS" => ("MaxRetryAttempts", "RETRY:MAXRETRYATTEMPTS"),
+        "BACKOFFTYPE" => ("BackoffType", "RETRY:BACKOFFTYPE"),
+        "USEJITTER" => ("UseJitter", "RETRY:USEJITTER"),
+        "DELAY" => ("Delay", "RETRY:DELAY"),
+        "MAXDELAY" => ("MaxDelay", "RETRY:MAXDELAY"),
+        "SHOULDRETRYAFTERHEADER" => ("ShouldRetryAfterHeader", "RETRY:SHOULDRETRYAFTERHEADER"),
+        "FAILURERATIO" => ("FailureRatio", "CIRCUITBREAKER:FAILURERATIO"),
+        "MINIMUMTHROUGHPUT" => ("MinimumThroughput", "CIRCUITBREAKER:MINIMUMTHROUGHPUT"),
+        "SAMPLINGDURATION" => ("SamplingDuration", "CIRCUITBREAKER:SAMPLINGDURATION"),
+        "BREAKDURATION" => ("BreakDuration", "CIRCUITBREAKER:BREAKDURATION"),
+        "ATTEMPTTIMEOUT" => ("AttemptTimeout", "ATTEMPTTIMEOUT:TIMEOUT"),
         _ => null,
     };
 

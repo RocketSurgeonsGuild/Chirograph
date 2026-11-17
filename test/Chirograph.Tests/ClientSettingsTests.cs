@@ -98,9 +98,9 @@ public class ClientSettingsTests(string targetFramework) : LoggerTest<TestRecord
     /// <c>Resilience</c> as an object sets the standard resilience handler's settings, and keeps the handler unless its <c>Enabled</c> is
     /// <c>false</c>. The API fails the first two calls with a <c>503</c>: one retry fails the call after two requests, two retries get it
     /// through on the third, and <c>Enabled</c> <c>false</c> fails it on the first. A setting that doesn't parse, or that the handler
-    /// rejects, fails the call before any request. A connection string takes the same settings as <c>Resilience:&lt;setting&gt;</c> keys,
-    /// over the keys of the section; an unknown setting, a setting given twice and an object given a value are errors there. The result
-    /// is each scenario's output and the requests the API got.
+    /// rejects, fails the call before any request. A connection string takes the same settings as keys named after them
+    /// (<c>MaxRetryAttempts</c>, <c>AttemptTimeout</c>), over the keys of the section; a value that doesn't parse, a setting given twice
+    /// and a key that is no setting are errors there. The result is each scenario's output and the requests the API got.
     /// </summary>
     [Test]
     [Arguments(Generator.Kiota)]
@@ -149,21 +149,21 @@ public class ClientSettingsTests(string targetFramework) : LoggerTest<TestRecord
             ["Two retries in a connection string"] = new()
             {
                 ["ConnectionStrings__RocketsClient"] =
-                    "Resilience:Retry:MaxRetryAttempts=2;resilience:retry:backofftype=Constant;Resilience:Retry:Delay=00:00:00.01",
+                    "MaxRetryAttempts=2;backofftype=Constant;Delay=00:00:00.01;AttemptTimeout=00:00:05;TotalRequestTimeout=00:00:20",
             },
             ["A connection string over the keys"] = new(quickRetries)
             {
                 ["Clients__RocketsClient__Resilience__Retry__MaxRetryAttempts"] = "2",
-                ["ConnectionStrings__RocketsClient"] = "Resilience:Retry:MaxRetryAttempts=1",
+                ["ConnectionStrings__RocketsClient"] = "MaxRetryAttempts=1",
             },
             ["Disabled in a connection string"] = new(quickRetries)
             {
-                ["ConnectionStrings__RocketsClient"] = "Resilience:Retry:MaxRetryAttempts=2;Resilience:Enabled=false",
+                ["ConnectionStrings__RocketsClient"] = "MaxRetryAttempts=2;Resilience=false",
             },
             ["A connection string with bad settings"] = new()
             {
                 ["ConnectionStrings__RocketsClient"] =
-                    "Resilience:Retry:Retries=2;Resilience:Retry=s3cr3t;Resilience:Retry:Delay=s3cr3t;Resilience:Retry:Delay=00:00:01;Resilience=true;Resilience:Enabled=true",
+                    "MaxRetryAttempts=s3cr3t;Delay=00:00:01;delay=00:00:02;AttemptTimeout=s3cr3t;Resilience:Retry:MaxRetryAttempts=2",
             },
         };
 
