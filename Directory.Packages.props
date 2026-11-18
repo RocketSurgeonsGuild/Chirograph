@@ -5,9 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <GlobalPackageReference Include="Microsoft.DotNet.ApiCompat.Task" Version="11.0.100" />
-    <GlobalPackageReference Include="ZeroAlloc.Analyzers" Version="1.13.0" />
     <GlobalPackageReference Include="Spectre.Console.Analyzer" Version="1.0.0" />
-    <GlobalPackageReference Include="JetBrains.ExternalAnnotations" Version="10.2.172" />
   </ItemGroup>
   <ItemGroup Label="Build host">
     <!-- build/Build.cs, the ModularPipelines file-based app behind `mise run build`. -->
