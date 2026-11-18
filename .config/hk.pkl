@@ -4,7 +4,7 @@ import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Builtin
 import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/builtins/test/helpers.pkl"
 
 // Solution the .NET formatters operate against.
-local solution = "LaunchPad.slnx"
+local solution = "Chirograph.slnx"
 
 local excludeDiagnostics = new Listing<String> {
   "CA1869"
@@ -16,9 +16,6 @@ local excludeDiagnostics = new Listing<String> {
   "CS1591"
   "CS8602"
   "CS8604"
-  // A nullable annotation outside a nullable context: reported when the formatter's workspace evaluates a project without its Nullable
-  // setting (CI's does for the samples), and "fixed" by stripping the annotation, which changes what HotChocolate infers.
-  "CS8632"
   "IDE0052"
   "IDE0060"
   "IDE0130"
@@ -64,6 +61,9 @@ local excludedDiagnosticsString = excludeDiagnostics.join(" ")
 // Has a real verify mode, so it can run in `check` as well as `fix`.
 local dotnetFormat: Step = new Step {
   glob = "**/*.cs"
+  // The sample is its own solution on local packages (sample/ChirographSample/ChirographSample.slnx), which Chirograph.slnx
+  // doesn't list, so `dotnet format` against Chirograph.slnx can't format it.
+  exclude = List("sample/ChirographSample/**")
   check =
     "dotnet format \(solution) --exclude-diagnostics \(excludedDiagnosticsString) --verify-no-changes --include {{files}}"
   fix =
@@ -88,10 +88,7 @@ steps {
   ["tombi"] = Builtins.tombi
   ["tombi-format"] = Builtins.tombi_format
   ["xmllint"] = Builtins.xmllint
-  // The schema the GraphQL sample's build writes keeps the BOM the build gives it; stripping it here only makes the next build put it back.
-  ["byte-order-marker"] = (Builtins.byte_order_marker) {
-    exclude = List("test/Sample.Graphql.Tests/schema.graphql")
-  }
+  ["byte-order-marker"] = Builtins.byte_order_marker
   ["case-conflict"] = Builtins.check_case_conflict
   ["merge-conflict"] = Builtins.check_merge_conflict
   ["symlinks"] = Builtins.check_symlinks
