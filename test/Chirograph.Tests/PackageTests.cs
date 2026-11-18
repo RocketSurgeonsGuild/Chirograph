@@ -15,6 +15,8 @@ public partial class PackageTests() : LoggerTest<TestRecord>(TestRecord.Create()
                           .Where(
                                z => !z.StartsWith("_rels/", StringComparison.Ordinal)
                                 && !z.StartsWith("package/services/metadata/", StringComparison.Ordinal)
+                                // The SBOM Rocket.Surgery.Sdk generates when packing on CI, so the list is the same on a developer machine.
+                                && !z.StartsWith("_manifest/", StringComparison.Ordinal)
                                 && z != "[Content_Types].xml"
                            )
                           .Order(StringComparer.Ordinal)
