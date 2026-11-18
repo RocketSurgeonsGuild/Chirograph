@@ -1,7 +1,7 @@
-amends "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Builtins.pkl"
-import "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/builtins/test/helpers.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/builtins/test/helpers.pkl"
 
 // Solution the .NET formatters operate against.
 local solution = "Chirograph.slnx"
@@ -34,21 +34,22 @@ local excludeDiagnostics = new Listing<String> {
   "RS0026"
 }
 
-local excludes = new Listing<String> {
-  "**/obj/**/*"
-  "**/bin/**/*"
-  ".git/**/*"
-  ".vs/**/*"
-  ".vscode/**/*"
-  ".idea/**/*"
-  ".claude/**/*"
-  ".agents/**/*"
-  ".apm/**/*"
-  ".copilot/**/*"
-  ".squad/**/*"
-  "**/*.verified.*"
-  "**/*.received.*"
-}
+local excludes =
+  List(
+    "**/obj/**/*",
+    "**/bin/**/*",
+    ".git/**/*",
+    ".vs/**/*",
+    ".vscode/**/*",
+    ".idea/**/*",
+    ".claude/**/*",
+    ".agents/**/*",
+    ".apm/**/*",
+    ".copilot/**/*",
+    ".squad/**/*",
+    "**/*.verified.*",
+    "**/*.received.*",
+  )
 
 local yamlTest = new helpers.TestMaker { filename = "foo.yml" }
 local badYaml = "key:   value\nlist:\n    -   item\n"
