@@ -9,7 +9,7 @@
   </ItemGroup>
   <ItemGroup Label="Build host">
     <!-- build/Build.cs, the ModularPipelines file-based app behind `mise run build`. -->
-    <PackageVersion Include="Rocket.Surgery.ModularPipelines.Extensions" Version="0.2.3" />
+    <PackageVersion Include="Rocket.Surgery.ModularPipelines.Extensions" Version="0.2.4" />
     <!-- The build host references the published Dovetail and Specular generators directly, as Rocket.Surgery.ModularPipelines.Extensions requires; they write ConfigureDovetail and the module scan into it. -->
     <PackageVersion Include="Joinery.Dovetail.ModularPipelines" Version="0.5.3" />
     <PackageVersion Include="Specular" Version="0.4.1" />
