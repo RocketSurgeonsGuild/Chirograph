@@ -51,8 +51,6 @@
     <PackageVersion Include="Verify.TUnit" Version="33.4.0" />
     <!-- Not a dependency of Chirograph: the tests register it as the token cache of a client-credentials client. -->
     <PackageVersion Include="ZiggyCreatures.FusionCache" Version="2.9.0" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump" Version="2.5.3" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.3" />
   </ItemGroup>
   <!-- The client runtime and server packages follow the target framework's release train: the tests build consumers on both. -->
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">
