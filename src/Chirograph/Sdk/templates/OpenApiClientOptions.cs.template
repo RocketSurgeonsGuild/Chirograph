@@ -1141,21 +1141,38 @@ internal sealed class __ClientName__AuthenticationHandler : global::System.Net.H
         _baseAddress = global::System.Uri.TryCreate(options.BaseAddress, global::System.UriKind.Absolute, out var baseAddress) ? baseAddress : null;
     }
 
+    // the handler Prepare made for the handlers being built, which Add adds next: the factory runs the two, one right after the other, on
+    // the thread that builds the handlers
+    [global::System.ThreadStatic]
+    private static global::__Namespace__.__ClientName__AuthenticationHandler? _prepared;
+
     /// <summary>
-    ///     Adds the handler after the handlers added so far, when the options in effect as the handlers are built set an Authentication, and
-    ///     takes over the redirects of the primary handler.
+    ///     Makes the handler, when the options in effect as the handlers are built set an Authentication, and takes over the redirects of the
+    ///     primary handler. <see cref="Add" />, configured right after, adds it.
     /// </summary>
-    internal static void Configure(global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder builder)
+    internal static void Prepare(global::System.Net.Http.HttpMessageHandler primaryHandler, global::System.IServiceProvider services)
     {
+        _prepared = null;
         var options = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                     .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::__Namespace__.__ClientName__Options>>(builder.Services)
+                     .GetRequiredService<global::Microsoft.Extensions.Options.IOptionsMonitor<global::__Namespace__.__ClientName__Options>>(services)
                      .CurrentValue;
         if (options.Authentication == global::__Namespace__.__ClientName__Authentication.None)
         {
             return;
         }
 
-        builder.AdditionalHandlers.Add(new global::__Namespace__.__ClientName__AuthenticationHandler(builder.Services, options, TakeOverRedirects(builder.PrimaryHandler)));
+        _prepared = new global::__Namespace__.__ClientName__AuthenticationHandler(services, options, TakeOverRedirects(primaryHandler));
+    }
+
+    /// <summary>Adds the handler <see cref="Prepare" /> made, if it made one, after the handlers added so far.</summary>
+    internal static void Add(global::System.Collections.Generic.IList<global::System.Net.Http.DelegatingHandler> handlers)
+    {
+        var handler = _prepared;
+        _prepared = null;
+        if (handler is not null)
+        {
+            handlers.Add(handler);
+        }
     }
 
     // the primary handler would follow a redirect with every header of the request: it stops following them, and the handler follows as

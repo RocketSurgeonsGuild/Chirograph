@@ -127,9 +127,15 @@ public static class __ClientName__ServiceCollectionExtensions
         //#endif
         // configured authentication: when Authentication isn't None, the handler that adds the credentials, after the handlers added so far
         // and before those added later (service discovery's among them, so the host check sees the address as configured)
-        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureHttpMessageHandlerBuilder(
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigurePrimaryHttpMessageHandler(
             builder,
-            static (global::Microsoft.Extensions.Http.HttpMessageHandlerBuilder handlers) => global::__Namespace__.__ClientName__AuthenticationHandler.Configure(handlers)
+            static (global::System.Net.Http.HttpMessageHandler handler, global::System.IServiceProvider provider) =>
+                global::__Namespace__.__ClientName__AuthenticationHandler.Prepare(handler, provider)
+        );
+        global::Microsoft.Extensions.DependencyInjection.HttpClientBuilderExtensions.ConfigureAdditionalHttpMessageHandlers(
+            builder,
+            static (global::System.Collections.Generic.IList<global::System.Net.Http.DelegatingHandler> handlers, global::System.IServiceProvider _) =>
+                global::__Namespace__.__ClientName__AuthenticationHandler.Add(handlers)
         );
         //#if ServiceDiscovery
         // The project references Microsoft.Extensions.ServiceDiscovery: its handler resolves a service-discovery address, such as the
