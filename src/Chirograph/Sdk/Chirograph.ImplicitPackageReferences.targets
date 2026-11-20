@@ -9,6 +9,11 @@
       before it, so Sdk.targets imports this file last.
 
       A package the project references itself wins: its own PackageReference, and its version, are left alone, and nothing is added.
+
+      Under Central Package Management (ManagePackageVersionsCentrally), a package with a PackageVersion gets a plain PackageReference,
+      with no Version and not implicitly defined, so the central version wins: NuGet rejects an implicitly defined reference to a package
+      that has a PackageVersion (NU1009). A package without a PackageVersion keeps the implicit reference with Chirograph's version, which
+      NuGet allows under Central Package Management.
   -->
   <ItemGroup>
     <!--
@@ -17,7 +22,21 @@
         PackageReference next to the project's own.
     -->
     <_ChirographImplicitPackageReferenceToAdd Include="@(_ChirographImplicitPackageReference)" Exclude="@(PackageReference)" />
+
+    <!-- The packages Central Package Management pins: those to add, less those without a PackageVersion. -->
+    <_ChirographImplicitPackageReferenceUnpinned Include="@(_ChirographImplicitPackageReferenceToAdd)" Exclude="@(PackageVersion)" />
+    <_ChirographImplicitPackageReferencePinned
+      Include="@(_ChirographImplicitPackageReferenceToAdd)"
+      Exclude="@(_ChirographImplicitPackageReferenceUnpinned)"
+      Condition="'$(ManagePackageVersionsCentrally)' == 'true'"
+    />
+    <_ChirographImplicitPackageReferenceToAdd Remove="@(_ChirographImplicitPackageReferencePinned)" />
+
     <PackageReference Include="@(_ChirographImplicitPackageReferenceToAdd)" IsImplicitlyDefined="true" />
+    <PackageReference Include="@(_ChirographImplicitPackageReferencePinned)" Version="" />
+
     <_ChirographImplicitPackageReferenceToAdd Remove="@(_ChirographImplicitPackageReferenceToAdd)" />
+    <_ChirographImplicitPackageReferenceUnpinned Remove="@(_ChirographImplicitPackageReferenceUnpinned)" />
+    <_ChirographImplicitPackageReferencePinned Remove="@(_ChirographImplicitPackageReferencePinned)" />
   </ItemGroup>
 </Project>

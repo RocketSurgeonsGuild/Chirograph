@@ -324,6 +324,68 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     }
 
     /// <summary>
+    /// Evaluation seam: under Central Package Management, a package Chirograph adds that has a <c>PackageVersion</c> gets a plain
+    /// reference, without a version and not implicitly defined, so the central version wins (NuGet rejects an implicitly defined one,
+    /// NU1009). A package without a <c>PackageVersion</c>, and every package without Central Package Management, keeps the implicit
+    /// reference with Chirograph's version.
+    /// </summary>
+    [Test]
+    [Arguments(CentralPackageManagement.Off)]
+    [Arguments(CentralPackageManagement.Unpinned)]
+    [Arguments(CentralPackageManagement.Pinned)]
+    public async Task Should_Let_Central_Package_Management_Pin_The_Packages_It_Adds(CentralPackageManagement centralPackageManagement)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        AddDirectoryPackagesProps(project, centralPackageManagement);
+        project.AddProject("app/app.csproj", project.CreateConsumer().OpenApiClient(Generator.Kiota, "rockets.json"));
+
+        await project.VerifyEvaluation("app/app.csproj", centralPackageManagement.ToString());
+    }
+
+    /// <summary>
+    /// Restore seam: a client project restores under Central Package Management, with and without a <c>PackageVersion</c> for a
+    /// package Chirograph adds (issue #47: an implicitly defined reference with a <c>PackageVersion</c> failed with NU1009).
+    /// </summary>
+    [Test]
+    [Arguments(CentralPackageManagement.Unpinned)]
+    [Arguments(CentralPackageManagement.Pinned)]
+    public async Task Should_Restore_Under_Central_Package_Management(CentralPackageManagement centralPackageManagement)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        AddDirectoryPackagesProps(project, centralPackageManagement);
+        project.AddProject("app/app.csproj", project.CreateConsumer().OpenApiClient(Generator.Kiota, "rockets.json"));
+
+        await project.Dotnet("app", "restore");
+    }
+
+    private void AddDirectoryPackagesProps(SdkTestProject project, CentralPackageManagement centralPackageManagement)
+    {
+        if (centralPackageManagement == CentralPackageManagement.Off)
+        {
+            return;
+        }
+
+        // Pins Microsoft.Extensions.Http, as LaunchPad does, and leaves Microsoft.Kiota.Bundle to Chirograph.
+        const string Package = "Microsoft.Extensions.Http";
+        var pin = centralPackageManagement == CentralPackageManagement.Pinned
+            ? $"""<PackageVersion Include="{Package}" Version="{Config.CentralPackageVersion(Package, targetFramework)}" />"""
+            : "";
+        project.AddFile(
+            "Directory.Packages.props",
+            $"""
+            <Project>
+              <PropertyGroup>
+                <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+              </PropertyGroup>
+              <ItemGroup>
+                {pin}
+              </ItemGroup>
+            </Project>
+            """
+        );
+    }
+
+    /// <summary>
     /// Evaluation seam: the <c>Authentication</c> metadata of a client adds the packages its methods need, Duende.AccessTokenManagement for
     /// <c>ClientCredentials</c> (written in any case, with spaces around it), in place of Microsoft.Extensions.Http, which it brings, and
     /// Azure.Identity for <c>Azure</c>, beside it. Without the metadata, no package is added; with the package referenced by the project,
@@ -748,5 +810,18 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
 
         /// <summary>A URL, which <see cref="RocketsApi" /> serves.</summary>
         Url,
+    }
+
+    /// <summary>Whether the scaffold uses Central Package Management, and whether it pins a package Chirograph adds.</summary>
+    public enum CentralPackageManagement
+    {
+        /// <summary>No Central Package Management.</summary>
+        Off,
+
+        /// <summary>Central Package Management, with no <c>PackageVersion</c> for the packages Chirograph adds.</summary>
+        Unpinned,
+
+        /// <summary>Central Package Management, with a <c>PackageVersion</c> for Microsoft.Extensions.Http.</summary>
+        Pinned,
     }
 }
