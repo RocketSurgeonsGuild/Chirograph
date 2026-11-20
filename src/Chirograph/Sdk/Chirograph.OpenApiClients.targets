@@ -202,8 +202,9 @@
 
   <!--
       Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an
-      earlier build generated: it checks nothing, creates nothing and runs no generator. The hook to run something before or after the
-      clients are generated.
+      earlier build generated: it checks nothing, creates nothing and runs no generator. The hook to run something after the clients are
+      generated. Not before: MSBuild runs a target's DependsOnTargets, which do the work here, before the targets that are BeforeTargets
+      of it, so a target hooked BeforeTargets="ChirographGenerateOpenApiClients" runs after the documents were read.
   -->
   <Target
     Name="ChirographGenerateOpenApiClients"
@@ -213,9 +214,17 @@
     Condition="'@(OpenApiClient)' != ''"
   />
 
+  <!--
+      The hook to run something before the clients are generated: before anything checks, reads or downloads a document, so a target can
+      write the document a client is generated from. Hook BeforeTargets="ChirographBeforeGenerateOpenApiClients" on it, or add a target to
+      ChirographGenerateOpenApiClientsDependsOn, which runs right after it. Neither runs in a design-time build.
+  -->
+  <Target Name="ChirographBeforeGenerateOpenApiClients" />
+
+  <!-- DependsOnTargets is expanded when the target runs, so a project can set ChirographGenerateOpenApiClientsDependsOn anywhere -->
   <Target
     Name="_ChirographGenerateOpenApiClients"
-    DependsOnTargets="_ChirographCheckOpenApiClients;_ChirographResolveOpenApiClientDocuments;_ChirographWriteOpenApiClientSettings;_ChirographRunOpenApiClientGenerators"
+    DependsOnTargets="ChirographBeforeGenerateOpenApiClients;$(ChirographGenerateOpenApiClientsDependsOn);_ChirographCheckOpenApiClients;_ChirographResolveOpenApiClientDocuments;_ChirographWriteOpenApiClientSettings;_ChirographRunOpenApiClientGenerators"
     Condition="'$(DesignTimeBuild)' != 'true'"
   />
 

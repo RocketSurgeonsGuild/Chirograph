@@ -22,14 +22,26 @@ project.
 ## When it runs
 
 The target `ChirographGenerateOpenApiClients` runs after the project's references are resolved, and before compilation. For a server
-project source, that means the server has been built. The target is the hook to run something before or after the clients are
-generated:
+project source, that means the server has been built. The target is the hook to run something after the clients are generated:
 
 ```xml
 <Target Name="ListClients" AfterTargets="ChirographGenerateOpenApiClients">
   <Message Importance="high" Text="Generated: @(OpenApiClient->'%(ClientName)')" />
 </Target>
 ```
+
+To run something before, while a client's document can still be written, hook `ChirographBeforeGenerateOpenApiClients`, which
+runs before any document is checked, read or downloaded:
+
+```xml
+<Target Name="ExportApiSpec" BeforeTargets="ChirographBeforeGenerateOpenApiClients">
+  <Exec Command="dotnet run --project ../Exporter -- $(MSBuildProjectDirectory)/openapi.json" />
+</Target>
+```
+
+Not `BeforeTargets="ChirographGenerateOpenApiClients"`: MSBuild runs that target's dependencies, which generate the clients, before
+the targets hooked before it. Adding a target to `ChirographGenerateOpenApiClientsDependsOn` works as well. Neither hook runs in a
+design-time build.
 
 A project without `OpenApiClient` items doesn't run it, and gets no packages or downloads.
 

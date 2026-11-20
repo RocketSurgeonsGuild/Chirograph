@@ -617,6 +617,48 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     }
 
     /// <summary>
+    /// Build seam: a target of the project hooked before the clients are generated, <c>BeforeTargets="ChirographBeforeGenerateOpenApiClients"</c>
+    /// or added to <c>ChirographGenerateOpenApiClientsDependsOn</c>, runs before the document is checked or read: it writes the document,
+    /// which doesn't exist when the build starts, and the client is generated from it.
+    /// </summary>
+    [Test]
+    [Arguments("BeforeTargets")]
+    [Arguments("DependsOn")]
+    public async Task Should_Run_A_Target_Hooked_Before_The_Documents_Are_Read(string hook)
+    {
+        using var project = new SdkTestProject(targetFramework);
+        var lib = project.CreateConsumer("Library").OpenApiClient(Generator.Kiota, "rockets.json");
+        if (hook == "DependsOn")
+        {
+            lib.Property("ChirographGenerateOpenApiClientsDependsOn", "$(ChirographGenerateOpenApiClientsDependsOn);WriteDocument").Target("WriteDocument");
+        }
+        else
+        {
+            lib.Target("WriteDocument", beforeTargets: "ChirographBeforeGenerateOpenApiClients");
+        }
+
+        lib.Task(
+            "Copy",
+            parameters: new Dictionary<string, string?> { ["SourceFiles"] = "exported/rockets.json", ["DestinationFiles"] = "rockets.json" }
+        );
+        project.AddProject("lib/lib.csproj", lib).AddFile("lib/exported/rockets.json", RocketsApi.Document);
+
+        var build = await project.Build("lib");
+        var document = System.Text.Json.Nodes.JsonNode.Parse(
+            await File.ReadAllTextAsync(Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient", "openapi.json"))
+        )!;
+
+        await project.VerifyResult(
+            new
+            {
+                Diagnostics = project.Diagnostics(build),
+                Document = document["info"]!["title"]!.GetValue<string>(),
+                Generated = File.Exists(Path.Combine(project.Directory, "lib", "obj", "Debug", targetFramework, "openapi", "RocketsClient", "generated", "RocketsClient.cs")),
+            }
+        );
+    }
+
+    /// <summary>
     /// Build seam: without a configured base address, a Kiota client calls the first server of its document.
     /// </summary>
     [Test]
