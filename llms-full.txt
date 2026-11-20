@@ -1756,8 +1756,10 @@ public static class RocketsClientServiceCollectionExtensions
             var configureRequestAdapter = options.ConfigureRequestAdapter;
             return new RocketsClient(configureRequestAdapter is null ? adapter : configureRequestAdapter(services, adapter));
         });
-        // when Authentication isn't None, the handler that adds the credentials, after the handlers added so far
-        builder.ConfigureHttpMessageHandlerBuilder(handlers => RocketsClientAuthenticationHandler.Configure(handlers));
+        // when Authentication isn't None, the handler that adds the credentials, after the handlers added so far: Prepare makes it
+        // and takes over the redirects of the primary handler, Add adds it
+        builder.ConfigurePrimaryHttpMessageHandler((handler, provider) => RocketsClientAuthenticationHandler.Prepare(handler, provider));
+        builder.ConfigureAdditionalHttpMessageHandlers((handlers, _) => RocketsClientAuthenticationHandler.Add(handlers));
         return builder;
     }
 
