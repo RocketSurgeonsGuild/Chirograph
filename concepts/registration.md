@@ -248,6 +248,26 @@ builder.Services.AddRocketsClient();
 
 Without the package, a client without a `BaseAddress` behaves as before, and a service-discovery address fails validation.
 
+### Turning it off
+
+A project can get the package without wanting service discovery for its clients, through a library or framework it references, and
+then has to register a provider (and the `IConfiguration` the configuration provider reads) for a client with a plain `http` address.
+`ServiceDiscovery="false"` on the item turns service discovery off for that client, and `ChirographServiceDiscovery=false` for every
+client of the project (an item's `ServiceDiscovery="true"` turns it back on for that one). A client without it is written as without the
+package: no `AddServiceDiscovery()` on its builder, no provider to register, and a `BaseAddress` that must be an absolute URI.
+
+```xml
+<PropertyGroup>
+    <ChirographServiceDiscovery>false</ChirographServiceDiscovery>
+</PropertyGroup>
+<ItemGroup>
+    <OpenApiClient Include="../Rockets/Rockets.csproj" Generator="Refitter" ClientName="RocketsClient" />
+    <OpenApiClient Include="../Launches/Launches.csproj" Generator="Kiota" ClientName="LaunchesClient" ServiceDiscovery="true" />
+</ItemGroup>
+```
+
+`true`, the default, only keeps service discovery when the project references the package: it never adds it.
+
 The authentication handler runs before the service-discovery handler, so the [host check](#which-hosts-get-the-credentials) compares
 the logical host, `rockets` in `https+http://rockets`, not the endpoint it resolves to.
 

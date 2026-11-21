@@ -547,6 +547,24 @@ builder.Services.AddRocketsClient();
 
 Without the package, a client without a `BaseAddress` behaves as before, and a service-discovery address fails validation.
 
+### Turning it off
+
+[Section titled “Turning it off”](#turning-it-off)
+
+A project can get the package without wanting service discovery for its clients, through a library or framework it references, and then has to register a provider (and the `IConfiguration` the configuration provider reads) for a client with a plain `http` address. `ServiceDiscovery="false"` on the item turns service discovery off for that client, and `ChirographServiceDiscovery=false` for every client of the project (an item’s `ServiceDiscovery="true"` turns it back on for that one). A client without it is written as without the package: no `AddServiceDiscovery()` on its builder, no provider to register, and a `BaseAddress` that must be an absolute URI.
+
+```xml
+<PropertyGroup>
+    <ChirographServiceDiscovery>false</ChirographServiceDiscovery>
+</PropertyGroup>
+<ItemGroup>
+    <OpenApiClient Include="../Rockets/Rockets.csproj" Generator="Refitter" ClientName="RocketsClient" />
+    <OpenApiClient Include="../Launches/Launches.csproj" Generator="Kiota" ClientName="LaunchesClient" ServiceDiscovery="true" />
+</ItemGroup>
+```
+
+`true`, the default, only keeps service discovery when the project references the package: it never adds it.
+
 The authentication handler runs before the service-discovery handler, so the [host check](#which-hosts-get-the-credentials) compares the logical host, `rockets` in `https+http://rockets`, not the endpoint it resolves to.
 
 ## Configuring the client further
@@ -1795,7 +1813,7 @@ builder.ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
 });
 ```
 
-When the project references Microsoft.Extensions.ServiceDiscovery, the build writes this after the authentication handler, and leaves it out otherwise. The options then default `BaseAddress` to `https+http://RocketsClient`, accept a service-discovery address, and fail validation at startup when the application registered no service-discovery provider (it calls `services.AddServiceDiscovery()`):
+When the project references Microsoft.Extensions.ServiceDiscovery, the build writes this after the authentication handler, and leaves it out otherwise, or when the client’s `ServiceDiscovery` is `false` ([Turning it off](../../concepts/registration/#turning-it-off)). The options then default `BaseAddress` to `https+http://RocketsClient`, accept a service-discovery address, and fail validation at startup when the application registered no service-discovery provider (it calls `services.AddServiceDiscovery()`):
 
 ```csharp
 builder.AddServiceDiscovery();
@@ -1881,6 +1899,7 @@ Metadata the item doesn’t read is ignored without a warning, so a misspelt nam
 | `UpdateDocumentCache` | no       | `$(ChirographUpdateOpenApiDocumentCache)`, which is `true` | URL only: `false` uses the cache whenever it exists instead of downloading. Wins over the property.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `Options`             | no       |                                                            | More arguments for the generator: after `kiota generate …`, or after Refitter’s settings file. See [Generators](../../concepts/generators/#what-chirograph-passes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `Authentication`      | no       |                                                            | A `;`-separated list of the authentication methods the client may use beyond `None`, `ApiKey`, `Bearer` and `Basic`: `ClientCredentials`, which adds `Duende.AccessTokenManagement` and allows `ClientCredentials` and `PrivateKeyJwt`, and `Azure`, which adds `Azure.Identity` and allows `AzureDefault`, `AzureManagedIdentity`, `AzureWorkloadIdentity` and `AzureServicePrincipal`. An unknown value is [`CHIRO109`](../diagnostics/#chiro109). See [Client credentials](../../concepts/registration/#client-credentials), [Private key JWT](../../concepts/registration/#private-key-jwt) and [Azure](../../concepts/registration/#azure). |
+| `ServiceDiscovery`    | no       | `$(ChirographServiceDiscovery)`, which is `true`           | `false` leaves service discovery out of the client’s registration when the project references Microsoft.Extensions.ServiceDiscovery: its `BaseAddress` is then an absolute URI, as without the package. `true` never adds the package. Wins over the property. See [Service discovery](../../concepts/registration/#service-discovery).                                                                                                                                                                                                                                                                                                          |
 
 `DocumentName` is ignored for a file or URL, and `DocumentCache` and `UpdateDocumentCache` for a file or server project.
 
@@ -1888,7 +1907,7 @@ Metadata the item doesn’t read is ignored without a warning, so a misspelt nam
 
 [Section titled “What changes when”](#what-changes-when)
 
-* Changing `Generator`, `ClientName`, `Namespace` or `Options` generates the client again on the next build. Changing `Authentication` only rewrites the registration and the options.
+* Changing `Generator`, `ClientName`, `Namespace` or `Options` generates the client again on the next build. Changing `Authentication` or `ServiceDiscovery` only rewrites the registration and the options.
 * Changing `Include` to another document of the same content changes nothing: the client is generated from the content, not the path.
 * Removing an item leaves its folder in `obj`, but its code is no longer compiled.
 
@@ -1902,21 +1921,22 @@ Set a property in the project file, a `Directory.Build.props`, or on the command
 
 [Section titled “Properties”](#properties)
 
-| Property                                       | Default                             | Meaning                                                                                                                                                                                    |
-| ---------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ChirographUpdateOpenApiDocumentCache`         | `true`                              | The default of every client’s `UpdateDocumentCache`: whether a URL is downloaded again when its document is cached. See [Document cache](../../concepts/document-cache/#updating).         |
-| `ChirographGenerateDovetailJoint`              | `true`                              | Whether each client gets a Dovetail joint, with a Dovetail that can write it. See [With Dovetail](../../guides/with-dovetail/).                                                            |
-| `ChirographOptionarySchema`                    | `true`                              | Whether each client declares the schema of its `Clients:<ClientName>` section to Optionary. See [With Optionary](../../guides/with-optionary/).                                            |
-| `ChirographOpenApiClientsDirectory`            | `$(IntermediateOutputPath)openapi/` | The folder each client’s folder goes in, relative to the project. A folder inside the project is left out of its default items, so the code is compiled once.                              |
-| `ChirographKiotaVersion`                       | the packed version                  | The version of the `Microsoft.OpenApi.Kiota` tool.                                                                                                                                         |
-| `ChirographRefitterVersion`                    | the packed version                  | The version of the `Refitter` tool.                                                                                                                                                        |
-| `ChirographKiotaBundleVersion`                 | the packed version                  | The version of `Microsoft.Kiota.Bundle` added to a project with a Kiota client.                                                                                                            |
-| `ChirographRefitVersion`                       | the packed version                  | The version of `Refit.HttpClientFactory` added to a project with a Refitter client.                                                                                                        |
-| `ChirographMicrosoftExtensionsHttpVersion`     | the packed version                  | The version of `Microsoft.Extensions.Http` added to a project with a Kiota client and no Refitter client.                                                                                  |
-| `ChirographDuendeAccessTokenManagementVersion` | the packed version                  | The version of `Duende.AccessTokenManagement` added to a project with a client whose `Authentication` declares `ClientCredentials`. Only 4.x works with the generated code.                |
-| `ChirographAzureIdentityVersion`               | the packed version                  | The version of `Azure.Identity` added to a project with a client whose `Authentication` declares `Azure`.                                                                                  |
-| `ChirographVersion`                            | the SDK’s version                   | Stamped into the registration’s `[GeneratedCode]`. Read it; don’t set it.                                                                                                                  |
-| `ChirographGenerateOpenApiClientsDependsOn`    | empty                               | Targets to run before the documents are read, after `ChirographBeforeGenerateOpenApiClients`. Add yours: `$(ChirographGenerateOpenApiClientsDependsOn);MyTarget`. See [Targets](#targets). |
+| Property                                       | Default                             | Meaning                                                                                                                                                                                                                                              |
+| ---------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChirographUpdateOpenApiDocumentCache`         | `true`                              | The default of every client’s `UpdateDocumentCache`: whether a URL is downloaded again when its document is cached. See [Document cache](../../concepts/document-cache/#updating).                                                                   |
+| `ChirographGenerateDovetailJoint`              | `true`                              | Whether each client gets a Dovetail joint, with a Dovetail that can write it. See [With Dovetail](../../guides/with-dovetail/).                                                                                                                      |
+| `ChirographServiceDiscovery`                   | `true`                              | The default of every client’s `ServiceDiscovery`: `false` leaves service discovery out of the registrations when the project references Microsoft.Extensions.ServiceDiscovery. See [Service discovery](../../concepts/registration/#turning-it-off). |
+| `ChirographOptionarySchema`                    | `true`                              | Whether each client declares the schema of its `Clients:<ClientName>` section to Optionary. See [With Optionary](../../guides/with-optionary/).                                                                                                      |
+| `ChirographOpenApiClientsDirectory`            | `$(IntermediateOutputPath)openapi/` | The folder each client’s folder goes in, relative to the project. A folder inside the project is left out of its default items, so the code is compiled once.                                                                                        |
+| `ChirographKiotaVersion`                       | the packed version                  | The version of the `Microsoft.OpenApi.Kiota` tool.                                                                                                                                                                                                   |
+| `ChirographRefitterVersion`                    | the packed version                  | The version of the `Refitter` tool.                                                                                                                                                                                                                  |
+| `ChirographKiotaBundleVersion`                 | the packed version                  | The version of `Microsoft.Kiota.Bundle` added to a project with a Kiota client.                                                                                                                                                                      |
+| `ChirographRefitVersion`                       | the packed version                  | The version of `Refit.HttpClientFactory` added to a project with a Refitter client.                                                                                                                                                                  |
+| `ChirographMicrosoftExtensionsHttpVersion`     | the packed version                  | The version of `Microsoft.Extensions.Http` added to a project with a Kiota client and no Refitter client.                                                                                                                                            |
+| `ChirographDuendeAccessTokenManagementVersion` | the packed version                  | The version of `Duende.AccessTokenManagement` added to a project with a client whose `Authentication` declares `ClientCredentials`. Only 4.x works with the generated code.                                                                          |
+| `ChirographAzureIdentityVersion`               | the packed version                  | The version of `Azure.Identity` added to a project with a client whose `Authentication` declares `Azure`.                                                                                                                                            |
+| `ChirographVersion`                            | the SDK’s version                   | Stamped into the registration’s `[GeneratedCode]`. Read it; don’t set it.                                                                                                                                                                            |
+| `ChirographGenerateOpenApiClientsDependsOn`    | empty                               | Targets to run before the documents are read, after `ChirographBeforeGenerateOpenApiClients`. Add yours: `$(ChirographGenerateOpenApiClientsDependsOn);MyTarget`. See [Targets](#targets).                                                           |
 
 The packed versions are the ones Chirograph’s own repository pinned when the SDK was packed: they are in the package’s `Sdk/Packages.props`. A package the project references itself is never added, whatever these say: see [Generators](../../concepts/generators/#the-packages-added-to-the-project).
 
