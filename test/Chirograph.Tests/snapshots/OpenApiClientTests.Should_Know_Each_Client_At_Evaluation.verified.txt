@@ -4,27 +4,31 @@
     ClientNameIsValid: False,
     Generator: Kiota,
     Kind: Project,
-    Namespace: app
+    Namespace: app,
+    ServiceDiscovery: true
   },
   HTTPS://EXAMPLE.COM/OPENAPI.JSON: {
     ClientName: UpperCaseUrlClient,
     ClientNameIsValid: True,
     Generator: Kiota,
     Kind: Url,
-    Namespace: Throwaway.Clients
+    Namespace: Throwaway.Clients,
+    ServiceDiscovery: true
   },
   https://example.com/openapi.json: {
     ClientName: DefaultClient,
     ClientNameIsValid: True,
     Generator: Refitter,
     Kind: Url,
-    Namespace: app
+    Namespace: app,
+    ServiceDiscovery: true
   },
   rockets.json: {
     ClientName: NamedClient,
     ClientNameIsValid: True,
     Generator: Kiota,
     Kind: File,
-    Namespace: Throwaway.Clients
+    Namespace: Throwaway.Clients,
+    ServiceDiscovery: true
   }
 }

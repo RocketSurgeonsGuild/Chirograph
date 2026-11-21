@@ -101,7 +101,7 @@ builder.ConfigureAdditionalHttpMessageHandlers((handlers, provider) =>
 ```
 
 When the project references Microsoft.Extensions.ServiceDiscovery, the build writes this after the authentication handler, and leaves
-it out otherwise. The options then default `BaseAddress` to `https+http://RocketsClient`, accept a service-discovery address, and fail
+it out otherwise, or when the client's `ServiceDiscovery` is `false` ([Turning it off](../../concepts/registration/#turning-it-off)). The options then default `BaseAddress` to `https+http://RocketsClient`, accept a service-discovery address, and fail
 validation at startup when the application registered no service-discovery provider (it calls `services.AddServiceDiscovery()`):
 
 ```csharp

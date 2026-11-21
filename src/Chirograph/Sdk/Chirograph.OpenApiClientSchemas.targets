@@ -64,7 +64,8 @@
         - Schema: its JSON Schema, without the description ("type": "string" when not set). __Methods__ stands for the client's methods.
         - Description: what it is. No backslash and no double quote; %3B for a semicolon, __ClientName__ for the client's name.
         - Generator: only for the clients of that generator.
-        - ServiceDiscovery: true only when the project references Microsoft.Extensions.ServiceDiscovery, false only when it doesn't.
+        - ServiceDiscovery: true only when the client gets service discovery (the project references Microsoft.Extensions.ServiceDiscovery
+          and the client's ServiceDiscovery metadata isn't false), false only when it doesn't.
         - Resilience: true only when the project references Microsoft.Extensions.Http.Resilience, false only when it doesn't.
         - Methods: the methods that use it, a ;-list. The schema has the key when the client allows one of them, and the other methods
           forbid it. A key without methods (a certificate key, say) goes with every method.
@@ -210,12 +211,13 @@
       <_ChirographResilienceReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Extensions.Http.Resilience'" />
     </ItemGroup>
     <!--
-        whether the project references Microsoft.Extensions.ServiceDiscovery and Microsoft.Extensions.Http.Resilience, as the
-        registration's ServiceDiscovery and Resilience blocks say
+        whether the client gets service discovery (the project references Microsoft.Extensions.ServiceDiscovery, and the client's
+        ServiceDiscovery metadata isn't false) and whether the project references Microsoft.Extensions.Http.Resilience, as the
+        registration's ServiceDiscovery and Resilience blocks say. The target runs once per client, so the schema file is that client's.
     -->
     <PropertyGroup>
       <_ChirographOpenApiClientSchemaServiceDiscovery>false</_ChirographOpenApiClientSchemaServiceDiscovery>
-      <_ChirographOpenApiClientSchemaServiceDiscovery Condition="'@(_ChirographServiceDiscoveryReference)' != ''">true</_ChirographOpenApiClientSchemaServiceDiscovery>
+      <_ChirographOpenApiClientSchemaServiceDiscovery Condition="'@(_ChirographServiceDiscoveryReference)' != '' and '%(_ChirographOpenApiClientSchemaFile.ServiceDiscovery)' != 'false'">true</_ChirographOpenApiClientSchemaServiceDiscovery>
       <_ChirographOpenApiClientSchemaResilience>false</_ChirographOpenApiClientSchemaResilience>
       <_ChirographOpenApiClientSchemaResilience Condition="'@(_ChirographResilienceReference)' != ''">true</_ChirographOpenApiClientSchemaResilience>
     </PropertyGroup>

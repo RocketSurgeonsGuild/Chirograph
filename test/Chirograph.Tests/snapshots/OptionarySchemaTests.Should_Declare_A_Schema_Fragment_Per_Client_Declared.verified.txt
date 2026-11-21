@@ -6,6 +6,7 @@
     Generator: Kiota,
     Kind: File,
     Namespace: Throwaway.Clients,
+    ServiceDiscovery: true,
     _ChirographOpenApiClientSchema: true
   },
   Clients:RefitterClient: {
@@ -15,6 +16,7 @@
     Generator: Refitter,
     Kind: File,
     Namespace: Throwaway.Clients,
+    ServiceDiscovery: true,
     _ChirographOpenApiClientSchema: true
   }
 }

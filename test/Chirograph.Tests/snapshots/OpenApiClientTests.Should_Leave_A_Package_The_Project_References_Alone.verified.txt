@@ -27,6 +27,7 @@
     ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
     ChirographRefitterVersion: {pin: Refitter},
     ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographServiceDiscovery: true,
     ChirographUpdateOpenApiDocumentCache: true,
     ChirographVersion: {chirograph-version}
   }

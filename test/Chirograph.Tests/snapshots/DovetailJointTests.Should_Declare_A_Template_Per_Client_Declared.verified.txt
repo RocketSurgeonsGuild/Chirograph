@@ -7,7 +7,8 @@
       File: {packages}/chirograph/{chirograph-version}/Sdk/templates/OpenApiClientJoint.cs.template,
       Generator: Refitter,
       Kind: File,
-      Namespace: app
+      Namespace: app,
+      ServiceDiscovery: true
     },
     Chirograph.RocketsClient: {
       ChirographVersion: {chirograph-version},
@@ -16,7 +17,8 @@
       File: {packages}/chirograph/{chirograph-version}/Sdk/templates/OpenApiClientJoint.cs.template,
       Generator: Kiota,
       Kind: File,
-      Namespace: Throwaway.Clients
+      Namespace: Throwaway.Clients,
+      ServiceDiscovery: true
     }
   },
   PackageDownload: {
@@ -53,6 +55,7 @@
     ChirographMicrosoftExtensionsHttpVersion: {pin: Microsoft.Extensions.Http},
     ChirographRefitterVersion: {pin: Refitter},
     ChirographRefitVersion: {pin: Refit.HttpClientFactory},
+    ChirographServiceDiscovery: true,
     ChirographUpdateOpenApiDocumentCache: true,
     ChirographVersion: {chirograph-version}
   }
