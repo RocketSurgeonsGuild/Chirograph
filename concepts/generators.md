@@ -32,6 +32,11 @@ generator:
 A package the project references itself wins: its own `PackageReference` and its version are left alone, and Chirograph adds nothing.
 So reference a package yourself to choose its version, or set the matching [property](../../reference/properties/).
 
+Under [Central Package Management](https://learn.microsoft.com/nuget/consume-packages/central-package-management)
+(`ManagePackageVersionsCentrally`), a package that has a `PackageVersion` gets a plain `PackageReference`, without a version and not
+implicit, so the central version wins. A package without a `PackageVersion` keeps the implicit reference at Chirograph's version, which
+NuGet allows. So pin a package in `Directory.Packages.props` to choose its version; the project doesn't need to reference it.
+
 ## What Chirograph passes
 
 Kiota runs as:
