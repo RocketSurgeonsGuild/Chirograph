@@ -55,6 +55,11 @@
       "matchCategories": ["js"],
       "automerge": true,
       "labels": [":truck: private-dependencies"]
+    },
+    {
+      "description": "Only the test scaffolds use these: consumers of this repository's packages never get them",
+      "matchDepNames": ["ZiggyCreatures.FusionCache"],
+      "labels": [":truck: private-dependencies"]
     }
   ]
 }
