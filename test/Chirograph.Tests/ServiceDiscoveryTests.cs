@@ -174,6 +174,77 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
         );
     }
 
+    /// <summary>
+    /// With the package referenced, <c>ChirographServiceDiscovery=false</c> or the item's <c>ServiceDiscovery="false"</c> leaves service
+    /// discovery out of the client: an http address works with no provider registered, and the client behaves as without the package.
+    /// </summary>
+    [Test]
+    [Arguments(Generator.Kiota, "Property")]
+    [Arguments(Generator.Refitter, "Property")]
+    [Arguments(Generator.Kiota, "Metadata")]
+    [Arguments(Generator.Refitter, "Metadata")]
+    public async Task Should_Leave_Service_Discovery_Out_When_Turned_Off(Generator generator, string turnedOffBy)
+    {
+        await using var api = RocketsApi.Start();
+        using var project = new SdkTestProject(targetFramework);
+        var results = await RunScenarios(
+            project,
+            generator,
+            referencesServiceDiscovery: true,
+            new()
+            {
+                ["Http address"] = Keys(("BaseAddress", api.BaseAddress.ToString()), NoServiceDiscovery),
+                ["Logical address"] = Keys(("BaseAddress", "https+http://rockets"), Services("rockets", api)),
+                ["No address"] = Keys(Services("RocketsClient", api), NoServiceDiscovery),
+            },
+            chirographServiceDiscovery: turnedOffBy == "Property" ? "false" : null,
+            serviceDiscoveryMetadata: turnedOffBy == "Metadata" ? "false" : null
+        );
+
+        await project.VerifyResult(results, $"{generator}_{turnedOffBy}");
+    }
+
+    /// <summary>
+    /// Build seam: with the package referenced and <c>ChirographServiceDiscovery=false</c>, a client without the metadata has no service
+    /// discovery, in its schema and its registration, and a client with <c>ServiceDiscovery="true"</c> keeps it. The result is the
+    /// <c>BaseAddress</c> of each client's schema and whether its registration calls <c>AddServiceDiscovery</c>.
+    /// </summary>
+    [Test]
+    public async Task Should_Turn_Service_Discovery_Off_Per_Client()
+    {
+        using var project = new SdkTestProject(targetFramework);
+        var app = project
+                 .CreateConsumer("Library")
+                 .Property("ChirographServiceDiscovery", "false")
+                 .OpenApiClient(Generator.Kiota, "rockets.json", "KiotaClient", new Dictionary<string, string?> { ["ServiceDiscovery"] = "true" })
+                 .OpenApiClient(Generator.Refitter, "rockets.json", "RefitterClient")
+                 .ItemPackageReference(ServiceDiscoveryPackage, Config.CentralPackageVersion(ServiceDiscoveryPackage, targetFramework));
+
+        project.AddProject("app/app.csproj", app).AddFile("app/rockets.json", RocketsApi.Document);
+        await project.Build("app");
+
+        var clients = new JsonObject(
+            ( (string[])["KiotaClient", "RefitterClient"] ).Select(
+                name =>
+                {
+                    var directory = Path.Combine(project.Directory, "app", "obj", "Debug", targetFramework, "openapi", name);
+                    var schema = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, $"{name}.schema.json")))!;
+                    var registration = File.ReadAllText(Path.Combine(directory, $"{name}ServiceCollectionExtensions.g.cs"));
+                    return KeyValuePair.Create(
+                        name,
+                        (JsonNode?)new JsonObject
+                        {
+                            ["BaseAddress"] = schema["properties"]!["BaseAddress"]!.DeepClone(),
+                            ["AddsServiceDiscovery"] = registration.Contains("AddServiceDiscovery(builder)", StringComparison.Ordinal),
+                        }
+                    );
+                }
+            )
+        );
+
+        await project.VerifyResult(clients.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+    }
+
     private const string ServiceDiscoveryPackage = "Microsoft.Extensions.ServiceDiscovery";
 
     // the application doesn't call AddServiceDiscovery()
@@ -203,10 +274,16 @@ public class ServiceDiscoveryTests(string targetFramework) : LoggerTest<TestReco
         Generator generator,
         bool referencesServiceDiscovery,
         Dictionary<string, Dictionary<string, string>> scenarios,
-        Action? beforeEachScenario = null
+        Action? beforeEachScenario = null,
+        string? chirographServiceDiscovery = null,
+        string? serviceDiscoveryMetadata = null
     )
     {
-        var app = project.CreateConsumer().Hosting(targetFramework).OpenApiClient(generator, "rockets.json");
+        var app = project
+                 .CreateConsumer()
+                 .Property("ChirographServiceDiscovery", chirographServiceDiscovery)
+                 .Hosting(targetFramework)
+                 .OpenApiClient(generator, "rockets.json", metadata: new Dictionary<string, string?> { ["ServiceDiscovery"] = serviceDiscoveryMetadata });
         if (referencesServiceDiscovery)
         {
             app.ItemPackageReference(ServiceDiscoveryPackage, Config.CentralPackageVersion(ServiceDiscoveryPackage, targetFramework));

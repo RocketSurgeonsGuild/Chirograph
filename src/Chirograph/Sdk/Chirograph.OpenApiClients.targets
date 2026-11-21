@@ -29,6 +29,9 @@
         - Authentication: a ;-separated list of the authentication methods the client may use beyond those it always can (None, ApiKey,
           Bearer, Basic): ClientCredentials, which adds Duende.AccessTokenManagement, and Azure (AzureDefault, AzureManagedIdentity,
           AzureWorkloadIdentity and AzureServicePrincipal), which adds Azure.Identity. An unknown value is CHIRO109.
+        - ServiceDiscovery: false to leave service discovery out of the client's registration when the project references
+          Microsoft.Extensions.ServiceDiscovery; ChirographServiceDiscovery sets it for every client (true by default). It never adds
+          the package: true only keeps service discovery when the project references it.
 
       Each generator is a .NET tool package (Microsoft.OpenApi.Kiota, Refitter), which restore downloads (PackageDownload) and the build
       runs from the packages folder: nothing is installed, and a file source needs no network once the packages are restored. The packages
@@ -55,6 +58,8 @@
     <ChirographUpdateOpenApiDocumentCache Condition="'$(ChirographUpdateOpenApiDocumentCache)' == ''">true</ChirographUpdateOpenApiDocumentCache>
     <!-- whether each client gets a Dovetail joint, when the Dovetail in the build can write it -->
     <ChirographGenerateDovetailJoint Condition="'$(ChirographGenerateDovetailJoint)' == ''">true</ChirographGenerateDovetailJoint>
+    <!-- the default of ServiceDiscovery: whether a client gets service discovery when the project references Microsoft.Extensions.ServiceDiscovery -->
+    <ChirographServiceDiscovery Condition="'$(ChirographServiceDiscovery)' == ''">true</ChirographServiceDiscovery>
 
     <!--
         A clients folder the project sets can be in the project: left out of its default items, so the generated code isn't compiled
@@ -118,6 +123,7 @@
       <Kind Condition="$([System.String]::Copy(';$(_ChirographOpenApiProjectExtensions);').Contains($([System.String]::Copy(';%(Extension);').ToLowerInvariant())))">Project</Kind>
       <Kind Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '(?i)^https?://'))">Url</Kind>
       <Namespace Condition="'%(_ChirographOpenApiClient.Namespace)' == ''">$(RootNamespace)</Namespace>
+      <ServiceDiscovery Condition="'%(_ChirographOpenApiClient.ServiceDiscovery)' == ''">$(ChirographServiceDiscovery)</ServiceDiscovery>
       <ClientNameIsValid>$([System.Text.RegularExpressions.Regex]::IsMatch('%(ClientName)', '^[A-Za-z_][A-Za-z0-9_]*$'))</ClientNameIsValid>
     </_ChirographOpenApiClient>
 
@@ -483,10 +489,11 @@
           - Resilience: the standard resilience handler, when the resolved references of the project include
             Microsoft.Extensions.Http.Resilience. Chirograph doesn't add it.
           - ServiceDiscovery: service discovery (and the default address https+http://<ClientName>), when the resolved references of the
-            project include Microsoft.Extensions.ServiceDiscovery; NoServiceDiscovery otherwise. Chirograph doesn't add it.
+            project include Microsoft.Extensions.ServiceDiscovery and the client's ServiceDiscovery metadata isn't false;
+            NoServiceDiscovery otherwise. Chirograph doesn't add it.
           - each value of the client's Authentication metadata (ClientCredentials, Azure): the methods it declares.
-        _ChirographOpenApiTemplateBlocks lists the project's blocks, and the client's generator and Authentication are added for each
-        client.
+        _ChirographOpenApiTemplateBlocks lists the project's blocks, and the client's generator, service-discovery block and
+        Authentication are added for each client.
     -->
     <ItemGroup>
       <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
@@ -497,8 +504,6 @@
     <PropertyGroup>
       <_ChirographOpenApiTemplateBlocks />
       <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographResilienceReference)' != ''">$(_ChirographOpenApiTemplateBlocks);Resilience</_ChirographOpenApiTemplateBlocks>
-      <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographServiceDiscoveryReference)' != ''">$(_ChirographOpenApiTemplateBlocks);ServiceDiscovery</_ChirographOpenApiTemplateBlocks>
-      <_ChirographOpenApiTemplateBlocks Condition="'@(_ChirographServiceDiscoveryReference)' == ''">$(_ChirographOpenApiTemplateBlocks);NoServiceDiscovery</_ChirographOpenApiTemplateBlocks>
     </PropertyGroup>
     <ItemGroup>
       <_ChirographOpenApiClientRegistration Remove="@(_ChirographOpenApiClientRegistration)" />
@@ -510,13 +515,18 @@
         Include="@(_ChirographOpenApiClient->'%(GeneratedOptionsFile)')"
         Template="$(MSBuildThisFileDirectory)templates/OpenApiClientOptions.cs.template"
       />
+      <!-- the client's service-discovery block: an element, since its condition reads the client's metadata -->
+      <_ChirographOpenApiClientRegistration>
+        <ServiceDiscoveryBlock>NoServiceDiscovery</ServiceDiscoveryBlock>
+        <ServiceDiscoveryBlock Condition="'@(_ChirographServiceDiscoveryReference)' != '' and '%(_ChirographOpenApiClientRegistration.ServiceDiscovery)' != 'false'">ServiceDiscovery</ServiceDiscoveryBlock>
+      </_ChirographOpenApiClientRegistration>
       <_ChirographResilienceReference Remove="@(_ChirographResilienceReference)" />
       <_ChirographServiceDiscoveryReference Remove="@(_ChirographServiceDiscoveryReference)" />
     </ItemGroup>
     <ExpandOpenApiClientTemplate
       Template="%(_ChirographOpenApiClientRegistration.Template)"
       OutputFile="%(_ChirographOpenApiClientRegistration.Identity)"
-      Blocks="%(_ChirographOpenApiClientRegistration.Generator);$(_ChirographOpenApiTemplateBlocks);%(_ChirographOpenApiClientRegistration.Authentication)"
+      Blocks="%(_ChirographOpenApiClientRegistration.Generator);$(_ChirographOpenApiTemplateBlocks);%(_ChirographOpenApiClientRegistration.ServiceDiscoveryBlock);%(_ChirographOpenApiClientRegistration.Authentication)"
       Namespace="%(_ChirographOpenApiClientRegistration.Namespace)"
       ClientName="%(_ChirographOpenApiClientRegistration.ClientName)"
       ChirographVersion="$(ChirographVersion)"
@@ -529,12 +539,12 @@
         standard resilience handler's settings. Without it the file goes, since its code needs Microsoft.Extensions.Http.Resilience.
     -->
     <ExpandOpenApiClientTemplate
-      Condition="$(_ChirographOpenApiTemplateBlocks.Contains(';Resilience;'))"
+      Condition="$([System.String]::Copy('$(_ChirographOpenApiTemplateBlocks);').Contains(';Resilience;'))"
       Template="$(MSBuildThisFileDirectory)templates/ChirographResilience.cs.template"
       OutputFile="$(_ChirographResilienceFile)"
       ChirographVersion="$(ChirographVersion)"
     />
-    <Delete Condition="!$(_ChirographOpenApiTemplateBlocks.Contains(';Resilience;'))" Files="$(_ChirographResilienceFile)" />
+    <Delete Condition="!$([System.String]::Copy('$(_ChirographOpenApiTemplateBlocks);').Contains(';Resilience;'))" Files="$(_ChirographResilienceFile)" />
   </Target>
 
   <!--
