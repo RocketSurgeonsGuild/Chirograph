@@ -1195,6 +1195,8 @@ A document the server writes again unchanged, which it does on most builds, rege
 
 A server that targets, say, `net10.0` and `net11.0` is built as a whole, not for the target framework closest to the client’s. Its document comes from the server’s own build, so it doesn’t matter which frameworks the client targets.
 
+The client’s framework never reaches the server either: a client with several target frameworks, or a Blazor WebAssembly application on `net11.0-browser`, builds a `net11.0` server as the server itself would build, and publishes as it builds.
+
 ## A server with several documents
 
 [Section titled “A server with several documents”](#a-server-with-several-documents)
@@ -1948,7 +1950,7 @@ A tool version that isn’t in the packages folder fails the build with [`CHIRO1
 
 | Target                                   | Runs                                                                            | Meaning                                                                                                                                                                                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ChirographGenerateOpenApiClients`       | after `ResolveProjectReferences`, before `CoreCompile` and `BeforeCompile`      | Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an earlier build generated. Hook `AfterTargets` on it to run something after the clients are generated. |
+| `ChirographGenerateOpenApiClients`       | before `BeforeCompile` and `CoreCompile`, once the references are resolved      | Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an earlier build generated. Hook `AfterTargets` on it to run something after the clients are generated. |
 | `ChirographBeforeGenerateOpenApiClients` | first thing `ChirographGenerateOpenApiClients` does, not in a design-time build | Empty. Hook `BeforeTargets` on it to run something before any document is checked, read or downloaded: a target that writes the document a client is generated from, say.                                                             |
 
 A target hooked `BeforeTargets="ChirographGenerateOpenApiClients"` runs too late for that: MSBuild runs a target’s `DependsOnTargets`, where Chirograph does its work, before the targets that are `BeforeTargets` of it. Hook `ChirographBeforeGenerateOpenApiClients` instead, or add the target to `ChirographGenerateOpenApiClientsDependsOn`:

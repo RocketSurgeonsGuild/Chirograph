@@ -159,7 +159,7 @@ restored.</p>
 <tbody>
 <tr>
 <td><code dir="auto">ChirographGenerateOpenApiClients</code></td>
-<td>after <code dir="auto">ResolveProjectReferences</code>, before <code dir="auto">CoreCompile</code> and <code dir="auto">BeforeCompile</code></td>
+<td>before <code dir="auto">BeforeCompile</code> and <code dir="auto">CoreCompile</code>, once the references are resolved</td>
 <td>Generates every client that is out of date and adds the generated code to the compilation. A design-time build only adds what an earlier build generated. Hook <code dir="auto">AfterTargets</code> on it to run something after the clients are generated.</td>
 </tr>
 <tr>
