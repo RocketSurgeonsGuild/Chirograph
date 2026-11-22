@@ -513,7 +513,9 @@ Carried over from the PR's guide
 | `ChirographVersion`                        | the SDK's version                   | New. Stamped into `GeneratedCode`. Read-only in practice.                                                                                                                                                                                                                                                 |
 
 **Target hooks:** `ChirographGenerateOpenApiClients` (renamed from `LaunchPadGenerateOpenApiClients`), which runs
-`AfterTargets="ResolveProjectReferences"` and `BeforeTargets="CoreCompile;BeforeCompile"`. It is the only target documented as a hook.
+`BeforeTargets="CoreCompile;BeforeCompile"`. It is the only target documented as a hook. (It was also
+`AfterTargets="ResolveProjectReferences"` until that made the publish of a Blazor WebAssembly application a circular dependency
+through `ResolveAssemblyReferences`, MSB4006.)
 
 ### Diagnostics
 

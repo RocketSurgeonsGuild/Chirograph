@@ -129,13 +129,17 @@
 
     <!--
         The server is built before the client project, as a whole: a server with several target frameworks writes its document from its
-        outer build, which SkipGetTargetFrameworkProperties builds instead of the target framework closest to the client's.
+        outer build, which SkipGetTargetFrameworkProperties builds instead of the target framework closest to the client's. The client's
+        own TargetFramework, RuntimeIdentifier and SelfContained don't flow to it (GlobalPropertiesToRemove): a client that builds for a
+        framework the server doesn't target (net11.0-browser, say, or any framework of a client with several) would otherwise build the
+        server for that framework, which its restore never saw (NETSDK1005).
     -->
     <ProjectReference
       Include="@(_ChirographOpenApiClient->WithMetadataValue('Kind', 'Project')->'%(Identity)'->Distinct())"
       KeepMetadata="_ChirographOpenApiClientServer"
       ReferenceOutputAssembly="false"
       SkipGetTargetFrameworkProperties="true"
+      GlobalPropertiesToRemove="TargetFramework;RuntimeIdentifier;SelfContained"
       Private="false"
       PrivateAssets="all"
     >
@@ -211,11 +215,17 @@
       earlier build generated: it checks nothing, creates nothing and runs no generator. The hook to run something after the clients are
       generated. Not before: MSBuild runs a target's DependsOnTargets, which do the work here, before the targets that are BeforeTargets
       of it, so a target hooked BeforeTargets="ChirographGenerateOpenApiClients" runs after the documents were read.
+
+      It runs before BeforeCompile, which a build reaches after ResolveReferences, so the project's references, the servers among them,
+      are resolved and built by then. It isn't AfterTargets="ResolveProjectReferences": ResolveAssemblyReferences depends on
+      ResolveProjectReferences, so a build that asks for ResolveAssemblyReferences before ResolveReferences would run this target
+      inside ResolveAssemblyReferences, which _ChirographWriteOpenApiClientSettings depends on (MSB4006, a circular dependency). The
+      publish of a Blazor WebAssembly application with the wasm-tools workload does: its nested publish (WasmNestedPublishApp) computes
+      the files to publish without building, and _WasmPrepareForPublish asks for ResolveAssemblyReferences first.
   -->
   <Target
     Name="ChirographGenerateOpenApiClients"
     BeforeTargets="CoreCompile;BeforeCompile"
-    AfterTargets="ResolveProjectReferences"
     DependsOnTargets="_ChirographGenerateOpenApiClients;_ChirographCompileOpenApiClients"
     Condition="'@(OpenApiClient)' != ''"
   />
@@ -320,9 +330,9 @@
       Finds the source document of each client (a file is its own source, a server project is asked for the documents it wrote, and a
       URL is downloaded into its cache), and copies it to the client's folder when its content differs from the copy there, so a document
       that was written again unchanged regenerates nothing. Batched on each client, by name: two clients can be generated from the same
-      document.
+      document. ResolveProjectReferences builds the servers first; a build has already run it by the time it compiles.
   -->
-  <Target Name="_ChirographResolveOpenApiClientDocuments" Outputs="%(_ChirographOpenApiClient.ClientName)">
+  <Target Name="_ChirographResolveOpenApiClientDocuments" DependsOnTargets="ResolveProjectReferences" Outputs="%(_ChirographOpenApiClient.ClientName)">
     <PropertyGroup>
       <_ChirographOpenApiKind>%(_ChirographOpenApiClient.Kind)</_ChirographOpenApiKind>
       <_ChirographOpenApiSource>%(_ChirographOpenApiClient.Source)</_ChirographOpenApiSource>

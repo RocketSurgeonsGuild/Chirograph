@@ -66,6 +66,39 @@ public class OpenApiClientTests(string targetFramework) : LoggerTest<TestRecord>
     }
 
     /// <summary>
+    /// Build seam: a Blazor WebAssembly application on <c>&lt;framework&gt;-browser</c>, a framework the server doesn't target,
+    /// generates its client from a server project. Its framework doesn't flow to the server, which builds for its own (NETSDK1005
+    /// otherwise), and the application builds and publishes. The publish generates the client again, for Release; the nested publish
+    /// the wasm-tools workload runs (<c>WasmNestedPublishApp</c>, which computes the files to publish in a build of the application that
+    /// hasn't resolved its references yet, so <c>_WasmPrepareForPublish</c> asks for <c>ResolveAssemblyReferences</c> first) generates
+    /// nothing and finds no circular dependency (MSB4006 otherwise). The test runs that step itself, so it doesn't need the workload.
+    /// </summary>
+    [Test]
+    public async Task Should_Build_And_Publish_A_Blazor_WebAssembly_Client_Of_A_Server()
+    {
+        var browserFramework = $"{targetFramework}-browser";
+        using var project = new SdkTestProject(targetFramework);
+        project.AddRocketsServer([targetFramework]).AddRocketsBrowserApp(targetFramework, RocketsServer.Include);
+
+        var build = await project.Build("browser");
+        var publish = await Dotnet($"publish -bl -f {browserFramework}");
+        var nestedPublish = await Dotnet(
+            $"msbuild -bl -t:ComputeFilesToPublish -p:Configuration=Release -p:TargetFramework={browserFramework} -p:WasmBuildingForNestedPublish=true"
+        );
+
+        await project.VerifyResult(new { Build = Result(build), Publish = Result(publish), NestedPublish = Result(nestedPublish) });
+
+        async Task<Microsoft.Build.Logging.StructuredLogger.Build> Dotnet(string arguments)
+        {
+            await project.Dotnet("browser", arguments);
+            return Microsoft.Build.Logging.StructuredLogger.BinaryLog.ReadBuild(Path.Combine(project.Directory, "browser", "msbuild.binlog"));
+        }
+
+        static object Result(Microsoft.Build.Logging.StructuredLogger.Build build) =>
+            new { Generated = build.GeneratedClients(), Compiled = build.CompiledClientFiles() };
+    }
+
+    /// <summary>
     /// Build seam: <c>DocumentName</c> picks the document a client is generated from when the server writes several: ASP.NET Core's
     /// default, <c>v1</c>, or another by its name. The client's copy of the document shows which one (its title names it).
     /// </summary>

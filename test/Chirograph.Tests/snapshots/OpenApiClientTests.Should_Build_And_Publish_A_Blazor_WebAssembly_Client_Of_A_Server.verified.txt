@@ -1,0 +1,26 @@
+﻿{
+  Build: {
+    Compiled: [
+      RocketsClient/RocketsClientOptions.g.cs,
+      RocketsClient/RocketsClientServiceCollectionExtensions.g.cs,
+      RocketsClient/generated/RocketsClient.cs
+    ],
+    Generated: [
+      Generating the OpenAPI client RocketsClient with Refitter
+    ]
+  },
+  NestedPublish: {
+    Compiled: [],
+    Generated: []
+  },
+  Publish: {
+    Compiled: [
+      RocketsClient/RocketsClientOptions.g.cs,
+      RocketsClient/RocketsClientServiceCollectionExtensions.g.cs,
+      RocketsClient/generated/RocketsClient.cs
+    ],
+    Generated: [
+      Generating the OpenAPI client RocketsClient with Refitter
+    ]
+  }
+}

@@ -63,6 +63,9 @@ A document the server writes again unchanged, which it does on most builds, rege
 A server that targets, say, `net10.0` and `net11.0` is built as a whole, not for the target framework closest to the client's. Its
 document comes from the server's own build, so it doesn't matter which frameworks the client targets.
 
+The client's framework never reaches the server either: a client with several target frameworks, or a Blazor WebAssembly application
+on `net11.0-browser`, builds a `net11.0` server as the server itself would build, and publishes as it builds.
+
 ## A server with several documents
 
 A server that registers more than one document writes each of them:

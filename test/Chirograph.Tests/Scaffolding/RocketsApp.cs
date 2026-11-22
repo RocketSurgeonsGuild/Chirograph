@@ -68,6 +68,41 @@ internal static class RocketsApp
            .AddFile("app/Program.cs", Program(generator));
 
     /// <summary>
+    /// Adds <c>browser/browser.csproj</c>, a Blazor WebAssembly application on <c><paramref name="targetFramework" />-browser</c> (in
+    /// <c>TargetFrameworks</c>, so each build of it has the framework as a global property), a Chirograph consumer that generates
+    /// <c>RocketsClient</c> with Refitter from <paramref name="include" />, and its <c>Program.cs</c>, which registers the client. It
+    /// only builds and publishes: a browser application doesn't run from <c>dotnet run</c>.
+    /// </summary>
+    public static SdkTestProject AddRocketsBrowserApp(this SdkTestProject project, string targetFramework, string include) =>
+        project
+           .AddProject(
+                "browser/browser.csproj",
+                ProjectCreator
+                   .Templates.SdkCsproj(sdk: "Microsoft.NET.Sdk.BlazorWebAssembly", targetFramework: null, outputType: "Exe")
+                   .Sdk("Chirograph")
+                   .Property("TargetFrameworks", $"{targetFramework}-browser")
+                   .ItemPackageReference(
+                        "Microsoft.AspNetCore.Components.WebAssembly",
+                        Config.CentralPackageVersion("Microsoft.AspNetCore.Components.WebAssembly", targetFramework)
+                    )
+                   .OpenApiClient(Generator.Refitter, include)
+            )
+           .AddFile(
+                "browser/Program.cs",
+                """
+                using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+                using Microsoft.Extensions.DependencyInjection;
+                using Throwaway.Clients;
+
+                var builder = WebAssemblyHostBuilder.CreateDefault(args);
+                builder.Services.AddRocketsClient();
+                await using var host = builder.Build();
+                _ = host.Services.GetRequiredService<IRocketsClient>();
+                await host.RunAsync();
+                """
+            );
+
+    /// <summary>
     /// The application: it registers the client, resolves it and writes the rocket it gets. The client is in
     /// <paramref name="namespace" />.
     /// </summary>
